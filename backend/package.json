@@ -35,6 +35,7 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "decimal.js": "^10.6.0",
     "dotenv": "^18.0.7",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -66,5 +67,17 @@
   "private": true,
   "engines": {
     "node": ">=22"
+  },
+    "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.ts$": ["ts-jest", { "tsconfig": "<rootDir>/../tsconfig.json" }]
+    },
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    }
   }
 }

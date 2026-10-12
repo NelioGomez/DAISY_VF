@@ -31,7 +31,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (typeof body === 'string') {
         message = body;
       } else {
-        const b = body as { message?: string | string[] };
+        const b = body as { message?: string | string[]; errors?: ErrorItem[] };
         if (Array.isArray(b.message)) {
           message = 'Error de validación';
           errors = b.message.map((m) => ({ message: m }));
@@ -39,6 +39,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         } else if (b.message) {
           message = b.message;
         }
+        // Errores por campo definidos explícitamente por los servicios.
+        if (Array.isArray(b.errors)) errors = b.errors;
       }
     } else {
       this.logger.error(

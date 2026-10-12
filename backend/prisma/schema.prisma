@@ -1,0 +1,430 @@
+// NORCOR FUELING SYSTEM — modelo de datos comercial (productos terminados)
+// Prisma 7: la URL de conexión NO va aquí, vive en prisma.config.ts
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── ENUMS ─────────────────────────
+
+enum UserRole {
+  ADMIN
+  MANAGEMENT
+  SELLER
+  INVENTORY_MANAGER
+  ACCOUNTING
+  TECHNICIAN
+}
+
+enum InventoryMovementType {
+  ENTRY
+  EXIT
+  ADJUSTMENT
+}
+
+enum QuotationStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  CONVERTED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL
+  PENDING
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  CREDIT
+}
+
+enum SaleStatus {
+  ACTIVE
+  VOIDED
+}
+
+enum ServiceOrderStatus {
+  REGISTERED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  INVOICED
+  CANCELLED
+}
+
+enum InquiryStatus {
+  NEW
+  ATTENDED
+  CLOSED
+}
+
+// ─────────────── USUARIOS, ROLES Y PERMISOS ───────────────
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        UserRole         @unique
+  name        String           @db.VarChar(80)
+  description String?          @db.VarChar(255)
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(80) // ej. "products:write"
+  description String?          @db.VarChar(255)
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  username     String    @unique @db.VarChar(50)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  firstName    String    @map("first_name") @db.VarChar(100)
+  lastName     String    @map("last_name") @db.VarChar(100)
+  email        String    @unique @db.VarChar(150)
+  isActive     Boolean   @default(true) @map("is_active")
+  roleId       String    @map("role_id") @db.Uuid
+  role         Role      @relation(fields: [roleId], references: [id])
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+
+  quotations         Quotation[]
+  sales              Sale[]
+  payments           Payment[]
+  inventoryMovements InventoryMovement[]
+  serviceOrders      ServiceOrder[]      @relation("ServiceOrderTechnician")
+
+  @@index([roleId])
+  @@map("users")
+}
+
+// ───────────────── CATÁLOGO DE PRODUCTOS TERMINADOS ─────────────────
+
+model Category {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  isActive    Boolean   @default(true) @map("is_active")
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Brand {
+  id       String    @id @default(uuid()) @db.Uuid
+  name     String    @unique @db.VarChar(100)
+  isActive Boolean   @default(true) @map("is_active")
+  products Product[]
+
+  @@map("brands")
+}
+
+// El stock vive en Product (inventario de productos terminados).
+// Nunca se modifica sin crear un InventoryMovement en la misma transacción.
+model Product {
+  id          String   @id @default(uuid()) @db.Uuid
+  sku         String   @unique @db.VarChar(60)
+  name        String   @db.VarChar(200)
+  description String?  @db.Text
+  categoryId  String?  @map("category_id") @db.Uuid
+  brandId     String?  @map("brand_id") @db.Uuid
+  avgCost     Decimal  @default(0) @map("avg_cost") @db.Decimal(14, 4)
+  salePrice   Decimal  @default(0) @map("sale_price") @db.Decimal(14, 2)
+  stock       Int      @default(0)
+  minStock    Int      @default(0) @map("min_stock")
+  isActive    Boolean  @default(true) @map("is_active")
+  version     Int      @default(0) // control optimista de concurrencia
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category           Category?           @relation(fields: [categoryId], references: [id])
+  brand              Brand?              @relation(fields: [brandId], references: [id])
+  movements          InventoryMovement[]
+  quotationItems     QuotationItem[]
+  saleItems          SaleItem[]
+
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([name])
+  @@index([isActive])
+  @@map("products")
+}
+
+// ───────────────────── CLIENTES Y PROVEEDORES ─────────────────────
+
+model Customer {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(200) // nombre / razón social
+  ruc           String?  @unique @db.VarChar(30)
+  contactName   String?  @map("contact_name") @db.VarChar(120)
+  phone         String?  @db.VarChar(40)
+  email         String?  @db.VarChar(150)
+  address       String?  @db.VarChar(255)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  quotations    Quotation[]
+  sales         Sale[]
+  serviceOrders ServiceOrder[]
+
+  @@index([name])
+  @@map("customers")
+}
+
+model Supplier {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(200)
+  taxId         String?  @unique @map("tax_id") @db.VarChar(40)
+  country       String?  @db.VarChar(80)
+  isInternational Boolean @default(false) @map("is_international")
+  contactName   String?  @map("contact_name") @db.VarChar(120)
+  phone         String?  @db.VarChar(40)
+  email         String?  @db.VarChar(150)
+  address       String?  @db.VarChar(255)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  movements     InventoryMovement[]
+
+  @@index([name])
+  @@map("suppliers")
+}
+
+// ───────────────────────── INVENTARIO ─────────────────────────
+
+model InventoryMovement {
+  id            String                @id @default(uuid()) @db.Uuid
+  productId     String                @map("product_id") @db.Uuid
+  type          InventoryMovementType
+  quantity      Int                   // siempre > 0; el signo lo da el tipo (en AJUSTE ver stockBefore/After)
+  unitCost      Decimal               @map("unit_cost") @db.Decimal(14, 4)
+  stockBefore   Int                   @map("stock_before")
+  stockAfter    Int                   @map("stock_after")
+  reference     String?               @db.VarChar(120)
+  note          String?               @db.VarChar(500)
+  userId        String                @map("user_id") @db.Uuid
+  supplierId    String?               @map("supplier_id") @db.Uuid
+  sourceEntity  String?               @map("source_entity") @db.VarChar(40) // ej. "Sale"
+  sourceId      String?               @map("source_id") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  product  Product   @relation(fields: [productId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+
+  @@index([productId, createdAt])
+  @@index([type])
+  @@index([sourceEntity, sourceId])
+  @@map("inventory_movements")
+}
+
+// ───────────────────────── COTIZACIONES ─────────────────────────
+
+model Quotation {
+  id         String          @id @default(uuid()) @db.Uuid
+  code       String          @unique @db.VarChar(30)
+  customerId String          @map("customer_id") @db.Uuid
+  sellerId   String          @map("seller_id") @db.Uuid
+  issuedAt   DateTime        @default(now()) @map("issued_at")
+  validUntil DateTime        @map("valid_until")
+  subtotal   Decimal         @db.Decimal(14, 2)
+  tax        Decimal         @db.Decimal(14, 2)
+  total      Decimal         @db.Decimal(14, 2)
+  status     QuotationStatus @default(DRAFT)
+  notes      String?         @db.VarChar(500)
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  customer Customer        @relation(fields: [customerId], references: [id])
+  seller   User            @relation(fields: [sellerId], references: [id])
+  items    QuotationItem[]
+  sale     Sale?            // 1:1, evita conversiones duplicadas
+
+  @@index([customerId])
+  @@index([status])
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  quotationId String  @map("quotation_id") @db.Uuid
+  productId   String  @map("product_id") @db.Uuid
+  quantity    Int
+  unitPrice   Decimal @map("unit_price") @db.Decimal(14, 2)
+  subtotal    Decimal @db.Decimal(14, 2)
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@index([quotationId])
+  @@index([productId])
+  @@map("quotation_items")
+}
+
+// ─────────────────────── VENTAS Y FACTURACIÓN ───────────────────────
+
+model Sale {
+  id            String        @id @default(uuid()) @db.Uuid
+  invoiceNumber String        @unique @map("invoice_number") @db.VarChar(30)
+  customerId    String        @map("customer_id") @db.Uuid
+  sellerId      String        @map("seller_id") @db.Uuid
+  quotationId   String?       @unique @map("quotation_id") @db.Uuid
+  soldAt        DateTime      @default(now()) @map("sold_at")
+  subtotal      Decimal       @db.Decimal(14, 2)
+  tax           Decimal       @db.Decimal(14, 2)
+  total         Decimal       @db.Decimal(14, 2)
+  paymentMethod PaymentMethod @map("payment_method")
+  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
+  balance       Decimal       @db.Decimal(14, 2)
+  status        SaleStatus    @default(ACTIVE)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  seller        User           @relation(fields: [sellerId], references: [id])
+  quotation     Quotation?     @relation(fields: [quotationId], references: [id])
+  items         SaleItem[]
+  payments      Payment[]
+  serviceOrders ServiceOrder[]
+
+  @@index([customerId])
+  @@index([sellerId])
+  @@index([soldAt])
+  @@index([paymentStatus])
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String  @id @default(uuid()) @db.Uuid
+  saleId    String  @map("sale_id") @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(14, 2)
+  unitCost  Decimal @map("unit_cost") @db.Decimal(14, 4) // costo promedio al vender (para márgenes)
+  subtotal  Decimal @db.Decimal(14, 2)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+  @@index([productId])
+  @@map("sale_items")
+}
+
+model Payment {
+  id        String        @id @default(uuid()) @db.Uuid
+  saleId    String        @map("sale_id") @db.Uuid
+  paidAt    DateTime      @default(now()) @map("paid_at")
+  amount    Decimal       @db.Decimal(14, 2)
+  method    PaymentMethod
+  reference String?       @db.VarChar(120)
+  userId    String        @map("user_id") @db.Uuid
+
+  sale Sale @relation(fields: [saleId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([saleId])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+// ─────────────────────── ÓRDENES DE SERVICIO (OPI) ───────────────────────
+
+model ServiceOrder {
+  id          String             @id @default(uuid()) @db.Uuid
+  code        String             @unique @db.VarChar(30)
+  customerId  String             @map("customer_id") @db.Uuid
+  description String             @db.Text
+  technicianId String?           @map("technician_id") @db.Uuid
+  saleId      String?            @map("sale_id") @db.Uuid // factura asociada cuando pasa a FACTURADA
+  status      ServiceOrderStatus @default(REGISTERED)
+  registeredAt DateTime          @default(now()) @map("registered_at")
+  startedAt   DateTime?          @map("started_at")
+  finishedAt  DateTime?          @map("finished_at")
+  notes       String?            @db.Text
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  customer   Customer @relation(fields: [customerId], references: [id])
+  technician User?    @relation("ServiceOrderTechnician", fields: [technicianId], references: [id])
+  sale       Sale?    @relation(fields: [saleId], references: [id])
+
+  @@index([customerId])
+  @@index([technicianId])
+  @@index([status])
+  @@map("service_orders")
+}
+
+// ─────────────────────── CATÁLOGO PÚBLICO ───────────────────────
+
+model WebInquiry {
+  id              String        @id @default(uuid()) @db.Uuid
+  name            String        @db.VarChar(200) // nombre / empresa
+  contact         String        @db.VarChar(150) // teléfono o correo
+  productInterest String?       @map("product_interest") @db.VarChar(200)
+  message         String?       @db.VarChar(1000)
+  status          InquiryStatus @default(NEW)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@index([status])
+  @@map("web_inquiries")
+}
+
+// ─────────────────────── AUDITORÍA Y CONFIGURACIÓN ───────────────────────
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  username    String?  @db.VarChar(50)
+  module      String   @db.VarChar(40)
+  action      String   @db.VarChar(40)
+  entity      String?  @db.VarChar(40)
+  entityId    String?  @map("entity_id") @db.VarChar(60)
+  description String?  @db.VarChar(500)
+  ip          String?  @db.VarChar(64)
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([module, action])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  key         String   @id @db.VarChar(60) // ej. "TAX_RATE"
+  value       String   @db.VarChar(255)
+  description String?  @db.VarChar(255)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}

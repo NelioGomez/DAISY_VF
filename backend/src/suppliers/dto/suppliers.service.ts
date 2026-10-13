@@ -10,7 +10,7 @@ import {
   FilterSupplierDto,
   SupplierSortField,
   UpdateSupplierDto,
-} from '../dto/supplier.dto';
+} from './supplier.dto';
 
 const SUPPLIER_SELECT = {
   id: true,

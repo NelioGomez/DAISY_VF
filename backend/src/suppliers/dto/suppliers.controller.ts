@@ -18,7 +18,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { SetStatusDto } from '../../common/dto/set-status.dto';
 import type { AuthUser } from '../../common/interfaces/auth-user.interface';
 import { SuppliersService } from './suppliers.service';
-import { CreateSupplierDto, FilterSupplierDto, UpdateSupplierDto } from '../dto/supplier.dto';
+import { CreateSupplierDto, FilterSupplierDto, UpdateSupplierDto } from './supplier.dto';
 
 @ApiTags('Suppliers')
 @ApiBearerAuth()

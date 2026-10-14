@@ -305,7 +305,10 @@ model Sale {
   paymentMethod PaymentMethod @map("payment_method")
   paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
   balance       Decimal       @db.Decimal(14, 2)
+  dueDate       DateTime?     @map("due_date") // solo ventas a crédito
   status        SaleStatus    @default(ACTIVE)
+  voidedAt      DateTime?     @map("voided_at")
+  voidReason    String?       @map("void_reason") @db.VarChar(500)
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
@@ -381,6 +384,14 @@ model ServiceOrder {
   @@index([technicianId])
   @@index([status])
   @@map("service_orders")
+}
+
+// Contadores atómicos de numeración (COT-000001, FAC-000001, OPI-000001).
+model DocumentSequence {
+  key       String @id @db.VarChar(40)
+  lastValue Int    @default(0) @map("last_value")
+
+  @@map("document_sequences")
 }
 
 // ─────────────────────── CATÁLOGO PÚBLICO ───────────────────────

@@ -23,7 +23,12 @@ const MODULES = [
   'service-orders', 'reports', 'inquiries', 'audit', 'catalog',
 ];
 const ACTIONS = ['read', 'write'];
-const ALL_PERMISSIONS = MODULES.flatMap((m) => ACTIONS.map((a) => `${m}:${a}`));
+// Permisos especiales fuera del par read/write (acciones sensibles).
+const EXTRA_PERMISSIONS = ['sales:void'];
+const ALL_PERMISSIONS = [
+  ...MODULES.flatMap((m) => ACTIONS.map((a) => `${m}:${a}`)),
+  ...EXTRA_PERMISSIONS,
+];
 
 // Matriz inicial de accesos (sección 8 del Prompt Maestro)
 const ROLE_ACCESS: Record<UserRole, string[]> = {
@@ -35,7 +40,8 @@ const ROLE_ACCESS: Record<UserRole, string[]> = {
     'dashboard:read', 'customers:read', 'customers:write',
     'quotations:read', 'quotations:write', 'sales:read', 'sales:write',
     'catalog:read', 'catalog:write', 'inquiries:read', 'inquiries:write',
-    'products:read',
+    // Para cotizar necesita ver productos y filtrar por categoría/marca (solo lectura).
+    'products:read', 'categories:read', 'brands:read',
   ],
   INVENTORY_MANAGER: [
     'dashboard:read', 'products:read', 'products:write',
@@ -96,6 +102,12 @@ async function main() {
     where: { key: 'TAX_RATE' },
     update: {},
     create: { key: 'TAX_RATE', value: '0.15', description: 'IVA (15%)' },
+  });
+
+  await prisma.systemConfig.upsert({
+    where: { key: 'CREDIT_TERM_DAYS' },
+    update: {},
+    create: { key: 'CREDIT_TERM_DAYS', value: '15', description: 'Plazo de crédito por defecto (días)' },
   });
 
   console.log('Seed completado: roles, permisos, administrador y configuración.');

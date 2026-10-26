@@ -9,8 +9,8 @@ function useStore(): StoreValue {
 
 /** Sesión del usuario (simulada; luego se reemplaza por JWT desde NestJS). */
 export function useAuth() {
-  const { user, login, logout } = useStore();
-  return { user, login, logout };
+  const { user, login, logout, lastLogout } = useStore();
+  return { user, login, logout, lastLogout };
 }
 
 /** Datos y operaciones de negocio. */

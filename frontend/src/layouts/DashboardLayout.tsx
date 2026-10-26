@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/common/Logo';
 import { ACCESS, MENU, TITLES, isModuleId } from '../config/navigation';
+import { SESSION_IDLE_MINUTES } from '../config/security';
+import { useIdleTimeout } from '../hooks/useIdleTimeout';
 import { useAuth, useData } from '../store/hooks';
 import type { ModuleId } from '../types';
 
@@ -30,6 +32,10 @@ export function DashboardLayout() {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
+  // Cierre automático por inactividad; al volver a entrar se regresa a la misma vista.
+  // (RequireAuth redirige al login guardando la ruta; el login lee el motivo de la sesión.)
+  useIdleTimeout(SESSION_IDLE_MINUTES, () => logout('idle'), !!user);
+
   if (!user) return null;
 
   const allowed = ACCESS[user.role];
@@ -45,8 +51,8 @@ export function DashboardLayout() {
   };
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    logout('manual');
+    navigate('/login', { replace: true });
   };
 
   return (

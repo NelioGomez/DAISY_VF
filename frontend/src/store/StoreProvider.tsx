@@ -10,9 +10,10 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { DIAS_CREDITO, OPI_FLOW, VALIDEZ_COTIZACION } from '../config/business';
 import { ROLES } from '../config/navigation';
+import * as authService from '../services/auth/authService';
 import { createSeedDatabase } from '../services/mock/seed';
 import { buildItems, cartTotals } from '../utils/documents';
-import { StoreContext, type StoreValue } from './storeContext';
+import { StoreContext, type LogoutInfo, type StoreValue } from './storeContext';
 import { daysAgo, iso, money, nowStamp, round2, todayISO } from '../utils/format';
 import type { DataActions } from './storeContext';
 import type { Database, Producto, Result, SessionUser } from '../types';
@@ -23,6 +24,7 @@ const fail = (error: string): { ok: false; error: string } => ({ ok: false, erro
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<Database>(createSeedDatabase);
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [lastLogout, setLastLogout] = useState<LogoutInfo | null>(null);
   const dbRef = useRef(db);
   const userRef = useRef(user);
 
@@ -279,23 +281,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return {
       db,
       user,
+      lastLogout,
       actions,
-      /* ---------- Autenticación simulada ---------- */
-      login(role, username) {
-        const r = ROLES[role];
-        const u: SessionUser = { role, user: username || r.user, name: r.name, color: r.color };
+      /* ---------- Autenticación ----------
+         El rol lo determina la cuenta (authService), no el formulario.
+         Éxitos, fallos y bloqueos quedan en la bitácora de auditoría. */
+      async login(username, password) {
+        const res = await authService.login(username, password);
+        const intento = authService.normalizeUsername(username).slice(0, 50) || '(vacío)';
+        if (!res.ok) {
+          mutate((d) =>
+            log(d, 'Seguridad', res.code === 'LOCKED'
+              ? `Bloqueo temporal por intentos fallidos — usuario "${intento}"`
+              : `Intento de inicio de sesión fallido — usuario "${intento}"`),
+          );
+          return res;
+        }
+        const r = ROLES[res.role];
+        const u: SessionUser = { role: res.role, user: res.username, name: r.name, color: r.color };
         userRef.current = u;
         setUser(u);
+        setLastLogout(null);
         mutate((d) => log(d, 'Seguridad', 'Inicio de sesión — rol ' + r.name));
-        return u;
+        return { ok: true, user: u };
       },
-      logout() {
-        mutate((d) => log(d, 'Seguridad', 'Cierre de sesión'));
+      logout(reason = 'manual') {
+        if (!userRef.current) return;
+        mutate((d) => log(d, 'Seguridad', reason === 'idle' ? 'Cierre de sesión automático por inactividad' : 'Cierre de sesión'));
+        setLastLogout({ reason, username: userRef.current.user });
         userRef.current = null;
         setUser(null);
       },
     };
-  }, [db, user]);
+  }, [db, user, lastLogout]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

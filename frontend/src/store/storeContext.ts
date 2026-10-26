@@ -1,11 +1,19 @@
 import { createContext } from 'react';
+import type { LoginFailure } from '../services/auth/authService';
 import type {
-  CartLine, Cliente, Database, MetodoPago, Producto, Proveedor, Result, RoleKey, SessionUser, TipoMovimiento,
+  CartLine, Cliente, Database, MetodoPago, Producto, Proveedor, Result, SessionUser, TipoMovimiento,
 } from '../types';
 
 export type ProductoInput = Omit<Producto, 'id' | 'activo'>;
 export type ClienteInput = Omit<Cliente, 'id'>;
 export type ProveedorInput = Omit<Proveedor, 'id'>;
+
+export type LoginResult = { ok: true; user: SessionUser } | LoginFailure;
+export type LogoutReason = 'manual' | 'idle';
+export interface LogoutInfo {
+  reason: LogoutReason;
+  username: string;
+}
 
 export interface DataActions {
   registrarAuditoria(modulo: string, detalle: string): void;
@@ -28,8 +36,10 @@ export interface DataActions {
 export interface StoreValue {
   db: Database;
   user: SessionUser | null;
-  login(role: RoleKey, username: string): SessionUser;
-  logout(): void;
+  login(username: string, password: string): Promise<LoginResult>;
+  logout(reason?: LogoutReason): void;
+  /** Motivo del último cierre de sesión (para avisar en el login). */
+  lastLogout: LogoutInfo | null;
   actions: DataActions;
 }
 

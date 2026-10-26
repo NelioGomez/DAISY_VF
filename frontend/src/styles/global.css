@@ -23,15 +23,7 @@ input,select,textarea{font-family:inherit;font-size:14px}
 ::-webkit-scrollbar-thumb{background:#9fb0bd;border-radius:8px}
 .hidden{display:none!important}
 
-/* ---------- LOGIN ---------- */
-#login{min-height:100vh;display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(1200px 600px at 70% -10%,#163b54 0,var(--shell) 60%);padding:24px}
-.login-box{width:100%;max-width:940px;display:grid;grid-template-columns:1.05fr .95fr;
-  background:var(--steel);border:1px solid var(--steel-line);border-radius:18px;overflow:hidden;
-  box-shadow:0 30px 80px rgba(0,0,0,.5)}
-.login-brand{padding:42px 40px;background:linear-gradient(160deg,#0e2233,#0a1825);position:relative}
-.login-brand:after{content:"";position:absolute;inset:0;
-  background:repeating-linear-gradient(135deg,rgba(245,166,35,.05) 0 12px,transparent 12px 24px);pointer-events:none}
+/* ---------- MARCA Y CAMPOS (compartidos) ---------- */
 .logo{display:flex;align-items:center;gap:13px}
 .logo .mark{width:46px;height:46px;border-radius:11px;background:linear-gradient(160deg,var(--amber),var(--amber-deep));
   display:grid;place-items:center;color:#1a1205;font-weight:800;font-size:24px;font-family:var(--display);
@@ -39,32 +31,11 @@ input,select,textarea{font-family:inherit;font-size:14px}
 .logo .name{font-family:var(--display);letter-spacing:.5px;line-height:1.05}
 .logo .name b{display:block;color:#fff;font-size:21px;font-weight:700}
 .logo .name span{color:var(--amber);font-size:11px;letter-spacing:3px;text-transform:uppercase}
-.login-brand h1{color:#eaf2f8;font-family:var(--display);font-size:30px;font-weight:700;margin:30px 0 10px;line-height:1.15}
-.login-brand p{color:#9db4c4;font-size:13.5px;max-width:42ch}
-.login-meta{margin-top:30px;border-top:1px solid var(--steel-line);padding-top:18px;display:flex;gap:22px;flex-wrap:wrap}
-.login-meta div b{display:block;color:var(--amber);font-family:var(--mono);font-size:18px}
-.login-meta div span{color:#7c93a3;font-size:11px;text-transform:uppercase;letter-spacing:1px}
-.login-form{background:var(--card);padding:38px 36px}
-.login-form h2{font-size:18px;margin-bottom:4px}
-.login-form .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
-.roles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
-.role-btn{border:1.5px solid var(--line);border-radius:11px;padding:12px;text-align:left;transition:.15s;background:#fff}
-.role-btn:hover{border-color:var(--amber);background:#fffaf0}
-.role-btn.sel{border-color:var(--amber);background:#fff6e6;box-shadow:0 0 0 3px rgba(245,166,35,.15)}
-.role-btn b{display:block;font-size:13.5px}
-.role-btn span{color:var(--muted);font-size:11px}
 .field{margin-bottom:13px}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
 .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
 .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,166,35,.14)}
 .field .help{font-size:10.5px;color:var(--soft);margin-top:3px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border-radius:10px;
-  font-weight:600;font-size:13.5px;transition:.15s}
-.btn-amber{background:linear-gradient(160deg,var(--amber),var(--amber-deep));color:#231703;width:100%;font-size:15px;box-shadow:0 6px 16px rgba(245,166,35,.3)}
-.btn-amber:hover{filter:brightness(1.05)}
-.btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--line)}
-.btn-ghost:hover{border-color:var(--blue);color:var(--blue)}
-.login-form .link{display:block;width:100%;text-align:center;margin-top:14px;color:var(--blue);font-size:13px;background:none}
 
 /* ---------- APP SHELL ---------- */
 #app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
@@ -219,6 +190,6 @@ td.num,th.num{text-align:right;font-family:var(--mono)}
 .prod-card .bd .av{font-size:11px;margin-top:4px}
 
 @media(max-width:1080px){.cols-4{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:1fr}.split{grid-template-columns:1fr}}
-@media(max-width:880px){.login-box{grid-template-columns:1fr}.login-brand{display:none}#app{grid-template-columns:1fr}.sidebar{position:fixed;left:-260px;z-index:60;transition:.2s;box-shadow:0 0 50px rgba(0,0,0,.5)}.sidebar.open{left:0}.cols-2,.form-grid{grid-template-columns:1fr}.menu-toggle{display:grid!important}}
+@media(max-width:880px){#app{grid-template-columns:1fr}.sidebar{position:fixed;left:-260px;z-index:60;transition:.2s;box-shadow:0 0 50px rgba(0,0,0,.5)}.sidebar.open{left:0}.cols-2,.form-grid{grid-template-columns:1fr}.menu-toggle{display:grid!important}}
 .menu-toggle{display:none}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

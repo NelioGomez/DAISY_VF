@@ -11,20 +11,16 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/feedback/useToast';
 import { ACCESS, isModuleId } from '../../config/navigation';
-import { REMEMBER_USER_KEY, SESSION_IDLE_MINUTES, SHOW_DEMO_ACCOUNTS, USERNAME_MAX } from '../../config/security';
+import { REMEMBER_USER_KEY, SHOW_DEMO_ACCOUNTS, USERNAME_MAX } from '../../config/security';
 import { useAuth } from '../../store/hooks';
 import type { RoleKey } from '../../types';
 import type { LoginRedirectState } from '../../app/router/guards';
-import { BrandPanel } from './BrandPanel';
+import { AuthLayout } from './AuthLayout';
 import { DemoAccounts } from './DemoAccounts';
-import { AlertIcon, InfoIcon, ShieldIcon, UserIcon } from './icons';
+import { AlertIcon, CheckIcon, InfoIcon, UserIcon } from './icons';
 import { PasswordField } from './PasswordField';
-import '@fontsource/barlow-semi-condensed/500.css';
-import '@fontsource/barlow-semi-condensed/600.css';
-import '@fontsource/barlow-semi-condensed/700.css';
-import './login.css';
 
-type Notice = { tone: 'error' | 'warning' | 'info'; text: string } | null;
+type Notice = { tone: 'error' | 'warning' | 'info' | 'success'; text: string } | null;
 
 function readRememberedUser(): string {
   try {
@@ -58,21 +54,27 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   // Tras un cierre manual no se vuelve a la vista anterior (puede entrar otra persona).
-  const from = lastLogout?.reason === 'manual' ? undefined : (location.state as LoginRedirectState | null)?.from;
+  const navState = (location.state as LoginRedirectState | null) ?? {};
+  const from = lastLogout?.reason === 'manual' ? undefined : navState.from;
 
-  // Tras un cierre por inactividad se conserva el usuario para retomar rápido.
-  const [username, setUsername] = useState(() => (lastLogout?.reason === 'idle' ? lastLogout.username : readRememberedUser()));
+  // Tras un cierre por inactividad o un cambio de contraseña se conserva el usuario.
+  const [username, setUsername] = useState(
+    () => navState.resetUsername ?? (lastLogout?.reason === 'idle' ? lastLogout.username : readRememberedUser()),
+  );
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(() => readRememberedUser() !== '');
   const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
-  const [notice, setNotice] = useState<Notice>(
-    lastLogout?.reason === 'idle' ? { tone: 'info', text: 'Su sesión se cerró por inactividad. Inicie sesión para continuar donde estaba.' } : null,
+  const [notice, setNotice] = useState<Notice>(() =>
+    navState.resetUsername
+      ? { tone: 'success', text: 'Contraseña actualizada. Inicie sesión con su nueva contraseña.' }
+      : lastLogout?.reason === 'idle'
+        ? { tone: 'info', text: 'Su sesión se cerró por inactividad. Inicie sesión para continuar donde estaba.' }
+        : null,
   );
   const [loading, setLoading] = useState(false);
   const [lockedUntil, setLockedUntil] = useState(0);
   const [lockedUser, setLockedUser] = useState('');
   const [now, setNow] = useState(() => Date.now());
-  const [showHelp, setShowHelp] = useState(false);
 
   const userRef = useRef<HTMLInputElement>(null);
   const passRef = useRef<HTMLInputElement>(null);
@@ -154,114 +156,87 @@ export function LoginPage() {
   };
 
   return (
-    <div className="auth">
-      <BrandPanel />
+    <AuthLayout>
+      <h1 className="auth-title">Iniciar sesión</h1>
+      <p className="auth-sub">Use la cuenta que le asignó el administrador del sistema.</p>
 
-      <main className="auth-main">
-        <div className="auth-top">
-          <span className="auth-top-brand" aria-hidden="true">
-            SIVEN
-          </span>
-          <Link to="/catalogo" className="auth-link">
-            Ver catálogo de productos
+      <div className="auth-notice-slot" aria-live="assertive">
+        {notice && (
+          <div className={`auth-notice is-${notice.tone}`} role={notice.tone === 'info' || notice.tone === 'success' ? 'status' : 'alert'}>
+            {notice.tone === 'info' ? <InfoIcon /> : notice.tone === 'success' ? <CheckIcon /> : <AlertIcon />}
+            <div>
+              {notice.text}
+              {locked && (
+                <>
+                  {' '}
+                  Podrá intentarlo de nuevo en <strong>{formatCountdown(secondsLeft)}</strong>.
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <form className="auth-form" onSubmit={handleSubmit} noValidate>
+        <div className={`auth-field ${errors.username ? 'has-error' : ''}`}>
+          <label htmlFor="username">Usuario</label>
+          <div className="auth-input">
+            <span className="auth-input-icon">
+              <UserIcon />
+            </span>
+            <input
+              ref={userRef}
+              id="username"
+              name="username"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={USERNAME_MAX}
+              value={username}
+              disabled={loading}
+              aria-invalid={!!errors.username}
+              aria-describedby="username-msg"
+              onChange={(e) => {
+                setUsername(e.target.value);
+                if (errors.username) setErrors((s) => ({ ...s, username: undefined }));
+              }}
+            />
+          </div>
+          <div id="username-msg" className="auth-field-msg">
+            {errors.username && <span className="auth-error-text">{errors.username}</span>}
+          </div>
+        </div>
+
+        <PasswordField
+          ref={passRef}
+          value={password}
+          disabled={loading}
+          error={errors.password}
+          onChange={(v) => {
+            setPassword(v);
+            if (errors.password) setErrors((s) => ({ ...s, password: undefined }));
+          }}
+        />
+
+        <div className="auth-row">
+          <label className="auth-check">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+            <span>Recordar mi usuario</span>
+          </label>
+          <Link to="/recuperar" className="auth-link">
+            ¿Olvidó su contraseña?
           </Link>
         </div>
 
-        <div className="auth-panel">
-          <h1 className="auth-title">Iniciar sesión</h1>
-          <p className="auth-sub">Use la cuenta que le asignó el administrador del sistema.</p>
+        <button type="submit" className="auth-submit" disabled={loading || locked} aria-busy={loading}>
+          {loading && <span className="auth-spinner" aria-hidden="true" />}
+          {loading ? 'Verificando…' : locked ? `Bloqueado ${formatCountdown(secondsLeft)}` : 'Iniciar sesión'}
+        </button>
+      </form>
 
-          <div className="auth-notice-slot" aria-live="assertive">
-            {notice && (
-              <div className={`auth-notice is-${notice.tone}`} role={notice.tone === 'info' ? 'status' : 'alert'}>
-                {notice.tone === 'info' ? <InfoIcon /> : <AlertIcon />}
-                <div>
-                  {notice.text}
-                  {locked && (
-                    <>
-                      {' '}
-                      Podrá intentarlo de nuevo en <strong>{formatCountdown(secondsLeft)}</strong>.
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <form className="auth-form" onSubmit={handleSubmit} noValidate>
-            <div className={`auth-field ${errors.username ? 'has-error' : ''}`}>
-              <label htmlFor="username">Usuario</label>
-              <div className="auth-input">
-                <span className="auth-input-icon">
-                  <UserIcon />
-                </span>
-                <input
-                  ref={userRef}
-                  id="username"
-                  name="username"
-                  type="text"
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  maxLength={USERNAME_MAX}
-                  value={username}
-                  disabled={loading}
-                  aria-invalid={!!errors.username}
-                  aria-describedby="username-msg"
-                  onChange={(e) => {
-                    setUsername(e.target.value);
-                    if (errors.username) setErrors((s) => ({ ...s, username: undefined }));
-                  }}
-                />
-              </div>
-              <div id="username-msg" className="auth-field-msg">
-                {errors.username && <span className="auth-error-text">{errors.username}</span>}
-              </div>
-            </div>
-
-            <PasswordField
-              ref={passRef}
-              value={password}
-              disabled={loading}
-              error={errors.password}
-              onChange={(v) => {
-                setPassword(v);
-                if (errors.password) setErrors((s) => ({ ...s, password: undefined }));
-              }}
-            />
-
-            <div className="auth-row">
-              <label className="auth-check">
-                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-                <span>Recordar mi usuario</span>
-              </label>
-              <button type="button" className="auth-link" aria-expanded={showHelp} aria-controls="auth-help" onClick={() => setShowHelp((s) => !s)}>
-                ¿Olvidó su contraseña?
-              </button>
-            </div>
-
-            {showHelp && (
-              <p id="auth-help" className="auth-help">
-                Por seguridad, las contraseñas solo las restablece el administrador del sistema. Comuníquese con Administración o Gerencia para
-                solicitarlo.
-              </p>
-            )}
-
-            <button type="submit" className="auth-submit" disabled={loading || locked} aria-busy={loading}>
-              {loading && <span className="auth-spinner" aria-hidden="true" />}
-              {loading ? 'Verificando…' : locked ? `Bloqueado ${formatCountdown(secondsLeft)}` : 'Iniciar sesión'}
-            </button>
-          </form>
-
-          {SHOW_DEMO_ACCOUNTS && <DemoAccounts onPick={pickDemo} />}
-        </div>
-
-        <p className="auth-foot">
-          <ShieldIcon />
-          La sesión se cierra tras {SESSION_IDLE_MINUTES} minutos sin actividad.
-        </p>
-      </main>
-    </div>
+      {SHOW_DEMO_ACCOUNTS && <DemoAccounts onPick={pickDemo} />}
+    </AuthLayout>
   );
 }

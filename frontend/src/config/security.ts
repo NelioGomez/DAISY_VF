@@ -27,3 +27,26 @@ export const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV || import.meta.env.VITE_DE
 
 /** Clave de localStorage para "Recordar mi usuario" (solo guarda el nombre de usuario, nunca la contraseña). */
 export const REMEMBER_USER_KEY = 'siven.lastUser';
+
+/* ---------- Recuperación de contraseña ---------- */
+
+/** Dígitos del código que se envía por correo. */
+export const RESET_CODE_LENGTH = 6;
+
+/** Minutos de vigencia del código. */
+export const RESET_CODE_TTL_MINUTES = 10;
+
+/** Intentos para escribir el código antes de invalidarlo. */
+export const RESET_CODE_MAX_ATTEMPTS = 5;
+
+/** Segundos de espera para reenviar un código. */
+export const RESET_RESEND_SECONDS = 60;
+
+/** Códigos que se pueden pedir por correo en una ventana de 15 minutos. */
+export const RESET_MAX_REQUESTS = 3;
+
+/** Minutos de vigencia del permiso para fijar la nueva contraseña tras validar el código. */
+export const RESET_TOKEN_TTL_MINUTES = 10;
+
+/** Longitud mínima de una contraseña nueva. */
+export const PASSWORD_MIN = 10;

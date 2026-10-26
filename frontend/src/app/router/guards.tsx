@@ -5,9 +5,12 @@ import { ACCESS } from '../../config/navigation';
 import { useAuth } from '../../store/hooks';
 import type { ModuleId } from '../../types';
 
-/** Estado que viaja hacia /login: a dónde volver después de iniciar sesión. */
+/** Estado que viaja hacia /login. */
 export interface LoginRedirectState {
+  /** Ruta a la que volver después de iniciar sesión. */
   from?: string;
+  /** Usuario que acaba de restablecer su contraseña (muestra aviso y lo precarga). */
+  resetUsername?: string;
 }
 
 /** Exige sesión iniciada; si no, redirige al login recordando la ruta solicitada. */

@@ -4,16 +4,16 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { RealtimeAdapter } from './realtime/realtime.adapter';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api/v1');
-  app.enableCors({
-    origin: config.getOrThrow<string>('CORS_ORIGIN').split(','),
-    credentials: true,
-  });
+  const origins = config.getOrThrow<string>('CORS_ORIGIN').split(',').map((o) => o.trim());
+  app.enableCors({ origin: origins, credentials: true });
+  app.useWebSocketAdapter(new RealtimeAdapter(app, origins));
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
   );
@@ -29,7 +29,7 @@ async function bootstrap(): Promise<void> {
 
   const port = config.get<number>('PORT', 3000);
   await app.listen(port);
-  new Logger('Bootstrap').log(`API en http://localhost:${port}/api/v1 — Swagger en /api/docs`);
+  new Logger('Bootstrap').log(`API en http://localhost:${port}/api/v1 — Swagger en /api/docs — WebSocket en /socket.io`);
 }
 
 void bootstrap();

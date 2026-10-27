@@ -1,5 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsInt, IsNotEmpty, IsString, Max, Min, MinLength, validateSync } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsNotEmpty, IsString, Max, Min, MinLength, validateSync } from 'class-validator';
 
 enum Environment {
   Development = 'development',
@@ -31,6 +31,10 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   CORS_ORIGIN: string = 'http://localhost:5173';
+
+  /** Qué peticiones HTTP se muestran en la terminal: off | changes | all. */
+  @IsIn(['off', 'changes', 'all'])
+  LOG_HTTP: 'off' | 'changes' | 'all' = 'changes';
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

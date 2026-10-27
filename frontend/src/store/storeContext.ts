@@ -54,13 +54,6 @@ export type RefreshKey =
   | 'productos' | 'catalogos' | 'movimientos' | 'clientes' | 'proveedores' | 'ventas' | 'cotizaciones'
   | 'pagos' | 'cxc' | 'ordenes' | 'consultas' | 'auditoria' | 'dashboard';
 
-export type LoginResult = { ok: true; user: SessionUser } | LoginFailure;
-export type LogoutReason = 'manual' | 'idle';
-export interface LogoutInfo {
-  reason: LogoutReason;
-  username: string;
-}
-
 export interface DataActions {
   /** El servidor ya audita cada operación; se conserva por compatibilidad. */
   registrarAuditoria(modulo: string, detalle: string): void;

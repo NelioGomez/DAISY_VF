@@ -6,9 +6,6 @@ import { MENU, TITLES, isModuleId, visibleModules } from '../config/navigation';
 import { ViewLoader } from '../components/feedback/FullScreenLoader';
 import { SESSION_IDLE_MINUTES } from '../config/security';
 import { useIdleTimeout } from '../hooks/useIdleTimeout';
-import { ACCESS, MENU, TITLES, isModuleId } from '../config/navigation';
-import { SESSION_IDLE_MINUTES } from '../config/security';
-import { useIdleTimeout } from '../hooks/useIdleTimeout';
 import { useAuth, useData } from '../store/hooks';
 import type { ModuleId } from '../types';
 

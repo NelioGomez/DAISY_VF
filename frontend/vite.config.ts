@@ -14,6 +14,12 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_BACKEND_URL || 'http://localhost:3000',
           changeOrigin: true,
         },
+        // Canal de tiempo real (WebSocket de socket.io).
+        '/socket.io': {
+          target: env.VITE_BACKEND_URL || 'http://localhost:3000',
+          changeOrigin: true,
+          ws: true,
+        },
       },
     },
     preview: {
@@ -21,6 +27,12 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: env.VITE_BACKEND_URL || 'http://localhost:3000',
           changeOrigin: true,
+        },
+        // Canal de tiempo real (WebSocket de socket.io).
+        '/socket.io': {
+          target: env.VITE_BACKEND_URL || 'http://localhost:3000',
+          changeOrigin: true,
+          ws: true,
         },
       },
     },

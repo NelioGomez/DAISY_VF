@@ -1,5 +1,6 @@
 import { createContext } from 'react';
 import type { LoginFailure } from '../services/auth/authService';
+import type { RealtimeStatus } from '../services/realtime/realtime';
 import type {
   CartLine, Cotizacion, Database, EstadoConsulta, MetodoPago, Result, SessionUser, TipoMovimiento, Venta,
 } from '../types';
@@ -104,6 +105,8 @@ export interface StoreValue {
   can(permission: string): boolean;
   reload(): Promise<void>;
   actions: DataActions;
+  /** Estado del canal de tiempo real (WebSocket). */
+  realtime: RealtimeStatus;
 }
 
 export const StoreContext = createContext<StoreValue | null>(null);

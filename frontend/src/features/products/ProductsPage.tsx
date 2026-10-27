@@ -5,13 +5,15 @@ import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
 import { SearchToolbar } from '../../components/tables/SearchToolbar';
 import { Tag } from '../../components/tables/Tag';
-import { useData } from '../../store/hooks';
+import { useAuth, useData } from '../../store/hooks';
 import { matches, money } from '../../utils/format';
 import { ProductFormModal } from './ProductFormModal';
 import { useExportProductos } from './useExportProductos';
 
 export function ProductsPage() {
   const { db } = useData();
+  const { can } = useAuth();
+  const canWrite = can('products:write');
   const modal = useModal();
   const exportProductos = useExportProductos();
   const [q, setQ] = useState('');
@@ -21,15 +23,17 @@ export function ProductsPage() {
     <>
       <ViewHead
         title="Productos"
-        desc="Catálogo interno con SKU, marca, categoría, costo, precio y stock mínimo."
+        desc="Catálogo maestro de repuestos. El stock y el costo promedio los calcula el servidor a partir de los movimientos de inventario."
         actions={
           <>
             <button className="b b-out" onClick={exportProductos}>
               ⬇ Exportar CSV
             </button>
-            <button className="b b-amber" onClick={() => modal.open(<ProductFormModal />)}>
-              + Nuevo producto
-            </button>
+            {canWrite && (
+              <button className="b b-amber" onClick={() => modal.open(<ProductFormModal />)}>
+                + Nuevo producto
+              </button>
+            )}
           </>
         }
       />
@@ -71,9 +75,11 @@ export function ProductsPage() {
                   </td>
                   <td>{p.activo ? <Tag tone="t-green">Activo</Tag> : <Tag>Inactivo</Tag>}</td>
                   <td>
-                    <button className="b b-out b-sm" onClick={() => modal.open(<ProductFormModal producto={p} />)}>
-                      Editar
-                    </button>
+                    {canWrite && (
+                      <button className="b b-out b-sm" onClick={() => modal.open(<ProductFormModal producto={p} />)}>
+                        Editar
+                      </button>
+                    )}
                   </td>
                 </tr>
               );

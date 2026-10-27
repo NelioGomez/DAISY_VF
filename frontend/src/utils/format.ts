@@ -15,8 +15,20 @@ export const iso = (dt: Date): string => dt.toISOString().slice(0, 10);
 
 export const todayISO = (): string => iso(new Date());
 
-export const fmtDate = (s: string): string =>
-  new Date(s + 'T00:00:00').toLocaleDateString('es-NI', { day: '2-digit', month: 'short', year: 'numeric' });
+/** Acepta "AAAA-MM-DD" o una fecha ISO completa de la API. */
+const toDate = (s: string): Date => new Date(s.length === 10 ? s + 'T00:00:00' : s);
+
+export const fmtDate = (s: string | null | undefined): string =>
+  s ? toDate(s).toLocaleDateString('es-NI', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+export const fmtDateTime = (s: string | null | undefined): string =>
+  s ? toDate(s).toLocaleString('es-NI', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+/** Fecha local AAAA-MM-DD de un valor ISO (para agrupar por día). */
+export const localDay = (s: string): string => {
+  const d = toDate(s);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 export const nowStamp = (): string => new Date().toLocaleString('es-NI');
 

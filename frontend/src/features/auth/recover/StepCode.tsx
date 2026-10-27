@@ -11,6 +11,7 @@ interface StepCodeProps {
   resendAt: number;
   devCode?: string;
   devNoAccount?: boolean;
+  simulated?: boolean;
   onVerified(resetToken: string, username: string): void;
   onResend(): Promise<string | null>;
   onAttemptsExhausted(): void;
@@ -113,8 +114,8 @@ export function StepCode({ email, expiresAt, resendAt, devCode, devNoAccount, on
 
       {(devCode || devNoAccount) && (
         <div className="auth-devbox" role="note">
-          <b>Modo prueba.</b> El envío real del correo lo hará el backend; mientras tanto el código se muestra aquí. Esta caja no aparece fuera de
-          desarrollo.
+          <b>Simulación.</b> El servidor todavía no tiene recuperación por correo, así que no se envió nada: el código se muestra aquí y la
+          contraseña real no cambiará. Esta caja no aparece fuera de desarrollo.
           {devCode ? (
             <div className="auth-devbox-code">
               <span>{devCode}</span>

@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import type { LoginRedirectState } from '../../../app/router/guards';
 import { useToast } from '../../../components/feedback/useToast';
-import { maskEmail, requestPasswordReset, type RequestResetResponse } from '../../../services/auth/recoveryService';
-import { useAuth, useData } from '../../../store/hooks';
+import { requestPasswordReset, type RequestResetResponse } from '../../../services/auth/recoveryService';
+import { useAuth } from '../../../store/hooks';
 import { AuthLayout } from '../AuthLayout';
 import { AlertIcon, ArrowLeftIcon } from '../icons';
 import { StepCode } from './StepCode';
@@ -22,9 +22,11 @@ interface CodeState {
   resendAt: number;
   devCode?: string;
   devNoAccount?: boolean;
+  simulated?: boolean;
 }
 
 const toCodeState = (r: Sent): CodeState => ({
+  simulated: r.simulated,
   expiresAt: Date.now() + r.expiresIn * 1000,
   resendAt: Date.now() + r.resendAfter * 1000,
   devCode: r.devCode,
@@ -33,7 +35,6 @@ const toCodeState = (r: Sent): CodeState => ({
 
 export function RecoverPage() {
   const { user } = useAuth();
-  const { registrarAuditoria } = useData();
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -71,7 +72,6 @@ export function RecoverPage() {
             setCode(toCodeState(res));
             setRestartNotice('');
             setStep(1);
-            registrarAuditoria('Seguridad', 'Solicitud de recuperación de contraseña — ' + maskEmail(mail));
           }}
         />
       )}
@@ -84,7 +84,6 @@ export function RecoverPage() {
           onVerified={(token, username) => {
             setReset({ token, username });
             setStep(2);
-            registrarAuditoria('Seguridad', `Código de recuperación verificado — usuario "${username}"`);
           }}
           onResend={async () => {
             const res = await requestPasswordReset(email);
@@ -94,7 +93,6 @@ export function RecoverPage() {
             return null;
           }}
           onAttemptsExhausted={() => {
-            registrarAuditoria('Seguridad', 'Código de recuperación invalidado por intentos fallidos — ' + maskEmail(email));
             restart('Se agotaron los intentos para ese código. Pida uno nuevo.');
           }}
         />
@@ -105,10 +103,9 @@ export function RecoverPage() {
           resetToken={reset.token}
           username={reset.username}
           onExpired={restart}
-          onDone={(username) => {
-            registrarAuditoria('Seguridad', `Contraseña restablecida mediante recuperación — usuario "${username}"`);
-            toast('Contraseña actualizada', 'ok');
-            const state: LoginRedirectState = { resetUsername: username };
+          onDone={(username, simulated) => {
+            toast(simulated ? 'Simulación completada' : 'Contraseña actualizada', 'ok');
+            const state: LoginRedirectState = { resetUsername: username, resetSimulated: simulated };
             navigate('/login', { replace: true, state });
           }}
         />

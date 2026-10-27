@@ -3,29 +3,86 @@
 Cliente web del Sistema de Gestión de Ventas e Inventario de NORCOR, construido con
 **React 19 + TypeScript + Vite** según el *Análisis tecnológico backend/frontend*.
 
-Esta versión (`v1.0.0`) es la **migración 1:1 del prototipo `Index.html`**: mismos módulos,
-roles, datos semilla, reglas y estilos. Las mejoras del *Análisis de mejoras UX* se
-implementan después, en ramas separadas (ver `CONTRIBUTING.md`).
+Todos los datos vienen de la API NestJS (`/api/v1`): sesión con JWT, permisos por rol,
+inventario, ventas, cobros, órdenes OPI, auditoría y catálogo público. Las reglas de negocio
+(stock, costo promedio, IVA, créditos, transiciones de estado) las aplica el servidor.
 
 ## Requisitos
 
 - **Node.js 22 LTS** (mínimo 20.19) y npm. Verificar con `node -v`.
 
-## Instalación y uso
+## Cómo levantarlo (backend + frontend)
+
+Se necesitan las dos partes corriendo a la vez, cada una en su terminal.
+
+**1. Backend** (repositorio `DAISY_VF/backend`, requiere PostgreSQL 16):
+
+```bash
+cd backend
+npm install
+# .env: DATABASE_URL, JWT_SECRET, SEED_ADMIN_PASSWORD y CORS_ORIGIN
+#   - Si la contraseña lleva "#", va entre comillas: SEED_ADMIN_PASSWORD="Siven#Admin2026"
+#   - CORS_ORIGIN debe incluir http://localhost:5173
+#   - Para probar con calma: JWT_EXPIRES_IN=8h (por defecto la sesión dura 15 min)
+npx prisma migrate deploy
+npx prisma db seed               # roles, permisos y usuario admin
+npm run start:dev                # API en http://localhost:3000/api/v1
+node scripts/seed-demo.mjs       # (otra terminal, con la API corriendo) usuarios y datos de prueba
+```
+
+**2. Frontend:**
 
 ```bash
 cd frontend
-npm install          # instala dependencias desde package.json / package-lock.json
-npm run dev          # servidor de desarrollo → http://localhost:5173
+npm install
+npm run dev          # http://localhost:5173
 ```
+
+En desarrollo Vite reenvía `/api` a `http://localhost:3000` (ver `vite.config.ts`), así que no hay
+problemas de CORS. Si la API corre en otro puerto o equipo, definir `VITE_BACKEND_URL` en `.env`.
 
 | Comando           | Qué hace                                              |
 | ----------------- | ----------------------------------------------------- |
 | `npm run dev`     | Desarrollo con recarga en caliente                     |
 | `npm run build`   | Verifica tipos (tsc) y genera `dist/` para producción |
-| `npm run preview` | Sirve localmente el build de `dist/`                  |
+| `npm run preview` | Sirve localmente el build de `dist/` (también con proxy) |
 | `npm run lint`    | Revisa el código con oxlint                           |
 
+Variables (`.env.example`): `VITE_API_URL` (por defecto `/api/v1`), `VITE_BACKEND_URL` (destino
+del proxy) y `VITE_DEMO_ACCOUNTS` (muestra el panel de cuentas de prueba fuera de `npm run dev`).
+
+## Cuentas de prueba
+
+| Usuario    | Rol            | Contraseña                         |
+| ---------- | -------------- | ---------------------------------- |
+| `admin`    | Administrador  | la de `SEED_ADMIN_PASSWORD`        |
+| `gerencia` | Gerencia       | `Siven2026demo`                    |
+| `jflores`  | Vendedor       | `Siven2026demo`                    |
+| `ngomez`   | Inventario     | `Siven2026demo`                    |
+| `eurcuyo`  | Contabilidad   | `Siven2026demo`                    |
+| `tlopez`   | Técnico OPI    | `Siven2026demo`                    |
+
+El menú de cada usuario sale de sus permisos reales en el servidor.
+
+## Inicio de sesión y seguridad
+
+- Mensaje genérico ante credenciales incorrectas, sin revelar si el usuario existe.
+- El servidor limita a 5 intentos por minuto por IP; la pantalla avisa cuando quedan 2 o menos y
+  muestra la cuenta regresiva del bloqueo (cabeceras `X-RateLimit-*` / `Retry-After`).
+- El token vive solo en `sessionStorage` (se pierde al cerrar la pestaña). Al recargar se valida
+  con `GET /auth/me`; si el servidor lo rechaza, se vuelve al login con aviso y el usuario precargado.
+- Cierre automático tras 15 min sin actividad y al vencer el JWT.
+- Toda operación queda en la bitácora de Auditoría del servidor.
+
+### Recuperación de contraseña (`/recuperar`)
+
+Tres pasos: correo → código de 6 dígitos → contraseña nueva. El frontend llama primero a
+`/auth/forgot-password`, `/auth/verify-reset-code` y `/auth/reset-password` (contrato y guía en
+`docs/recuperacion-contrasena.md`). **El backend todavía no tiene esos endpoints**, así que:
+
+- en desarrollo se usa una simulación: el código aparece en pantalla y la contraseña real no cambia
+  (se avisa al terminar);
+- en producción se indica que la recuperación no está disponible y que lo resuelva el administrador.
 Variables de entorno: copiar `.env.example` como `.env`. `VITE_API_URL` apunta a la API NestJS
 (aún no se consume).
 
@@ -86,9 +143,11 @@ src/
   features/         Un folder por módulo de negocio (página + modales)
   layouts/          DashboardLayout (sidebar + topbar)
   services/
-    api/client.ts   Cliente HTTP para NestJS (listo, aún sin uso)
-    mock/seed.ts    Datos semilla del prototipo
-  store/            Capa de datos simulada y hooks useAuth / useData
+    api/client.ts   Cliente HTTP (token, errores, paginación)
+    api/mappers.ts  Traduce la respuesta de la API a los tipos del frontend
+    auth/           Login, sesión y recuperación de contraseña
+    mock/users.ts   Solo para la simulación de recuperación
+  store/            Carga de datos por permisos, acciones y hooks useAuth / useData
   styles/           CSS global (identidad visual original)
   types/            Tipos de dominio
   utils/            Formato, CSV, cálculo de documentos
@@ -96,18 +155,9 @@ src/
 
 ## Cómo está organizada la lógica
 
-- Los componentes **no modifican datos directamente**: llaman acciones de `useData()`
+- Los componentes **no llaman a la API directamente**: usan acciones de `useData()`
   (`confirmarVenta`, `registrarMovimiento`, `registrarPago`…), que devuelven `{ ok, data | error }`.
-- Hoy esas acciones viven en `store/StoreProvider.tsx` y trabajan en memoria (igual que el
-  prototipo: al recargar la página se reinician los datos y la sesión).
-- **Para conectar un módulo a NestJS**: reemplazar su acción por una llamada en `services/api`
-  y mover la regla de negocio al backend. Las páginas no deberían cambiar.
-- Ocultar módulos por rol es solo visual; la autorización real va en NestJS (guards).
-
-## Pendientes conocidos (P0 del análisis UX)
-
-Se conservaron a propósito para que esta versión sea fiel al prototipo:
-
-- IVA 15 % aplicado en cotizaciones y facturas → centralizado en `config/business.ts`.
-- El alta de producto permite editar costo, precio y stock inicial.
-- Las consultas web se marcan como "Atendida" sin generar cotización.
+- Las acciones viven en `store/StoreProvider.tsx`: llaman a la API y, al terminar, recargan solo
+  las colecciones afectadas (por ejemplo, una venta refresca ventas, stock, cobros y dashboard).
+- Al iniciar sesión se cargan solo las colecciones que el rol puede leer.
+- Ocultar botones por rol es solo comodidad visual; la autorización real la hacen los guards de NestJS.

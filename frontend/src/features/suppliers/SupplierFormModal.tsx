@@ -11,14 +11,18 @@ export function SupplierFormModal({ proveedor }: { proveedor?: Proveedor }) {
   const toast = useToast();
   const { close } = useModal();
   const p = proveedor;
+  const [saving, setSaving] = useState(false);
   const [f, setF] = useState({
     nombre: p?.nombre ?? '', ruc: p?.ruc ?? '', pais: p?.pais ?? '', contacto: p?.contacto ?? '',
     tel: p?.tel ?? '', correo: p?.correo ?? '', dir: p?.dir ?? '',
   });
   const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }));
 
-  const save = () => {
-    const r = guardarProveedor(p?.id ?? null, f);
+  const save = async () => {
+    if (!f.nombre.trim()) return toast('El nombre es obligatorio', 'err');
+    setSaving(true);
+    const r = await guardarProveedor(p?.id ?? null, f);
+    setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
     toast('Proveedor guardado', 'ok');
     close();
@@ -30,19 +34,19 @@ export function SupplierFormModal({ proveedor }: { proveedor?: Proveedor }) {
       footer={
         <>
           <CancelButton />
-          <button className="b b-amber" onClick={save}>
-            Guardar
+          <button className="b b-amber" onClick={save} disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar'}
           </button>
         </>
       }
     >
       <div className="form-grid">
         <InputField label="Nombre del proveedor" value={f.nombre} onChange={set('nombre')} full />
-        <InputField label="RUC" value={f.ruc} onChange={set('ruc')} />
-        <InputField label="País" value={f.pais} onChange={set('pais')} />
+        <InputField label="RUC / identificador fiscal" value={f.ruc} onChange={set('ruc')} />
+        <InputField label="País" value={f.pais} onChange={set('pais')} help="Si no es Nicaragua se marca como internacional" />
         <InputField label="Contacto" value={f.contacto} onChange={set('contacto')} />
         <InputField label="Teléfono" value={f.tel} onChange={set('tel')} />
-        <InputField label="Correo" value={f.correo} onChange={set('correo')} />
+        <InputField label="Correo" type="email" value={f.correo} onChange={set('correo')} />
         <InputField label="Dirección" value={f.dir} onChange={set('dir')} />
       </div>
     </Modal>

@@ -20,6 +20,11 @@ const ESTADO_TONES: Record<string, TagTone> = {
   Cancelada: 't-red',
   Nueva: 't-amber',
   Atendida: 't-green',
+  Cerrada: 't-gray',
+  Borrador: 't-gray',
+  Rechazada: 't-red',
+  Convertida: 't-violet',
+  Vencida: 't-gray',
 };
 
 export function EstadoTag({ estado }: { estado: string }) {

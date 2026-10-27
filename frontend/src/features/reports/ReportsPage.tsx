@@ -1,13 +1,15 @@
-/* MÓDULO: REPORTES Y KPIs (RF-18/19/20/23) */
+/* MÓDULO: REPORTES Y KPIs (RF-18/19/20/23)
+   Usa el resumen del dashboard y el reporte "sales-by-period" del servidor,
+   que ya calcula costo y margen con el costo promedio al momento de vender. */
+import { useEffect, useState } from 'react';
 import { KpiCard } from '../../components/cards/KpiCard';
 import { BarChart } from '../../components/charts/BarChart';
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyState } from '../../components/feedback/Empty';
 import { Tag } from '../../components/tables/Tag';
-import { useData } from '../../store/hooks';
+import { api } from '../../services/api/client';
+import { useAuth, useData } from '../../store/hooks';
 import { money } from '../../utils/format';
-import { MiniCritico } from '../dashboard/MiniTables';
-import { stockCritico, totalCxC, ventasPorDia } from '../dashboard/kpis';
 import { useExportProductos } from '../products/useExportProductos';
 import { useExportVentas } from '../sales/useExportVentas';
 
@@ -20,59 +22,79 @@ const KPIS_MONITOREO: Array<[string, string, string, string]> = [
   ['KPI-08', 'CxC vencidas', 'Reducir', 'Financiero'],
 ];
 
+interface PeriodRow {
+  total: number;
+  cost: number;
+  margin: number;
+}
+
 export function ReportsPage() {
   const { db } = useData();
+  const { can } = useAuth();
   const exportVentas = useExportVentas();
   const exportProductos = useExportProductos();
+  const [margen, setMargen] = useState<number | null>(null);
+  const d = db.dashboard;
 
-  const totalVentas = db.ventas.reduce((a, x) => a + x.total, 0);
-  const margen = db.ventas.reduce(
-    (a, v) => a + v.items.reduce((s, it) => {
-      const p = db.productos.find((x) => x.id === it.prod);
-      return s + (it.precio - (p ? p.costo : 0)) * it.cant;
-    }, 0),
-    0,
-  );
-  const cxc = totalCxC(db);
+  useEffect(() => {
+    let alive = true;
+    api
+      .get<{ rows: PeriodRow[] }>('/reports/sales-by-period', { groupBy: 'month', from: '2000-01-01' })
+      .then((r) => alive && setMargen((r.rows ?? []).reduce((a, x) => a + Number(x.margin ?? 0), 0)))
+      .catch(() => alive && setMargen(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const vendidos: Record<string, number> = {};
-  db.ventas.forEach((v) => v.items.forEach((it) => (vendidos[it.prodN] = (vendidos[it.prodN] || 0) + it.cant)));
-  const top = Object.entries(vendidos)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
-    .map(([label, value]) => ({ label: label.length > 12 ? label.slice(0, 12) + '…' : label, value }));
+  if (!d) return <div className="card"><EmptyState msg="Sin datos de reportes" /></div>;
 
-  const porMetodo: Record<string, number> = {};
-  db.ventas.forEach((v) => (porMetodo[v.metodo] = (porMetodo[v.metodo] || 0) + v.total));
-  const totalMetodos = Object.values(porMetodo).reduce((a, b) => a + b, 0) || 1;
+  const porDia = d.ventasPorDia.slice(-14).map((x) => ({
+    label: new Date(x.dia + 'T00:00:00').toLocaleDateString('es-NI', { day: '2-digit', month: '2-digit' }),
+    value: x.total,
+  }));
+  const top = d.topProductos.slice(0, 6).map((p) => ({ label: p.nombre.length > 12 ? p.nombre.slice(0, 12) + '…' : p.nombre, value: p.unidades }));
+  const totalMetodos = d.porMetodo.reduce((a, b) => a + b.total, 0) || 1;
 
   return (
     <>
       <ViewHead
         title="Reportes y KPIs"
-        desc="Indicadores de ventas, márgenes, rotación y disponibilidad — con exportación a CSV."
+        desc="Indicadores de ventas, márgenes, rotación y disponibilidad, calculados por el servidor."
         actions={
           <>
-            <button className="b b-out" onClick={exportVentas}>
-              ⬇ Ventas
-            </button>
-            <button className="b b-out" onClick={exportProductos}>
-              ⬇ Inventario
-            </button>
+            {can('sales:read') && (
+              <button className="b b-out" onClick={exportVentas}>
+                ⬇ Ventas
+              </button>
+            )}
+            {(can('products:read') || can('inventory:read')) && (
+              <button className="b b-out" onClick={exportProductos}>
+                ⬇ Inventario
+              </button>
+            )}
           </>
         }
       />
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <KpiCard lbl="Ventas acumuladas" val={money(totalVentas)} sub={db.ventas.length + ' facturas'} ic="◩" />
-        <KpiCard lbl="Margen bruto" val={money(margen)} sub="precio − costo" ic="◔" tone="good" />
-        <KpiCard lbl="Cuentas por cobrar" val={money(cxc)} sub="pendiente" ic="◷" tone={cxc > 0 ? 'warn' : 'good'} />
-        <KpiCard lbl="Disponibilidad" val=">= 99%" sub="uptime objetivo" ic="◉" tone="good" />
+        <KpiCard lbl="Ventas acumuladas" val={money(d.ventasAcumuladas.total)} sub={d.ventasAcumuladas.facturas + ' facturas'} ic="◩" />
+        <KpiCard lbl="Margen bruto" val={margen === null ? '—' : money(margen)} sub="ventas − costo promedio" ic="◔" tone="good" />
+        {d.secciones.cxc ? (
+          <KpiCard lbl="Cuentas por cobrar" val={money(d.cxc.total)} sub={`${money(d.cxc.montoVencido)} vencido`} ic="◷" tone={d.cxc.total > 0 ? 'warn' : 'good'} />
+        ) : (
+          <KpiCard lbl="Ventas (30 días)" val={money(d.ventas30.total)} sub={d.ventas30.facturas + ' facturas'} ic="⛽" />
+        )}
+        {d.secciones.inventario ? (
+          <KpiCard lbl="Valor de inventario" val={money(d.inventario.valor)} sub={d.inventario.productos + ' productos activos'} ic="◰" />
+        ) : (
+          <KpiCard lbl="Facturas emitidas" val={d.ventasAcumuladas.facturas} sub="acumulado" ic="◧" />
+        )}
       </div>
 
       <div className="split">
         <div className="card">
           <h3>Ventas por día (14 días)</h3>
-          <BarChart data={ventasPorDia(db, 14)} />
+          <BarChart data={porDia} />
         </div>
         <div className="card">
           <h3>Productos más vendidos (unid.)</h3>
@@ -83,15 +105,15 @@ export function ReportsPage() {
       <div className="grid cols-2" style={{ marginTop: 16 }}>
         <div className="card">
           <h3>Ventas por método de pago</h3>
-          {Object.keys(porMetodo).length ? (
-            Object.entries(porMetodo).map(([k, val]) => {
-              const pct = Math.round((val / totalMetodos) * 100);
+          {d.porMetodo.length ? (
+            d.porMetodo.map((m) => {
+              const pct = Math.round((m.total / totalMetodos) * 100);
               return (
-                <div key={k} style={{ marginBottom: 11 }}>
+                <div key={m.metodo} style={{ marginBottom: 11 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                    <b>{k}</b>
+                    <b>{m.metodo}</b>
                     <span className="mono">
-                      {money(val)} ({pct}%)
+                      {money(m.total)} ({pct}%)
                     </span>
                   </div>
                   <div style={{ height: 9, background: 'var(--panel)', borderRadius: 6, overflow: 'hidden' }}>
@@ -106,7 +128,27 @@ export function ReportsPage() {
         </div>
         <div className="card">
           <h3>Inventario crítico (reabastecer)</h3>
-          <MiniCritico productos={stockCritico(db)} />
+          {!d.secciones.inventario ? (
+            <EmptyState msg="Su rol no tiene acceso al inventario" ic="◰" />
+          ) : d.inventario.reponer.length ? (
+            <div className="tablewrap" style={{ border: 'none' }}>
+              <table>
+                <tbody>
+                  {d.inventario.reponer.map((p) => (
+                    <tr key={p.id}>
+                      <td>{p.nombre}</td>
+                      <td className="mono">{p.sku}</td>
+                      <td className="num" style={{ color: 'var(--red)', fontWeight: 700 }}>
+                        {p.stock} / {p.stockMin}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState msg="Inventario saludable" ic="✓" />
+          )}
         </div>
       </div>
 

@@ -1,85 +1,90 @@
 /* =====================================================================
-   Servicio de autenticación.
-   Hoy simula al backend en memoria; su firma está pensada para que
-   reemplazarlo por `api.post('/auth/login', ...)` no cambie la pantalla.
+   Autenticación contra la API NestJS.
+     POST /api/v1/auth/login   { username, password } → { accessToken, expiresIn, user }
+     GET  /api/v1/auth/me      → usuario con rol y permisos
+     POST /api/v1/auth/logout  → solo auditoría (el JWT no tiene estado)
 
-   Comportamiento que el backend NestJS debe replicar:
-   - Mensaje genérico ante usuario o contraseña incorrectos (no revela cuál falló
-     ni si la cuenta existe).
-   - Conteo de intentos fallidos por usuario y bloqueo temporal (HTTP 429).
-   - Las cuentas inactivas responden igual que una credencial incorrecta.
+   El servidor ya aplica: bcrypt, mensaje genérico, 5 intentos por minuto
+   por IP (HTTP 429) y bloqueo de usuarios inactivos (HTTP 403).
    ===================================================================== */
-import { LOCKOUT_SECONDS, MAX_LOGIN_ATTEMPTS } from '../../config/security';
-import type { RoleKey } from '../../types';
-import { MOCK_USERS } from '../mock/users';
+import { ROLES } from '../../config/navigation';
+import type { SessionUser } from '../../types';
+import { ApiError, api } from '../api/client';
+import { ROLE_FROM_API, type ApiRole } from '../api/mappers';
 
 export type LoginFailure =
-  | { ok: false; code: 'INVALID_CREDENTIALS'; message: string; remainingAttempts: number }
-  | { ok: false; code: 'LOCKED'; message: string; retryAfter: number };
+  | { ok: false; code: 'INVALID_CREDENTIALS'; message: string; remainingAttempts: number | null }
+  | { ok: false; code: 'LOCKED'; message: string; retryAfter: number }
+  | { ok: false; code: 'INACTIVE' | 'NETWORK' | 'UNKNOWN'; message: string };
 
-export type LoginResponse = { ok: true; username: string; role: RoleKey } | LoginFailure;
+export type LoginResponse = { ok: true; user: SessionUser; token: string; expiresAt: number } | LoginFailure;
 
-interface ThrottleEntry {
-  fails: number;
-  lockedUntil: number;
+interface ApiUser {
+  id: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: ApiRole;
+  permissions: string[];
 }
 
-/** Estado de intentos por usuario (en el backend vivirá en BD o Redis). */
-const throttle = new Map<string, ThrottleEntry>();
-
-const GENERIC_ERROR = 'Usuario o contraseña incorrectos.';
-
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/** Comparación en tiempo constante para no filtrar información por la duración. */
-function safeEqual(a: string, b: string): boolean {
-  let diff = a.length ^ b.length;
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
-  }
-  return diff === 0;
+export function toSessionUser(u: ApiUser): SessionUser {
+  const role = ROLE_FROM_API[u.role] ?? 'tecnico';
+  const r = ROLES[role];
+  return {
+    id: u.id,
+    role,
+    user: u.username,
+    name: r.name,
+    fullName: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username,
+    email: u.email,
+    color: r.color,
+    permissions: u.permissions ?? [],
+  };
 }
 
-export const normalizeUsername = (u: string) => u.trim().toLowerCase();
+export const normalizeUsername = (u: string) => u.trim();
 
-export async function login(usernameInput: string, password: string): Promise<LoginResponse> {
-  const username = normalizeUsername(usernameInput);
-  // Latencia simulada de red: también evita respuestas instantáneas que faciliten la fuerza bruta.
-  await wait(550 + Math.random() * 250);
+const header = (h: Headers | undefined, name: string) => h?.get(name) ?? h?.get(`${name}-default`) ?? null;
 
-  const now = Date.now();
-  const entry = throttle.get(username) ?? { fails: 0, lockedUntil: 0 };
-
-  if (entry.lockedUntil > now) {
-    return {
-      ok: false,
-      code: 'LOCKED',
-      message: 'Demasiados intentos fallidos.',
-      retryAfter: Math.ceil((entry.lockedUntil - now) / 1000),
-    };
+export async function login(username: string, password: string): Promise<LoginResponse> {
+  try {
+    const res = await api.post<{ accessToken: string; expiresIn: number; user: ApiUser }>(
+      '/auth/login',
+      { username: normalizeUsername(username), password },
+      false,
+    );
+    return { ok: true, user: toSessionUser(res.user), token: res.accessToken, expiresAt: Date.now() + res.expiresIn * 1000 };
+  } catch (e) {
+    if (!(e instanceof ApiError)) return { ok: false, code: 'UNKNOWN', message: 'Ocurrió un error inesperado.' };
+    if (e.status === 0) return { ok: false, code: 'NETWORK', message: e.message };
+    if (e.status === 429) {
+      const retry = Number(header(e.headers, 'Retry-After') ?? header(e.headers, 'X-RateLimit-Reset') ?? 60);
+      return { ok: false, code: 'LOCKED', message: 'Demasiados intentos fallidos.', retryAfter: Number.isFinite(retry) && retry > 0 ? retry : 60 };
+    }
+    if (e.status === 403) return { ok: false, code: 'INACTIVE', message: 'Su usuario está desactivado. Comuníquese con el administrador.' };
+    if (e.status === 401 || e.status === 422) {
+      const remaining = header(e.headers, 'X-RateLimit-Remaining');
+      return {
+        ok: false,
+        code: 'INVALID_CREDENTIALS',
+        message: 'Usuario o contraseña incorrectos.',
+        remainingAttempts: remaining !== null && remaining !== '' ? Number(remaining) : null,
+      };
+    }
+    return { ok: false, code: 'UNKNOWN', message: e.userMessage };
   }
+}
 
-  const user = MOCK_USERS.find((u) => u.username === username);
-  const valid = !!user && user.activo && safeEqual(user.password, password);
+export async function me(): Promise<SessionUser> {
+  return toSessionUser(await api.get<ApiUser>('/auth/me'));
+}
 
-  if (valid && user) {
-    throttle.delete(username);
-    return { ok: true, username: user.username, role: user.role };
+export async function logout(): Promise<void> {
+  try {
+    await api.post('/auth/logout');
+  } catch {
+    /* si el token ya venció, basta con descartarlo en el cliente */
   }
-
-  // El contador aplica exista o no la cuenta, para no revelar qué usuarios son válidos.
-  entry.fails += 1;
-  if (entry.fails >= MAX_LOGIN_ATTEMPTS) {
-    entry.fails = 0;
-    entry.lockedUntil = now + LOCKOUT_SECONDS * 1000;
-    throttle.set(username, entry);
-    return {
-      ok: false,
-      code: 'LOCKED',
-      message: 'Demasiados intentos fallidos.',
-      retryAfter: LOCKOUT_SECONDS,
-    };
-  }
-  throttle.set(username, entry);
-  return { ok: false, code: 'INVALID_CREDENTIALS', message: GENERIC_ERROR, remainingAttempts: MAX_LOGIN_ATTEMPTS - entry.fails };
 }

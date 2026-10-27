@@ -194,3 +194,14 @@ td.num,th.num{text-align:right;font-family:var(--mono)}
 @media(max-width:880px){#app{grid-template-columns:1fr}.sidebar{position:fixed;left:-260px;z-index:60;transition:.2s;box-shadow:0 0 50px rgba(0,0,0,.5)}.sidebar.open{left:0}.cols-2,.form-grid{grid-template-columns:1fr}.menu-toggle{display:grid!important}}
 .menu-toggle{display:none}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- Carga y errores de conexión ---------- */
+.loader-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--shell);color:#9db4c4;font-size:14px}
+.view-loader{display:flex;align-items:center;justify-content:center;gap:12px;padding:70px 20px;color:var(--muted);font-size:14px}
+.loader-spin{width:26px;height:26px;border-radius:50%;border:3px solid rgba(245,166,35,.25);border-top-color:var(--amber);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.conn-error{max-width:520px;margin:60px auto;text-align:center}
+.conn-error h2{font-family:var(--display);font-size:22px;margin:10px 0 6px}
+.conn-error p{color:var(--muted);margin-bottom:18px}
+.b[disabled]{opacity:.55;cursor:not-allowed}
+.readonly-note{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}

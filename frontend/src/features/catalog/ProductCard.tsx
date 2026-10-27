@@ -1,31 +1,44 @@
-import { Tag } from '../../components/tables/Tag';
-import type { Producto } from '../../types';
+import { Tag, type TagTone } from '../../components/tables/Tag';
 import { money } from '../../utils/format';
 
-interface ProductCardProps {
-  producto: Producto;
-  /** "internal": vista previa en el panel. "public": catálogo del sitio con botón Solicitar. */
-  variant: 'internal' | 'public';
-  onRequest?(p: Producto): void;
+export type Disponibilidad = 'Disponible' | 'Pocas unidades' | 'Agotado' | 'Bajo pedido';
+
+export interface CatalogItem {
+  id: string;
+  nombre: string;
+  marca: string;
+  sku: string;
+  categoria: string;
+  precio: number;
+  ic: string;
+  disponibilidad: Disponibilidad;
 }
 
-export function ProductCard({ producto: p, variant, onRequest }: ProductCardProps) {
-  const disponible = p.stock > 0;
+const TONE: Record<Disponibilidad, TagTone> = { Disponible: 't-green', 'Pocas unidades': 't-amber', Agotado: 't-red', 'Bajo pedido': 't-amber' };
+
+interface ProductCardProps {
+  item: CatalogItem;
+  /** "internal": vista previa en el panel. "public": catálogo del sitio con botón Solicitar. */
+  variant: 'internal' | 'public';
+  onRequest?(item: CatalogItem): void;
+}
+
+export function ProductCard({ item, variant, onRequest }: ProductCardProps) {
   return (
     <div className="prod-card">
       <div className="img">
-        {p.ic}
-        <span className="cat">{p.categoria}</span>
+        {item.ic}
+        <span className="cat">{item.categoria || 'Sin categoría'}</span>
       </div>
       <div className="bd">
-        <b>{p.nombre}</b>
-        <div className="mk">{variant === 'internal' ? `${p.marca} · ${p.sku}` : p.marca}</div>
-        <div className="pr">{money(p.precio)}</div>
+        <b>{item.nombre}</b>
+        <div className="mk">{variant === 'internal' ? `${item.marca} · ${item.sku}` : item.marca}</div>
+        <div className="pr">{money(item.precio)}</div>
         <div className="av">
-          {disponible ? <Tag tone="t-green">Disponible</Tag> : variant === 'internal' ? <Tag tone="t-red">Agotado</Tag> : <Tag tone="t-amber">Bajo pedido</Tag>}
+          <Tag tone={TONE[item.disponibilidad]}>{item.disponibilidad}</Tag>
         </div>
         {variant === 'public' && (
-          <button className="b b-out b-sm" style={{ marginTop: 10 }} onClick={() => onRequest?.(p)}>
+          <button className="b b-out b-sm" style={{ marginTop: 10 }} onClick={() => onRequest?.(item)}>
             Solicitar
           </button>
         )}

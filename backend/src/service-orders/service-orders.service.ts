@@ -44,6 +44,8 @@ interface OrderRow {
   registeredAt: Date;
   startedAt: Date | null;
   finishedAt: Date | null;
+  cancelledAt: Date | null;
+  cancellationReason: string | null;
   notes: string | null;
   updatedAt: Date;
   customer?: { id: string; name: string; phone: string | null };
@@ -244,6 +246,8 @@ export class ServiceOrdersService {
         data: {
           status: ServiceOrderStatus.CANCELLED,
           notes: this.appendNote(order.notes, `Cancelada: ${dto.reason}`),
+          cancelledAt: new Date(),
+          cancellationReason: dto.reason,
         },
         include: ORDER_INCLUDE,
       });

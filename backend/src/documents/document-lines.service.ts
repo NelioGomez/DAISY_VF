@@ -19,7 +19,8 @@ export interface PreparedLine {
 
 /**
  * Valida y calcula las líneas de cotización/venta: productos existentes y activos,
- * sin duplicados, precio por defecto = precio de venta vigente.
+ * sin duplicados, precio por defecto = precio de venta vigente. Un producto sin precio
+ * comercial (lo fija Gerencia/Administración) todavía no se puede cotizar ni vender.
  */
 @Injectable()
 export class DocumentLinesService {
@@ -60,7 +61,12 @@ export class DocumentLinesService {
         errors.push({ field: `items[${i}].productId`, message: `El producto ${p.sku} está inactivo` });
         return null;
       }
-      const unitPrice = money(it.unitPrice ?? new Decimal(p.salePrice.toString()));
+      const listPrice = new Decimal(p.salePrice.toString());
+      if (it.unitPrice === undefined && listPrice.lessThanOrEqualTo(0)) {
+        errors.push({ field: `items[${i}].productId`, message: `El producto ${p.sku} todavía no tiene precio comercial` });
+        return null;
+      }
+      const unitPrice = money(it.unitPrice ?? listPrice);
       return {
         productId: p.id,
         sku: p.sku,

@@ -3,8 +3,9 @@ import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, UserRole } from '../src/generated/prisma/client';
 
+// Sesión en UTC, igual que la API (columnas TIMESTAMPTZ sin desfase).
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL, options: '-c TimeZone=UTC' }),
 });
 
 const ROLES: { code: UserRole; name: string }[] = [
@@ -21,6 +22,8 @@ const MODULES = [
   'dashboard', 'users', 'products', 'categories', 'brands', 'inventory',
   'customers', 'suppliers', 'quotations', 'sales', 'payments',
   'service-orders', 'reports', 'inquiries', 'audit', 'catalog',
+  // Mejoras: compras y recepción, precio comercial con historial, configuración del negocio.
+  'purchases', 'prices', 'settings',
 ];
 const ACTIONS = ['read', 'write'];
 // Permisos especiales fuera del par read/write (acciones sensibles).
@@ -35,21 +38,26 @@ const ROLE_ACCESS: Record<UserRole, string[]> = {
   ADMIN: ALL_PERMISSIONS,
   MANAGEMENT: [
     'dashboard:read', 'reports:read', 'inventory:read', 'sales:read', 'audit:read',
+    // Gerencia establece el precio comercial y consulta las compras.
+    'prices:read', 'prices:write', 'purchases:read',
   ],
   SELLER: [
     'dashboard:read', 'customers:read', 'customers:write',
     'quotations:read', 'quotations:write', 'sales:read', 'sales:write',
     'catalog:read', 'catalog:write', 'inquiries:read', 'inquiries:write',
     // Para cotizar necesita ver productos y filtrar por categoría/marca (solo lectura).
-    'products:read', 'categories:read', 'brands:read',
+    'products:read', 'categories:read', 'brands:read', 'prices:read',
   ],
   INVENTORY_MANAGER: [
     'dashboard:read', 'products:read', 'products:write',
     'categories:read', 'categories:write', 'brands:read', 'brands:write',
     'inventory:read', 'inventory:write', 'suppliers:read', 'suppliers:write',
+    // Compras y recepción (el costo sale de lo comprado); el precio lo ve, no lo fija.
+    'purchases:read', 'purchases:write', 'prices:read',
   ],
   ACCOUNTING: [
     'dashboard:read', 'sales:read', 'payments:read', 'payments:write', 'reports:read',
+    'purchases:read', 'prices:read',
   ],
   TECHNICIAN: ['dashboard:read', 'service-orders:read', 'service-orders:write'],
 };
@@ -101,7 +109,8 @@ async function main() {
   await prisma.systemConfig.upsert({
     where: { key: 'TAX_RATE' },
     update: {},
-    create: { key: 'TAX_RATE', value: '0.15', description: 'IVA (15%)' },
+    // Cuota fija: sin IVA por defecto. Se cambia con PATCH /settings (queda en auditoría).
+    create: { key: 'TAX_RATE', value: '0', description: 'Tasa de impuesto (0 = cuota fija, sin IVA)' },
   });
 
   await prisma.systemConfig.upsert({

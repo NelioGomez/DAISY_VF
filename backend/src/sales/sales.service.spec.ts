@@ -78,7 +78,7 @@ describe('SalesService.create (venta directa)', () => {
     expect(tx.sale.create.mock.calls[0][0].data.items.create[0].unitCost).toBe('60.0000');
     expect(tx.sale.create.mock.calls[0][0].data.payments.create[0]).toMatchObject({ amount: '345.00', method: 'CASH', userId: 'seller1' });
     expect(tx.inventoryMovement.create.mock.calls[0][0].data).toMatchObject({
-      type: 'EXIT', reference: 'FAC-000001', sourceEntity: 'Sale', userId: 'seller1',
+      type: 'EXIT', reference: 'FAC-000001', saleId: expect.any(String), locationId: 2, userId: 'seller1',
     });
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ module: 'sales', action: 'CREATE' }));
   });
@@ -113,14 +113,16 @@ describe('SalesService.create (venta directa)', () => {
     expect(tx.sale.create.mock.calls[0][0].data.payments).toBeUndefined();
   });
 
-  it('stock insuficiente → 409 y NO se crea la venta ni se mueve inventario', async () => {
+  // La venta se inserta antes que sus movimientos (cada movimiento la referencia con FK); si falta
+  // stock, la transacción completa se revierte en PostgreSQL y no queda ni venta ni movimiento.
+  it('stock insuficiente → 409 y NO se mueve inventario (la transacción se revierte)', async () => {
     const { service, tx, db } = build([prod({ stock: 2 })]);
     const err = await service.create(
       { customerId: 'c1', paymentMethod: 'CASH', items: [{ productId: 'p1', quantity: 5 }] } as never, actor,
     ).catch((e) => e);
     expect(err).toBeInstanceOf(ConflictException);
     expect(err.getResponse().errors[0].message).toContain('disponible 2, solicitado 5');
-    expect(tx.sale.create).not.toHaveBeenCalled();
+    expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
     expect(db.get('p1')!.stock).toBe(2);
   });
 
@@ -158,7 +160,7 @@ describe('SalesService.create (venta directa)', () => {
 
 describe('SalesService.convertQuotation', () => {
   const quotation = (status: string) => ({
-    status, code: 'COT-000007', subtotal: dec('300.00'), tax: dec('45.00'), total: dec('345.00'),
+    status, code: 'COT-000007', subtotal: dec('300.00'), taxRate: dec('0.1500'), tax: dec('45.00'), total: dec('345.00'),
     items: [{ productId: 'p1', quantity: 3, unitPrice: dec('100.00'), subtotal: dec('300.00'), product: { sku: 'GIL-1', name: 'Boquilla' } }],
   });
   const terms = { paymentMethod: 'CASH' } as never;
@@ -170,7 +172,7 @@ describe('SalesService.convertQuotation', () => {
     const sale = await service.convertQuotation('q1', terms, actor);
     expect(sale).toMatchObject({ total: 345 });
     expect(tx.sale.create.mock.calls[0][0].data).toMatchObject({ quotationId: 'q1', sellerId: 'seller9' });
-    expect(tx.quotation.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { status: 'CONVERTED' } });
+    expect(tx.quotation.update).toHaveBeenCalledWith({ where: { id: 'q1' }, data: { status: 'CONVERTED', statusChangedAt: expect.any(Date) } });
   });
 
   it('usa el precio cotizado aunque el precio de lista haya cambiado', async () => {
@@ -239,7 +241,7 @@ describe('SalesService.voidSale', () => {
     const res = await service.voidSale('s1', { reason: 'Error de digitación' }, actor);
     expect(db.get('p1')!.stock).toBe(10);
     expect(tx.inventoryMovement.create.mock.calls[0][0].data).toMatchObject({
-      type: 'ENTRY', sourceEntity: 'SaleVoid', sourceId: 's1', quantity: 3, unitCost: '60.0000',
+      type: 'ENTRY', saleId: 's1', locationId: 2, quantity: 3, unitCost: '60.0000',
     });
     expect(tx.sale.update.mock.calls[0][0].data).toMatchObject({ status: 'VOIDED', balance: '0.00', voidReason: 'Error de digitación' });
     expect(res.refundDue).toBe(150.5);

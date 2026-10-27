@@ -29,3 +29,22 @@ describe('formatDocumentNumber', () => {
     expect(formatDocumentNumber('OPI', 1234567)).toBe('OPI-1234567');
   });
 });
+describe('DocumentLinesService: producto sin precio comercial', () => {
+  const { DocumentLinesService } = jest.requireActual('./document-lines.service');
+  const db = (salePrice: string) => ({
+    product: {
+      findMany: jest.fn().mockResolvedValue([{ id: 'p1', sku: 'NEW-1', name: 'Nuevo', salePrice: { toString: () => salePrice }, isActive: true }]),
+    },
+  });
+
+  it('sin precio (0) no se puede cotizar ni vender a precio de lista', async () => {
+    await expect(new DocumentLinesService().prepare([{ productId: 'p1', quantity: 1 }], db('0.00') as never)).rejects.toMatchObject({
+      response: { errors: [{ field: 'items[0].productId', message: 'El producto NEW-1 todavía no tiene precio comercial' }] },
+    });
+  });
+
+  it('con precio vigente, se usa ese precio', async () => {
+    const [line] = await new DocumentLinesService().prepare([{ productId: 'p1', quantity: 2 }], db('50.00') as never);
+    expect(line.subtotal.toString()).toBe('100');
+  });
+});

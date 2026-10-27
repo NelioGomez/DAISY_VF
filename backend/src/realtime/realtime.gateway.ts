@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { OnGatewayConnection, OnGatewayDisconnect, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
 import type { AuthUser, JwtPayload } from '../common/interfaces/auth-user.interface';
+import { issuedBeforePasswordChange } from '../common/utils/token-revocation';
 import { PrismaService } from '../prisma/prisma.service';
 import { CHANGE_AUDIENCE, type ChangeEvent, permissionRoom, userRoom } from './realtime.events';
 
@@ -47,8 +48,8 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
       const token = this.extractToken(client);
       if (!token) throw new Error('sin token');
       const payload = await this.jwt.verifyAsync<JwtPayload & { exp: number }>(token);
-      const user = await this.loadUser(payload.sub);
-      if (!user) throw new Error('usuario inexistente o inactivo');
+      const user = await this.loadUser(payload.sub, payload.iat, payload.iatMs);
+      if (!user) throw new Error('usuario inexistente, inactivo o con contraseña cambiada');
 
       client.data.user = user;
       await client.join([userRoom(user.id), ...user.permissions.map(permissionRoom)]);
@@ -77,7 +78,10 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   /** Avisa del cambio a quien corresponda según CHANGE_AUDIENCE. */
   broadcast(event: ChangeEvent): void {
     if (!this.server) return;
-    if (event.module === 'users' && event.action === 'DEACTIVATE' && event.entityId) {
+    const revokes =
+      (event.module === 'users' && ['DEACTIVATE', 'CHANGE_PASSWORD', 'RESET_PASSWORD'].includes(event.action)) ||
+      (event.module === 'auth' && event.action === 'PASSWORD_RESET');
+    if (revokes && event.entityId) {
       this.server.in(userRoom(event.entityId)).disconnectSockets(true);
     }
     if (event.module === 'roles') void this.resyncRooms();
@@ -124,12 +128,12 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     return header?.startsWith('Bearer ') ? header.slice(7) : null;
   }
 
-  private async loadUser(id: string): Promise<AuthUser | null> {
+  private async loadUser(id: string, iat?: number, iatMs?: number): Promise<AuthUser | null> {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: { role: { include: { permissions: { include: { permission: { select: { code: true } } } } } } },
     });
-    if (!user || !user.isActive) return null;
+    if (!user || !user.isActive || issuedBeforePasswordChange(iat, user.passwordChangedAt, iatMs)) return null;
     return {
       id: user.id,
       username: user.username,

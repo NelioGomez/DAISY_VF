@@ -89,10 +89,14 @@ export class PublicCatalogService {
 
   // ───────────────────────── helpers ─────────────────────────
 
-  /** Producto activo cuya categoría y marca (si tiene) también están activas. */
+  /**
+   * Producto activo, con precio comercial ya fijado, cuya categoría y marca (si tiene) también
+   * están activas. Un producto recién dado de alta "sin precio" no se publica todavía.
+   */
   private visible(): Prisma.ProductWhereInput {
     return {
       isActive: true,
+      salePrice: { gt: 0 },
       AND: [
         { OR: [{ categoryId: null }, { category: { isActive: true } }] },
         { OR: [{ brandId: null }, { brand: { isActive: true } }] },

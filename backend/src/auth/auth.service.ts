@@ -20,8 +20,9 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto, ip?: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { username: dto.username },
+    // Usuario o correo (ambos se guardan en minúsculas; el DTO ya normalizó la entrada).
+    const user = await this.prisma.user.findFirst({
+      where: dto.username.includes('@') ? { email: dto.username } : { username: dto.username },
       include: {
         role: { include: { permissions: { include: { permission: { select: { code: true } } } } } },
       },
@@ -54,7 +55,7 @@ export class AuthService {
 
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
-    const payload: JwtPayload = { sub: user.id, username: user.username, role: user.role.code };
+    const payload: JwtPayload = { sub: user.id, username: user.username, role: user.role.code, iatMs: Date.now() };
     const accessToken = await this.jwt.signAsync(payload);
     const decoded = this.jwt.decode<{ iat: number; exp: number }>(accessToken);
 

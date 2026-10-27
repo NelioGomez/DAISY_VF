@@ -9,7 +9,7 @@ import { OPEN_STATUSES } from './quotation-status';
 export async function expireOverdueQuotations(prisma: Prisma.TransactionClient): Promise<number> {
   const res = await prisma.quotation.updateMany({
     where: { status: { in: OPEN_STATUSES }, validUntil: { lt: new Date() } },
-    data: { status: QuotationStatus.EXPIRED },
+    data: { status: QuotationStatus.EXPIRED, statusChangedAt: new Date() },
   });
   return res.count;
 }

@@ -8,6 +8,8 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { trimLower } from '../../common/transformers/text.transformers';
 import { UserRole } from '../../generated/prisma/client';
 
 /** Contraseña: 8–72 caracteres (límite de bcrypt), con al menos una letra y un número. */
@@ -15,11 +17,12 @@ export const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).+$/;
 export const PASSWORD_MESSAGE = 'La contraseña debe tener entre 8 y 72 caracteres, con letras y números';
 
 export class CreateUserDto {
-  @ApiProperty({ example: 'jperez', minLength: 3, maxLength: 50 })
+  @ApiProperty({ example: 'jperez', minLength: 3, maxLength: 50, description: 'Se guarda en minúsculas' })
+  @Transform(trimLower)
   @IsString()
   @MinLength(3)
   @MaxLength(50)
-  @Matches(/^[A-Za-z0-9._-]+$/, {
+  @Matches(/^[a-z0-9._-]+$/, {
     message: 'El usuario solo puede contener letras, números, punto, guion y guion bajo',
   })
   username!: string;
@@ -43,7 +46,8 @@ export class CreateUserDto {
   @MaxLength(100)
   lastName!: string;
 
-  @ApiProperty({ example: 'jperez@norcor.com' })
+  @ApiProperty({ example: 'jperez@norcor.com', description: 'Se guarda en minúsculas' })
+  @Transform(trimLower)
   @IsEmail({}, { message: 'El correo no tiene un formato válido' })
   @MaxLength(150)
   email!: string;

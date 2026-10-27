@@ -26,6 +26,8 @@ export const CHANGE_AUDIENCE: Record<string, { primary: string[]; related: strin
   'service-orders': { primary: ['service-orders:read'], related: ['dashboard:read'] },
   inquiries: { primary: ['inquiries:read'], related: ['dashboard:read'] },
   users: { primary: ['users:read'], related: [] },
+  // Impuesto o datos de la empresa: todos recargan la configuración (sin detalle).
+  settings: { primary: ['settings:read'], related: ['dashboard:read'] },
   roles: { primary: ['users:read'], related: [] },
 };
 

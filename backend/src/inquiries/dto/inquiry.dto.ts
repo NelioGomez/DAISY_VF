@@ -1,9 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsDateString, IsEnum, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { trim } from '../../common/transformers/text.transformers';
 import { InquiryStatus } from '../../generated/prisma/client';
+import { MANUAL_INQUIRY_STATUSES } from '../inquiry-status';
 
 export class FilterInquiryDto extends PaginationDto {
   @ApiPropertyOptional({ enum: InquiryStatus })
@@ -30,7 +31,7 @@ export class FilterInquiryDto extends PaginationDto {
 }
 
 export class SetInquiryStatusDto {
-  @ApiProperty({ enum: InquiryStatus })
-  @IsEnum(InquiryStatus, { message: 'Estado inválido (NEW, ATTENDED o CLOSED)' })
+  @ApiProperty({ enum: MANUAL_INQUIRY_STATUSES })
+  @IsIn(MANUAL_INQUIRY_STATUSES, { message: 'Estado inválido (IN_REVIEW, CLOSED o CANCELLED)' })
   status!: InquiryStatus;
 }

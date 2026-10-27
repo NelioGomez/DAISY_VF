@@ -23,12 +23,12 @@ function build(existing: { status: string; validUntil?: Date } | null = null) {
       findUnique: jest.fn().mockResolvedValue(existing && { validUntil: FUTURE, ...existing }),
       create: jest.fn(({ data }) => Promise.resolve({
         id: 'q1', ...data, issuedAt: new Date(),
-        subtotal: dec(data.subtotal), tax: dec(data.tax), total: dec(data.total),
+        subtotal: dec(data.subtotal), taxRate: dec(data.taxRate), tax: dec(data.tax), total: dec(data.total),
         items: data.items.create.map((i: any) => ({ id: 'i', ...i, unitPrice: dec(i.unitPrice), subtotal: dec(i.subtotal), product: { sku: 'S', name: 'N', stock: 5 } })),
       })),
       update: jest.fn(({ data: { items: _items, ...data } }) => Promise.resolve({
         id: 'q1', code: 'COT-000012', status: 'PENDING', ...data,
-        subtotal: dec(0), tax: dec(0), total: dec(0), issuedAt: new Date(), validUntil: FUTURE,
+        subtotal: dec(0), taxRate: dec(0), tax: dec(0), total: dec(0), issuedAt: new Date(), validUntil: FUTURE,
       })),
       delete: jest.fn().mockResolvedValue({}),
     },
@@ -57,7 +57,7 @@ describe('QuotationsService', () => {
   it('aprobar una PENDIENTE; aprobar un BORRADOR → 409', async () => {
     const ok = build({ status: 'PENDING' });
     await ok.service.approve('q1', actor);
-    expect(ok.tx.quotation.update.mock.calls[0][0].data).toEqual({ status: 'APPROVED' });
+    expect(ok.tx.quotation.update.mock.calls[0][0].data).toEqual({ status: 'APPROVED', statusChangedAt: expect.any(Date) });
     await expect(build({ status: 'DRAFT' }).service.approve('q1', actor)).rejects.toThrow(ConflictException);
   });
 
@@ -65,7 +65,7 @@ describe('QuotationsService', () => {
     await expect(build({ status: 'PENDING' }).service.submit('q1', actor)).rejects.toThrow(ConflictException);
     const ok = build({ status: 'DRAFT' });
     await ok.service.submit('q1', actor);
-    expect(ok.tx.quotation.update.mock.calls[0][0].data).toEqual({ status: 'PENDING' });
+    expect(ok.tx.quotation.update.mock.calls[0][0].data).toEqual({ status: 'PENDING', statusChangedAt: expect.any(Date) });
   });
 
   it('rechazar desde APROBADA; una CONVERTIDA ya no cambia', async () => {
@@ -98,6 +98,6 @@ describe('QuotationsService', () => {
     const { service, tx } = build({ status: 'PENDING' });
     await service.approve('q1', actor);
     expect(tx.quotation.updateMany).toHaveBeenCalled();
-    expect(tx.quotation.updateMany.mock.calls[0][0].data).toEqual({ status: 'EXPIRED' });
+    expect(tx.quotation.updateMany.mock.calls[0][0].data).toEqual({ status: 'EXPIRED', statusChangedAt: expect.any(Date) });
   });
 });

@@ -11,8 +11,10 @@ export interface MovementContext {
   supplierId?: string | null;
   reference?: string | null;
   note?: string | null;
-  sourceEntity?: string | null;
-  sourceId?: string | null;
+  /** Venta que origina el movimiento (salida al vender o entrada al anular). */
+  saleId?: string | null;
+  /** Dónde ocurrió; por defecto la bodega principal (valor por defecto de la columna). */
+  locationId?: number;
 }
 
 interface LockedProduct {
@@ -180,8 +182,8 @@ export class StockService {
         note: ctx.note ?? null,
         userId: ctx.userId,
         supplierId: ctx.supplierId ?? null,
-        sourceEntity: ctx.sourceEntity ?? null,
-        sourceId: ctx.sourceId ?? null,
+        saleId: ctx.saleId ?? null,
+        ...(ctx.locationId !== undefined && { locationId: ctx.locationId }),
       },
     });
     return {

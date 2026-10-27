@@ -27,9 +27,11 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { validateEnv } from './config/env.validation';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
+import { MailModule } from './mail/mail.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { ProductsModule } from './products/products.module';
 import { RolesModule } from './roles/roles.module';
+import { SettingsModule } from './settings/settings.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -38,6 +40,7 @@ import { UsersModule } from './users/users.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
     RealtimeModule,
+    MailModule,
     AuditModule,
     AuthModule,
     UsersModule,
@@ -57,6 +60,7 @@ import { UsersModule } from './users/users.module';
     ReportsModule,
     InquiriesModule,
     PublicModule,
+    SettingsModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
+import { BRANCH_ID } from '../common/constants/locations';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { dateRange } from '../common/utils/dates';
 import { decimalToNumber } from '../common/utils/decimal';
@@ -154,6 +155,7 @@ export class SalesService {
           status: QuotationStatus;
           code: string;
           subtotal: Dec;
+          taxRate: Dec;
           tax: Dec;
           total: Dec;
           items: { productId: string; quantity: number; unitPrice: Dec; subtotal: Dec; product: { sku: string; name: string } }[];
@@ -166,6 +168,7 @@ export class SalesService {
               status: true,
               code: true,
               subtotal: true,
+              taxRate: true,
               tax: true,
               total: true,
               items: { select: { productId: true, quantity: true, unitPrice: true, subtotal: true, product: { select: { sku: true, name: true } } } },
@@ -194,6 +197,7 @@ export class SalesService {
         // 3) Líneas y totales.
         let lines: PreparedLine[];
         let totals: { subtotal: Decimal; tax: Decimal; total: Decimal };
+        let taxRate: Decimal;
         if (quotation) {
           lines = quotation.items.map((i) => ({
             productId: i.productId,
@@ -208,9 +212,11 @@ export class SalesService {
             tax: new Decimal(quotation.tax.toString()),
             total: new Decimal(quotation.total.toString()),
           };
+          taxRate = new Decimal(quotation.taxRate.toString()); // se respeta la tasa con que se cotizó
         } else {
           lines = await this.lines.prepare(source.items ?? [], tx);
-          totals = calculateTotals(lines.map((l) => l.subtotal), await this.tax.getRate(tx));
+          taxRate = await this.tax.getRate(tx);
+          totals = calculateTotals(lines.map((l) => l.subtotal), taxRate);
         }
         if (totals.total.lessThanOrEqualTo(0)) {
           throw this.fieldError('items', 'El total de la venta debe ser mayor que cero');
@@ -220,22 +226,13 @@ export class SalesService {
         const soldAt = new Date();
         const resolved = resolveTerms(totals.total, terms, await this.tax.getCreditDays(tx), soldAt);
 
-        // 5) Número de factura + salida de inventario (bloqueo ordenado de productos).
+        // 5) Número de factura y costo promedio de salida (productos bloqueados en orden de id).
         const invoiceNumber = await this.sequence.next(tx, 'INVOICE', 'FAC');
         const saleId = randomUUID();
-        const exits = await this.stock.registerExits(
-          tx,
-          lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
-          {
-            userId: actor.id,
-            reference: invoiceNumber,
-            note: `Venta ${invoiceNumber}`,
-            sourceEntity: 'Sale',
-            sourceId: saleId,
-          },
-        );
+        const locked = await this.stock.lockProducts(tx, lines.map((l) => l.productId));
 
         // 6) Venta + líneas (con el costo promedio de salida) + pago inicial.
+        //    Va antes de la salida de inventario porque cada movimiento referencia la venta (FK).
         const sale = (await tx.sale.create({
           data: {
             id: saleId,
@@ -243,8 +240,10 @@ export class SalesService {
             customerId: source.customerId,
             sellerId: source.sellerId,
             quotationId: source.quotation?.id ?? null,
+            locationId: BRANCH_ID,
             soldAt,
             subtotal: fixed2(totals.subtotal),
+            taxRate: taxRate.toFixed(4),
             tax: fixed2(totals.tax),
             total: fixed2(totals.total),
             paymentMethod: terms.paymentMethod,
@@ -252,9 +251,9 @@ export class SalesService {
             balance: fixed2(resolved.balance),
             dueDate: resolved.dueDate,
             items: {
-              create: lines.map((l, i) => ({
+              create: lines.map((l) => ({
                 ...lineToData(l),
-                unitCost: fixed4(new Decimal(exits[i].movement.unitCost.toString())),
+                unitCost: fixed4(locked.get(l.productId)?.avgCost ?? new Decimal(0)),
               })),
             },
             ...(resolved.payment && {
@@ -274,10 +273,23 @@ export class SalesService {
           include: SALE_INCLUDE,
         })) as SaleRow;
 
+        // 7) Salida de inventario enlazada a la venta. Si falta stock, se revierte toda la transacción.
+        await this.stock.registerExits(
+          tx,
+          lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+          {
+            userId: actor.id,
+            reference: invoiceNumber,
+            note: `Venta ${invoiceNumber}`,
+            saleId,
+            locationId: BRANCH_ID,
+          },
+        );
+
         if (source.quotation) {
           await tx.quotation.update({
             where: { id: source.quotation.id },
-            data: { status: QuotationStatus.CONVERTED },
+            data: { status: QuotationStatus.CONVERTED, statusChangedAt: soldAt },
           });
         }
         return sale;
@@ -340,8 +352,8 @@ export class SalesService {
           userId: actor.id,
           reference: sale.invoiceNumber,
           note: `Anulación de venta: ${dto.reason}`,
-          sourceEntity: 'SaleVoid',
-          sourceId: id,
+          saleId: id,
+          locationId: BRANCH_ID,
         });
       }
 
@@ -444,4 +456,3 @@ export class SalesService {
     };
   }
 }
-

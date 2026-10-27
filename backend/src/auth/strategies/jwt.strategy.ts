@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { AuthUser, JwtPayload } from '../../common/interfaces/auth-user.interface';
+import { issuedBeforePasswordChange } from '../../common/utils/token-revocation';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -33,6 +34,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Usuario inexistente o inactivo');
+    }
+    if (issuedBeforePasswordChange(payload.iat, user.passwordChangedAt, payload.iatMs)) {
+      throw new UnauthorizedException('La contraseña cambió; inicie sesión de nuevo');
     }
 
     return {

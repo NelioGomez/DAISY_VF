@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,14 +10,17 @@ import { SortOrder } from '../common/dto/sort-order.enum';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { toCsv } from '../common/utils/csv';
 import { decimalToNumber } from '../common/utils/decimal';
+import { setPriceContext } from '../common/utils/db-context';
 import { buildPagination } from '../common/utils/pagination';
 import { isForeignKeyViolation, isUniqueViolation } from '../common/utils/prisma-errors';
+import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateProductDto,
   FilterProductDto,
   ProductSortField,
   UpdateProductDto,
+  SetProductPriceDto,
 } from './dto/product.dto';
 
 const EXPORT_MAX_ROWS = 50_000;
@@ -132,21 +136,26 @@ export class ProductsService {
   async create(dto: CreateProductDto, actor: AuthUser, ip?: string) {
     await this.assertSkuFree(dto.sku);
     await this.assertRelations(dto.categoryId, dto.brandId);
+    if (dto.salePrice !== undefined && dto.salePrice > 0) this.assertCanPrice(actor);
 
     try {
       // Stock y costo promedio nacen en 0; solo cambian con movimientos de inventario.
-      const created = (await this.prisma.product.create({
-        data: {
-          sku: dto.sku,
-          name: dto.name,
-          description: dto.description,
-          categoryId: dto.categoryId ?? null,
-          brandId: dto.brandId ?? null,
-          salePrice: dto.salePrice,
-          minStock: dto.minStock ?? 0,
-          isActive: dto.isActive ?? true,
-        },
-        select: PRODUCT_SELECT,
+      // El precio (si lo fija alguien autorizado) abre el historial mediante el trigger de la BD.
+      const created = (await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        await setPriceContext(tx, actor.id, 'Precio inicial');
+        return tx.product.create({
+          data: {
+            sku: dto.sku,
+            name: dto.name,
+            description: dto.description,
+            categoryId: dto.categoryId ?? null,
+            brandId: dto.brandId ?? null,
+            salePrice: dto.salePrice ?? 0,
+            minStock: dto.minStock ?? 0,
+            isActive: dto.isActive ?? true,
+          },
+          select: PRODUCT_SELECT,
+        });
       })) as ProductRow;
       await this.log(actor, 'CREATE', created.id, `Producto ${created.sku} creado`, ip);
       return this.toDto(created);
@@ -161,21 +170,28 @@ export class ProductsService {
     if (dto.sku && dto.sku !== existing.sku) await this.assertSkuFree(dto.sku, id);
     await this.assertRelations(dto.categoryId, dto.brandId);
 
-    const updated = (await this.prisma.product.update({
-      where: { id },
-      data: {
-        ...(dto.sku !== undefined && { sku: dto.sku }),
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
-        ...(dto.brandId !== undefined && { brandId: dto.brandId }),
-        ...(dto.salePrice !== undefined && { salePrice: dto.salePrice }),
-        ...(dto.minStock !== undefined && { minStock: dto.minStock }),
-      },
-      select: PRODUCT_SELECT,
+    const priceChanges = dto.salePrice !== undefined && dto.salePrice !== existing.salePrice;
+    if (priceChanges) this.assertCanPrice(actor);
+
+    const updated = (await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      if (priceChanges) await setPriceContext(tx, actor.id, dto.priceReason || 'Cambio de precio');
+      return tx.product.update({
+        where: { id },
+        data: {
+          ...(dto.sku !== undefined && { sku: dto.sku }),
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
+          ...(dto.brandId !== undefined && { brandId: dto.brandId }),
+          ...(priceChanges && { salePrice: dto.salePrice }),
+          ...(dto.minStock !== undefined && { minStock: dto.minStock }),
+        },
+        select: PRODUCT_SELECT,
+      });
     })) as ProductRow;
 
-    await this.log(actor, 'UPDATE', id, `Producto ${updated.sku} modificado`, ip);
+    const detail = priceChanges ? ` (precio C$ ${existing.salePrice} → C$ ${dto.salePrice})` : '';
+    await this.log(actor, 'UPDATE', id, `Producto ${updated.sku} modificado${detail}`, ip);
     return this.toDto(updated);
   }
 
@@ -220,7 +236,58 @@ export class ProductsService {
     await this.log(actor, 'DELETE', id, `Producto ${product.sku} eliminado`, ip);
   }
 
+  /** Fija el precio comercial; el trigger de la BD cierra el vigente y abre uno nuevo en el historial. */
+  async setPrice(id: string, dto: SetProductPriceDto, actor: AuthUser, ip?: string) {
+    const existing = await this.findOne(id);
+    if (dto.salePrice === existing.salePrice) {
+      throw new BadRequestException({
+        message: 'El precio no cambió',
+        errors: [{ field: 'salePrice', message: `El precio vigente ya es C$ ${existing.salePrice.toFixed(2)}` }],
+      });
+    }
+    const updated = (await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await setPriceContext(tx, actor.id, dto.reason || 'Cambio de precio');
+      return tx.product.update({ where: { id }, data: { salePrice: dto.salePrice }, select: PRODUCT_SELECT });
+    })) as ProductRow;
+    await this.log(
+      actor,
+      'PRICE_CHANGE',
+      id,
+      `Precio de ${updated.sku}: C$ ${existing.salePrice.toFixed(2)} → C$ ${dto.salePrice.toFixed(2)}${dto.reason ? ` (${dto.reason})` : ''}`,
+      ip,
+    );
+    return this.toDto(updated);
+  }
+
+  /** Historial de precios del producto, del más reciente al más antiguo. */
+  async priceHistory(id: string) {
+    await this.findOne(id);
+    const rows = await this.prisma.productPrice.findMany({
+      where: { productId: id },
+      orderBy: [{ validFrom: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        price: true,
+        validFrom: true,
+        validTo: true,
+        reason: true,
+        changedBy: { select: { id: true, username: true, firstName: true, lastName: true } },
+      },
+    });
+    return rows.map((r) => ({ ...r, price: decimalToNumber(r.price) }));
+  }
+
   // ───────────────────────── helpers ─────────────────────────
+
+  /** El precio comercial lo fijan Administración y Gerencia (permiso prices:write). */
+  private assertCanPrice(actor: AuthUser) {
+    if (!actor.permissions.includes('prices:write')) {
+      throw new ForbiddenException({
+        message: 'Su rol no puede fijar precios',
+        errors: [{ field: 'salePrice', message: 'El precio comercial lo establece Administración o Gerencia' }],
+      });
+    }
+  }
 
   private inUse() {
     return new ConflictException(

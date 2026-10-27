@@ -1,3 +1,8 @@
+> **Estado: implementado** en el backend (`src/auth/password-reset.service.ts`, rama
+> `feature/base-de-datos`). El contrato usa los mismos nombres de campo que el resto de la API:
+> `{ email }`, `{ email, code }`, `{ resetToken, newPassword }`. Los modelos Prisma de abajo quedaron
+> como `PasswordResetCode` y `PasswordResetToken` en `schema.prisma` (ver `backend/docs/base-de-datos.md`).
+
 # Recuperación de contraseña — guía para el backend (NestJS)
 
 El frontend ya tiene el flujo completo en `/recuperar` y hoy lo simula en

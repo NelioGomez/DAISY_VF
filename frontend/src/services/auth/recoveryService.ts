@@ -2,9 +2,9 @@
    Recuperación de contraseña en 3 pasos.
    Primero se usa el backend (contrato en docs/recuperacion-contrasena.md):
 
-     POST /api/v1/auth/forgot-password      { correo }
-     POST /api/v1/auth/verify-reset-code    { correo, codigo }   → { resetToken }
-     POST /api/v1/auth/reset-password       { resetToken, nuevaContrasena }
+     POST /api/v1/auth/forgot-password      { email }            → { resendAfter, expiresIn }
+     POST /api/v1/auth/verify-reset-code    { email, code }      → { resetToken, username }
+     POST /api/v1/auth/reset-password       { resetToken, newPassword } → { username }
 
    Reglas de seguridad que se respetan aquí y debe aplicar el servidor:
    - La respuesta al pedir el código es igual exista o no el correo.
@@ -191,7 +191,7 @@ export async function requestPasswordReset(emailInput: string): Promise<RequestR
   if (!isValidEmail(email)) return { ok: false, code: 'INVALID_EMAIL', message: 'Escriba un correo válido, por ejemplo nombre@empresa.com.' };
   if (mode === 'sim') return simRequest(email);
   try {
-    const r = await api.post<{ resendAfter?: number; expiresIn?: number } | null>('/auth/forgot-password', { correo: email }, false);
+    const r = await api.post<{ resendAfter?: number; expiresIn?: number } | null>('/auth/forgot-password', { email }, false);
     mode = 'api';
     return { ok: true, resendAfter: r?.resendAfter ?? RESET_RESEND_SECONDS, expiresIn: r?.expiresIn ?? RESET_CODE_TTL_MINUTES * 60 };
   } catch (e) {
@@ -211,7 +211,7 @@ export async function requestPasswordReset(emailInput: string): Promise<RequestR
 export async function verifyResetCode(emailInput: string, codeInput: string): Promise<VerifyCodeResponse> {
   if (mode === 'sim') return simVerify(emailInput, codeInput);
   try {
-    const r = await api.post<{ resetToken: string; username: string }>('/auth/verify-reset-code', { correo: normalizeEmail(emailInput), codigo: codeInput }, false);
+    const r = await api.post<{ resetToken: string; username: string }>('/auth/verify-reset-code', { email: normalizeEmail(emailInput), code: codeInput }, false);
     return { ok: true, resetToken: r.resetToken, username: r.username };
   } catch (e) {
     if (!(e instanceof ApiError) || e.status === 0) return { ok: false, code: 'UNAVAILABLE', message: NETWORK };
@@ -230,7 +230,7 @@ export async function verifyResetCode(emailInput: string, codeInput: string): Pr
 export async function resetPassword(resetToken: string, newPassword: string): Promise<ResetPasswordResponse> {
   if (mode === 'sim') return simReset(resetToken, newPassword);
   try {
-    const r = await api.post<{ username: string }>('/auth/reset-password', { resetToken, nuevaContrasena: newPassword }, false);
+    const r = await api.post<{ username: string }>('/auth/reset-password', { resetToken, newPassword }, false);
     return { ok: true, username: r.username };
   } catch (e) {
     if (!(e instanceof ApiError) || e.status === 0) return { ok: false, code: 'UNAVAILABLE', message: NETWORK };

@@ -44,7 +44,8 @@ export function toSessionUser(u: ApiUser): SessionUser {
   };
 }
 
-export const normalizeUsername = (u: string) => u.trim();
+/** Usuario o correo: el servidor guarda ambos en minúsculas. */
+export const normalizeUsername = (u: string) => u.trim().toLowerCase();
 
 const header = (h: Headers | undefined, name: string) => h?.get(name) ?? h?.get(`${name}-default`) ?? null;
 

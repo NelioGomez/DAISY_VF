@@ -7,6 +7,7 @@ import { SearchToolbar } from '../../components/tables/SearchToolbar';
 import { Tag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
 import { matches, money } from '../../utils/format';
+import { PriceModal } from './PriceModal';
 import { ProductFormModal } from './ProductFormModal';
 import { useExportProductos } from './useExportProductos';
 
@@ -14,6 +15,7 @@ export function ProductsPage() {
   const { db } = useData();
   const { can } = useAuth();
   const canWrite = can('products:write');
+  const canPrice = can('prices:write');
   const modal = useModal();
   const exportProductos = useExportProductos();
   const [q, setQ] = useState('');
@@ -74,10 +76,15 @@ export function ProductsPage() {
                     {crit && ' ▼'}
                   </td>
                   <td>{p.activo ? <Tag tone="t-green">Activo</Tag> : <Tag>Inactivo</Tag>}</td>
-                  <td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
                     {canWrite && (
                       <button className="b b-out b-sm" onClick={() => modal.open(<ProductFormModal producto={p} />)}>
                         Editar
+                      </button>
+                    )}{' '}
+                    {canPrice && (
+                      <button className="b b-out b-sm" onClick={() => modal.open(<PriceModal producto={p} />)} title="Precio comercial e historial">
+                        Precio
                       </button>
                     )}
                   </td>

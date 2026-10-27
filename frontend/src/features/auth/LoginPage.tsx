@@ -115,7 +115,7 @@ export function LoginPage() {
 
   const validate = () => {
     const e: typeof errors = {};
-    if (!username.trim()) e.username = 'Escriba su usuario.';
+    if (!username.trim()) e.username = 'Escriba su usuario o correo.';
     if (!password) e.password = 'Escriba su contraseña.';
     setErrors(e);
     return e;
@@ -188,7 +188,7 @@ export function LoginPage() {
 
       <form className="auth-form" onSubmit={handleSubmit} noValidate>
         <div className={`auth-field ${errors.username ? 'has-error' : ''}`}>
-          <label htmlFor="username">Usuario</label>
+          <label htmlFor="username">Usuario o correo</label>
           <div className="auth-input">
             <span className="auth-input-icon">
               <UserIcon />

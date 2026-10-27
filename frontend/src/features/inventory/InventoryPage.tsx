@@ -8,6 +8,7 @@ import { useAuth, useData } from '../../store/hooks';
 import type { TipoMovimiento } from '../../types';
 import { fmtDateTime, money } from '../../utils/format';
 import { stockCritico } from '../dashboard/kpis';
+import { PriceModal } from '../products/PriceModal';
 import { MovementFormModal } from './MovementFormModal';
 
 export function InventoryPage() {
@@ -56,7 +57,9 @@ export function InventoryPage() {
                 <th className="num">Stock</th>
                 <th className="num">Mínimo</th>
                 <th className="num">Costo prom.</th>
+                <th className="num">Precio</th>
                 <th>Estado</th>
+                {can('prices:write') && <th />}
               </tr>
             </thead>
             <tbody>
@@ -69,7 +72,15 @@ export function InventoryPage() {
                   <td className="num">{p.stock}</td>
                   <td className="num">{p.stockMin}</td>
                   <td className="num">{money(p.costo)}</td>
+                  <td className="num">{p.precio > 0 ? money(p.precio) : <span style={{ color: 'var(--muted)' }}>sin precio</span>}</td>
                   <td>{p.stock <= p.stockMin ? <Tag tone="t-red">Crítico</Tag> : <Tag tone="t-green">OK</Tag>}</td>
+                  {can('prices:write') && (
+                    <td>
+                      <button className="b b-out b-sm" onClick={() => modal.open(<PriceModal producto={p} />)}>
+                        Precio
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

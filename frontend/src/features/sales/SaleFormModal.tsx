@@ -30,7 +30,7 @@ export function SaleFormModal({ cotizacion }: SaleFormModalProps) {
   const [terms, setTerms] = useState(initialTerms);
   const [saving, setSaving] = useState(false);
 
-  const total = cotizacion ? cotizacion.total : cartTotals(db.productos, lines).total;
+  const total = cotizacion ? cotizacion.total : cartTotals(db.productos, lines, db.config.taxRate).total;
 
   const confirm = async () => {
     if (!cotizacion && !cliId) return toast('Seleccione un cliente', 'err');
@@ -96,10 +96,12 @@ export function SaleFormModal({ cotizacion }: SaleFormModalProps) {
               <span>Subtotal</span>
               <span>{money(cotizacion.sub)}</span>
             </div>
-            <div className="r">
-              <span>IVA</span>
-              <span>{money(cotizacion.iva)}</span>
-            </div>
+            {cotizacion.iva > 0 && (
+              <div className="r">
+                <span>IVA</span>
+                <span>{money(cotizacion.iva)}</span>
+              </div>
+            )}
             <div className="r grand">
               <span>Total</span>
               <span>{money(cotizacion.total)}</span>

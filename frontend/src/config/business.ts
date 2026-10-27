@@ -4,12 +4,8 @@
    ===================================================================== */
 import type { EstadoOrden } from '../types';
 
-/**
- * Tasa de IVA aplicada a cotizaciones y facturas (comportamiento del prototipo).
- * PENDIENTE (P0 del análisis UX): con el escenario de cuota fija debe retirarse
- * del frontend y venir de configuración del backend.
- */
-export const IVA = 0.15;
+// El impuesto ya no vive aquí: lo define el servidor (system_config → GET /settings).
+// NORCOR está en régimen de cuota fija, así que por defecto no se cobra IVA.
 
 export const VALIDEZ_COTIZACION = '15 días';
 export const DIAS_CREDITO = 15;

@@ -128,10 +128,12 @@ export function InvoiceModal({ ventaId }: { ventaId: string }) {
               <span>Subtotal</span>
               <span>{money(v.sub)}</span>
             </div>
-            <div className="r">
-              <span>IVA</span>
-              <span>{money(v.iva)}</span>
-            </div>
+            {v.iva > 0 && (
+              <div className="r">
+                <span>IVA</span>
+                <span>{money(v.iva)}</span>
+              </div>
+            )}
             <div className="r grand">
               <span>Total</span>
               <span>{money(v.total)}</span>

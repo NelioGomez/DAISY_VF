@@ -216,10 +216,13 @@ export interface Tecnico {
   usuario: string;
 }
 
-export type EstadoConsulta = 'Nueva' | 'Atendida' | 'Cerrada';
+/** Solicitud web: se conserva como evidencia aunque se convierta en cotización. */
+export type EstadoConsulta = 'Nueva' | 'En revisión' | 'Cotizada' | 'Cerrada' | 'Cancelada';
 
 export interface ConsultaWeb {
   id: string;
+  /** SOL-000001 */
+  codigo: string;
   fecha: string;
   nombre: string;
   contacto: string;
@@ -256,6 +259,26 @@ export interface DashboardResumen {
   alertas: Array<{ tipo: string; severidad: 'info' | 'warning' | 'critical' | string; mensaje: string }>;
 }
 
+/** Un registro del historial de precios (lo llena un trigger de la base de datos). */
+export interface PrecioHistorial {
+  id: string;
+  precio: number;
+  desde: string;
+  /** null = precio vigente */
+  hasta: string | null;
+  motivo: string;
+  usuario: string;
+}
+
+/** Parámetros del negocio (GET /settings): el impuesto lo decide el servidor. */
+export interface Configuracion {
+  /** 0 en régimen de cuota fija. */
+  taxRate: number;
+  taxRegime: 'CUOTA_FIJA' | 'IVA' | string;
+  creditTermDays: number;
+  empresa: { name: string; phone: string; email: string; whatsapp: string; address: string };
+}
+
 /** Estado completo cargado desde la API para la sesión actual. */
 export interface Database {
   productos: Producto[];
@@ -274,6 +297,7 @@ export interface Database {
   consultas: ConsultaWeb[];
   auditoria: RegistroAuditoria[];
   dashboard: DashboardResumen | null;
+  config: Configuracion;
 }
 
 /** Resultado uniforme de una operación de negocio. */

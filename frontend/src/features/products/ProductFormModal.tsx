@@ -6,12 +6,15 @@ import { Field, InputField } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
 import { CancelButton, Modal } from '../../components/modals/Modal';
 import { useModal } from '../../components/modals/useModal';
-import { useData } from '../../store/hooks';
+import { useAuth, useData } from '../../store/hooks';
 import type { Producto } from '../../types';
 import { money } from '../../utils/format';
 
 export function ProductFormModal({ producto }: { producto?: Producto }) {
   const { db, guardarProducto, cambiarEstadoProducto } = useData();
+  const { can } = useAuth();
+  // El precio comercial lo fijan Administración y Gerencia; el resto da de alta sin precio.
+  const canPrice = can('prices:write');
   const toast = useToast();
   const { close } = useModal();
   const p = producto;
@@ -24,13 +27,16 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
     marcaId: p?.marcaId ?? '',
     precio: String(p?.precio ?? ''),
     stockMin: String(p?.stockMin ?? 0),
+    motivoPrecio: '',
     activo: p?.activo ?? true,
   });
   const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }));
 
   const save = async () => {
     if (!f.sku.trim() || !f.nombre.trim()) return toast('SKU y nombre son obligatorios', 'err');
-    if (f.precio === '' || Number(f.precio) < 0) return toast('Indique un precio de venta válido', 'err');
+    if (canPrice && (f.precio === '' || Number(f.precio) < 0)) return toast('Indique un precio de venta válido', 'err');
+    const precio = Number(f.precio);
+    const cambiaPrecio = canPrice && (!p || precio !== p.precio);
     setSaving(true);
     const r = await guardarProducto(p?.id ?? null, {
       sku: f.sku.trim().toUpperCase(),
@@ -38,7 +44,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
       descripcion: f.descripcion.trim(),
       categoriaId: f.categoriaId || null,
       marcaId: f.marcaId || null,
-      precio: Number(f.precio),
+      ...(cambiaPrecio && { precio, motivoPrecio: f.motivoPrecio.trim() || undefined }),
       stockMin: Math.max(0, Math.round(Number(f.stockMin) || 0)),
     });
     if (r.ok && p && f.activo !== p.activo) {
@@ -89,7 +95,16 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
             ))}
           </select>
         </Field>
-        <InputField label="Precio de venta (C$)" type="number" value={f.precio} onChange={set('precio')} />
+        {canPrice ? (
+          <InputField label="Precio de venta (C$)" type="number" value={f.precio} onChange={set('precio')} help="Cada cambio queda en el historial de precios" />
+        ) : (
+          <Field label="Precio de venta" help="Lo establece Gerencia o Administración">
+            <input value={p && p.precio > 0 ? `C$ ${p.precio.toFixed(2)}` : 'Sin precio'} disabled />
+          </Field>
+        )}
+        {canPrice && p && f.precio !== '' && Number(f.precio) !== p.precio && (
+          <InputField label="Motivo del cambio de precio" value={f.motivoPrecio} onChange={set('motivoPrecio')} placeholder="Ej: ajuste por tipo de cambio" full />
+        )}
         <InputField label="Stock mínimo" type="number" value={f.stockMin} onChange={set('stockMin')} help="Debajo de este nivel se marca como crítico" />
         {p && (
           <Field label="Estado">

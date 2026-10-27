@@ -1,5 +1,4 @@
 /* Editor de líneas compartido por Cotizaciones y Ventas. */
-import { IVA } from '../../config/business';
 import { useData } from '../../store/hooks';
 import type { CartLine } from '../../types';
 import { cartTotals } from '../../utils/documents';
@@ -13,7 +12,8 @@ interface LineEditorProps {
 export function LineEditor({ lines, onChange }: LineEditorProps) {
   const { db } = useData();
   const activos = db.productos.filter((p) => p.activo);
-  const t = cartTotals(db.productos, lines);
+  const rate = db.config.taxRate;
+  const t = cartTotals(db.productos, lines, rate);
 
   const setLine = (i: number, patch: Partial<CartLine>) => onChange(lines.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   const delLine = (i: number) => onChange(lines.filter((_, idx) => idx !== i));
@@ -60,10 +60,17 @@ export function LineEditor({ lines, onChange }: LineEditorProps) {
           <span>Subtotal</span>
           <span>{money(t.sub)}</span>
         </div>
-        <div className="r">
-          <span>IVA ({Math.round(IVA * 100)}%)</span>
-          <span>{money(t.iva)}</span>
-        </div>
+        {rate > 0 ? (
+          <div className="r">
+            <span>IVA ({Math.round(rate * 10000) / 100}%)</span>
+            <span>{money(t.iva)}</span>
+          </div>
+        ) : (
+          <div className="r" style={{ color: 'var(--muted)', fontSize: 12 }}>
+            <span>Régimen de cuota fija</span>
+            <span>sin IVA</span>
+          </div>
+        )}
         <div className="r grand">
           <span>Total</span>
           <span>{money(t.total)}</span>

@@ -13,12 +13,12 @@ const PLACEHOLDER: Record<TipoMovimiento, string> = {
   Ajuste: 'Conteo físico del día…',
 };
 
-export function MovementFormModal({ tipo }: { tipo: TipoMovimiento }) {
+export function MovementFormModal({ tipo, productoId }: { tipo: TipoMovimiento; productoId?: string }) {
   const { db, registrarMovimiento } = useData();
   const toast = useToast();
   const { close } = useModal();
   const activos = db.productos.filter((p) => p.activo);
-  const [prodId, setProdId] = useState(activos[0]?.id ?? '');
+  const [prodId, setProdId] = useState(productoId ?? activos[0]?.id ?? '');
   const [cant, setCant] = useState('');
   const [costo, setCosto] = useState('');
   const [proveedorId, setProveedorId] = useState('');

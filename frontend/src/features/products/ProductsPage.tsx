@@ -8,6 +8,7 @@ import { Tag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
 import { matches, money } from '../../utils/format';
 import { PriceModal } from './PriceModal';
+import { ProductDrawer } from './ProductDrawer';
 import { ProductFormModal } from './ProductFormModal';
 import { useExportProductos } from './useExportProductos';
 
@@ -25,7 +26,7 @@ export function ProductsPage() {
     <>
       <ViewHead
         title="Productos"
-        desc="Catálogo maestro de repuestos. El stock y el costo promedio los calcula el servidor a partir de los movimientos de inventario."
+        desc="Catálogo maestro de repuestos. El stock y el costo promedio los calcula el servidor a partir de los movimientos de inventario. Haga clic en un producto para ver su ficha completa."
         actions={
           <>
             <button className="b b-out" onClick={exportProductos}>
@@ -60,7 +61,7 @@ export function ProductsPage() {
             {rows.map((p) => {
               const crit = p.stock <= p.stockMin;
               return (
-                <tr key={p.id}>
+                <tr key={p.id} className="row-link" onClick={() => modal.open(<ProductDrawer productoId={p.id} />)}>
                   <td className="mono">{p.sku}</td>
                   <td>
                     {p.ic} {p.nombre}
@@ -76,7 +77,7 @@ export function ProductsPage() {
                     {crit && ' ▼'}
                   </td>
                   <td>{p.activo ? <Tag tone="t-green">Activo</Tag> : <Tag>Inactivo</Tag>}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
+                  <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                     {canWrite && (
                       <button className="b b-out b-sm" onClick={() => modal.open(<ProductFormModal producto={p} />)}>
                         Editar

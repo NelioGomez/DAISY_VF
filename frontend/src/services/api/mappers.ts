@@ -17,7 +17,9 @@ import type {
   EstadoCotizacion,
   EstadoOrden,
   EstadoVenta,
+  FichaProducto,
   LineaDocumento,
+  Rotacion,
   MetodoPago,
   Moneda,
   Movimiento,
@@ -278,6 +280,70 @@ export const mapSugerencia = (r: Json): SugerenciaReposicion => ({
   pospuestoHasta: r.postponedUntil ?? null,
 });
 
+const LOCATION_NAME: Record<number, string> = { 1: 'Bodega', 2: 'Sucursal' };
+
+export const mapFichaProducto = (d: Json): FichaProducto => ({
+  producto: mapProducto(d.product),
+  estadoStock: d.availability === 'OUT_OF_STOCK' ? 'Agotado' : d.availability === 'LOW' ? 'Bajo' : 'Disponible',
+  stats: d.stats
+    ? {
+        vendidas30: n(d.stats.unitsLast30Days),
+        vendidas90: n(d.stats.unitsLast90Days),
+        ingresos90: n(d.stats.revenueLast90Days),
+        margen90: n(d.stats.marginLast90Days),
+        ultimaVenta: d.stats.lastSaleAt ?? null,
+        diasCobertura: d.stats.daysOfCover === null ? null : n(d.stats.daysOfCover),
+        rotacion: (d.stats.rotation ?? 'SIN_MOVIMIENTO') as Rotacion,
+      }
+    : null,
+  enCamino: d.incoming
+    ? {
+        unidades: n(d.incoming.units),
+        compras: (d.incoming.purchases ?? []).map((p: Json) => ({ id: s(p.purchaseId), codigo: s(p.code), proveedor: s(p.supplier), esperada: p.expectedAt ?? null, pendiente: n(p.pending) })),
+      }
+    : null,
+  movimientos: d.movements
+    ? d.movements.map((m: Json) => ({
+        ...mapMovimiento({ ...m, product: { id: d.product.id, sku: d.product.sku, name: d.product.name }, user: { username: m.user }, supplier: m.supplier ? { name: m.supplier } : null }),
+        ubicacion: LOCATION_NAME[n(m.locationId)] ?? '',
+      }))
+    : null,
+  ventas: d.sales
+    ? d.sales.map((v: Json) => ({
+        ventaId: s(v.saleId),
+        factura: s(v.invoiceNumber),
+        fecha: s(v.soldAt),
+        anulada: v.status === 'VOIDED',
+        cliente: s(v.customer?.name),
+        cant: n(v.quantity),
+        precio: n(v.unitPrice),
+        sub: n(v.subtotal),
+      }))
+    : null,
+  proveedores: d.suppliers
+    ? d.suppliers.map((p: Json) => ({
+        id: s(p.supplier?.id),
+        nombre: s(p.supplier?.name),
+        pais: s(p.supplier?.country),
+        codigo: s(p.supplierSku),
+        ultimoCosto: p.lastCost === null ? null : n(p.lastCost),
+        moneda: (p.currency === 'USD' ? 'USD' : 'NIO') as Moneda,
+        plazo: p.leadTimeDays === null ? null : n(p.leadTimeDays),
+        preferente: !!p.isPreferred,
+      }))
+    : null,
+  precios: d.prices
+    ? d.prices.map((r: Json) => ({
+        id: s(r.id),
+        precio: n(r.price),
+        desde: s(r.validFrom),
+        hasta: r.validTo ? s(r.validTo) : null,
+        motivo: s(r.reason),
+        usuario: r.changedBy ? `@${r.changedBy.username}` : 'Sistema',
+      }))
+    : null,
+});
+
 export const mapResumenReposicion = (x: Json): ResumenReposicion => ({
   productos: n(x?.products),
   porPedir: n(x?.toOrder),
@@ -296,6 +362,7 @@ const mapLinea = (i: Json): LineaDocumento => ({
   precio: n(i.unitPrice),
   sub: n(i.subtotal),
   disponible: i.availableStock !== undefined ? n(i.availableStock) : undefined,
+  minimo: i.minStock !== undefined ? n(i.minStock) : undefined,
 });
 
 export const mapPago = (p: Json): Pago => ({
@@ -328,6 +395,8 @@ export const mapVenta = (v: Json): Venta => ({
   vencida: !!v.isOverdue,
   motivoAnulacion: v.voidReason ?? null,
   cotizacion: v.quotation?.code ?? null,
+  cotizacionId: v.quotation?.id ?? null,
+  solicitud: v.quotation?.inquiry ? { id: s(v.quotation.inquiry.id), codigo: s(v.quotation.inquiry.code) } : null,
   items: Array.isArray(v.items) ? v.items.map(mapLinea) : undefined,
   pagos: Array.isArray(v.payments) ? v.payments.map((p: Json) => mapPago({ ...p, sale: { id: v.id, invoiceNumber: v.invoiceNumber, customer: v.customer } })) : undefined,
 });
@@ -343,9 +412,13 @@ export const mapCotizacion = (q: Json): Cotizacion => ({
   iva: n(q.tax),
   total: n(q.total),
   estado: QUOTATION_STATUS[q.status as ApiQuotationStatus] ?? 'Pendiente',
+  estadoDesde: s(q.statusChangedAt ?? q.issuedAt),
   notas: s(q.notes),
+  motivoRechazo: s(q.rejectionReason),
   vendedor: s(q.seller?.username),
   factura: q.sale?.invoiceNumber ?? null,
+  facturaId: q.sale?.id ?? null,
+  solicitud: q.inquiry ? { id: s(q.inquiry.id), codigo: s(q.inquiry.code) } : null,
   items: Array.isArray(q.items) ? q.items.map(mapLinea) : undefined,
 });
 
@@ -387,6 +460,30 @@ export const mapConsulta = (c: Json): ConsultaWeb => ({
   producto: s(c.productInterest),
   msg: s(c.message),
   estado: INQUIRY_STATUS[c.status as ApiInquiryStatus] ?? 'Nueva',
+  estadoDesde: s(c.statusChangedAt ?? c.createdAt),
+  origen: c.source === 'PORTAL' || c.customerAccountId ? 'PORTAL' : 'WEB',
+  cliente: c.customer ? { id: s(c.customer.id), nombre: s(c.customer.name) } : null,
+  asignado: s(c.assignedTo?.username),
+  items: (c.items ?? []).map((i: Json) => ({
+    prod: s(i.productId),
+    sku: s(i.product?.sku),
+    prodN: s(i.product?.name),
+    cant: n(i.quantity),
+    nota: s(i.note),
+    precio: n(i.product?.salePrice),
+    stock: n(i.product?.stock),
+    minimo: n(i.product?.minStock),
+    activo: i.product?.isActive !== false,
+  })),
+  cotizacion: c.quotation
+    ? {
+        id: s(c.quotation.id),
+        codigo: s(c.quotation.code),
+        estado: QUOTATION_STATUS[c.quotation.status as ApiQuotationStatus] ?? 'Pendiente',
+        total: n(c.quotation.total),
+        factura: c.quotation.sale ? { id: s(c.quotation.sale.id), codigo: s(c.quotation.sale.invoiceNumber) } : null,
+      }
+    : null,
 });
 
 const MODULE_LABEL: Record<string, string> = {

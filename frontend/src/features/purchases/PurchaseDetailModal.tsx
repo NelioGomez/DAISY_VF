@@ -28,19 +28,29 @@ export function PurchaseDetailModal({ compraId }: { compraId: string }) {
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const load = useCallback(async () => {
-    const r = await obtenerCompra(compraId);
-    if (r.ok) setC(r.data);
-    else setError(r.error);
-  }, [compraId, obtenerCompra]);
+  const [version, setVersion] = useState(0);
+  const load = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
-    void load();
-    // Si otra persona recibe o cancela esta compra mientras está abierta, se actualiza sola.
-    return subscribeRealtime((e) => {
-      if (e.module === 'purchases' && (!e.entityId || e.entityId === compraId)) void load();
+    let alive = true;
+    void obtenerCompra(compraId).then((r) => {
+      if (!alive) return;
+      if (r.ok) setC(r.data);
+      else setError(r.error);
     });
-  }, [load, compraId]);
+    return () => {
+      alive = false;
+    };
+  }, [compraId, obtenerCompra, version]);
+
+  // Si otra persona recibe o cancela esta compra mientras está abierta, se actualiza sola.
+  useEffect(
+    () =>
+      subscribeRealtime((e) => {
+        if (e.module === 'purchases' && (!e.entityId || e.entityId === compraId)) load();
+      }),
+    [load, compraId],
+  );
 
   const ordenar = async () => {
     if (!c) return;
@@ -49,7 +59,7 @@ export function PurchaseDetailModal({ compraId }: { compraId: string }) {
     setBusy(false);
     if (!r.ok) return toast(r.error, 'err');
     toast(`${c.codigo} ordenada: queda pendiente de recibir`, 'ok');
-    void load();
+    load();
   };
 
   const eliminar = async () => {

@@ -1,9 +1,10 @@
 /* MÓDULO: DASHBOARD (RF-20 / KPIs) — datos de GET /dashboard/summary. */
+import { Link } from 'react-router-dom';
 import { KpiCard } from '../../components/cards/KpiCard';
 import { BarChart } from '../../components/charts/BarChart';
 import { EmptyState } from '../../components/feedback/Empty';
 import { EstadoTag } from '../../components/tables/Tag';
-import { useData } from '../../store/hooks';
+import { useAuth, useData } from '../../store/hooks';
 import type { DashboardResumen } from '../../types';
 import { money } from '../../utils/format';
 
@@ -158,9 +159,17 @@ export function DashboardPage() {
 }
 
 function StockCritico({ d }: { d: DashboardResumen }) {
+  const { can } = useAuth();
   return (
     <div className="card">
-      <h3>Stock crítico — reabastecer</h3>
+      <div className="card-h">
+        <h3>Stock crítico — reabastecer</h3>
+        {can('purchases:read') && d.inventario.reponer.length > 0 && (
+          <Link to="/app/compras?tab=reabastecimiento" className="b b-out b-sm">
+            Ver sugerencias de compra →
+          </Link>
+        )}
+      </div>
       {d.inventario.reponer.length ? (
         <div className="tablewrap" style={{ border: 'none' }}>
           <table>

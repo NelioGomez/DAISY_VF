@@ -61,6 +61,27 @@ export function EstadoTag({ estado }: { estado: string }) {
   );
 }
 
+/** Estado de existencias con ícono y texto (no depende solo del color). */
+export function StockTag({ stock, min }: { stock: number; min: number }) {
+  if (stock <= 0)
+    return (
+      <Tag tone="t-red">
+        <span aria-hidden="true">✕</span> Agotado
+      </Tag>
+    );
+  if (stock <= min)
+    return (
+      <Tag tone="t-amber">
+        <span aria-hidden="true">▼</span> Crítico
+      </Tag>
+    );
+  return (
+    <Tag tone="t-green">
+      <span aria-hidden="true">✓</span> OK
+    </Tag>
+  );
+}
+
 export function TipoMovTag({ tipo }: { tipo: string }) {
   return <Tag tone={tipo === 'Entrada' ? 't-green' : tipo === 'Salida' ? 't-red' : 't-blue'}>{tipo}</Tag>;
 }

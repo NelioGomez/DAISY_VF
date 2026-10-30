@@ -42,3 +42,17 @@ export function matches(query: string, ...fields: Array<string | number | null |
 }
 
 export const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** Días completos transcurridos desde una fecha ISO. */
+export const daysSince = (s: string | null | undefined): number =>
+  s ? Math.max(0, Math.floor((Date.now() - toDate(s).getTime()) / 86_400_000)) : 0;
+
+/** Antigüedad legible: "hoy", "ayer", "hace 8 días", "hace 2 meses". */
+export function ago(s: string | null | undefined): string {
+  if (!s) return '—';
+  const d = daysSince(s);
+  if (d === 0) return 'hoy';
+  if (d === 1) return 'ayer';
+  if (d < 60) return `hace ${d} días`;
+  return `hace ${Math.floor(d / 30)} meses`;
+}

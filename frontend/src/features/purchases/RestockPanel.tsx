@@ -40,22 +40,31 @@ export function RestockPanel() {
   const [sel, setSel] = useState<Record<string, boolean>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async () => {
-    const r = await sugerenciasReposicion(verPospuestos);
-    if (!r.ok) return setError(r.error);
-    setError('');
-    setData(r.data);
-    // Conserva lo que la persona ya ajustó; lo nuevo entra con la cantidad sugerida.
-    setQty((prev) => Object.fromEntries(r.data.items.map((s) => [s.prod, prev[s.prod] ?? String(s.sugerido)])));
-    setSel((prev) => Object.fromEntries(r.data.items.map((s) => [s.prod, prev[s.prod] ?? (s.sugerido > 0 && !s.pospuestoHasta)])));
-  }, [sugerenciasReposicion, verPospuestos]);
+  const [version, setVersion] = useState(0);
+  const load = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
-    void load();
+    let alive = true;
+    void sugerenciasReposicion(verPospuestos).then((r) => {
+      if (!alive) return;
+      if (!r.ok) return setError(r.error);
+      setError('');
+      setData(r.data);
+      // Conserva lo que la persona ya ajustó; lo nuevo entra con la cantidad sugerida.
+      setQty((prev) => Object.fromEntries(r.data.items.map((s) => [s.prod, prev[s.prod] ?? String(s.sugerido)])));
+      setSel((prev) => Object.fromEntries(r.data.items.map((s) => [s.prod, prev[s.prod] ?? (s.sugerido > 0 && !s.pospuestoHasta)])));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [sugerenciasReposicion, verPospuestos, version]);
+
+  // Una venta, recepción o ajuste cambia las sugerencias: se recalculan (agrupando avisos seguidos).
+  useEffect(() => {
     const unsub = subscribeRealtime((e) => {
       if (!RELOAD_ON.has(e.module)) return;
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void load(), 500);
+      timer.current = setTimeout(load, 500);
     });
     return () => {
       unsub();
@@ -106,7 +115,7 @@ export function RestockPanel() {
     const r = await reactivarReposicion(s.prod);
     if (!r.ok) return toast(r.error, 'err');
     toast(`${s.sku} vuelve al panel`, 'ok');
-    void load();
+    load();
   };
 
   if (error)
@@ -114,7 +123,7 @@ export function RestockPanel() {
       <div className="card conn-error" role="alert">
         <h2>No se pudo calcular el reabastecimiento</h2>
         <p>{error}</p>
-        <button className="b b-amber" onClick={() => void load()}>
+        <button className="b b-amber" onClick={load}>
           Reintentar
         </button>
       </div>

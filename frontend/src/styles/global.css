@@ -218,3 +218,119 @@ td.num,th.num{text-align:right;font-family:var(--mono)}
 .conn-error p{color:var(--muted);margin-bottom:18px}
 .b[disabled]{opacity:.55;cursor:not-allowed}
 .readonly-note{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+
+/* =====================================================================
+   Mejoras UX (compras, reabastecimiento, fichas, trazabilidad, POS)
+   ===================================================================== */
+.muted-sm{font-size:11.5px;color:var(--soft)}
+.sub-num{font-size:11px;color:var(--soft)}
+.link-btn{color:var(--ink);font-weight:500;text-align:left;padding:0;border-bottom:1px dashed transparent}
+.link-btn:hover,.link-btn:focus-visible{color:var(--blue);border-bottom-color:var(--blue);outline:none}
+.row-link{cursor:pointer}
+.row-link:focus-within{background:#fafbfc}
+.toolbar-select{padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff}
+.check-inline{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);white-space:nowrap}
+.pill-count{background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;font-family:var(--mono)}
+.card-h{display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:12px}
+.card-h h3{margin-bottom:0}
+.soft-card{background:var(--panel);padding:12px}
+.is-muted td{opacity:.6}
+.age{font-size:11px;color:var(--soft);margin-top:3px;font-family:var(--mono)}
+.age.is-late{color:var(--amber-deep);font-weight:700}
+.note-warn{background:#fff6e0;border-color:#f1dca6;color:#7a5200}
+.note-danger{background:var(--red-soft);border-color:#f5c2bd;color:#9c241b}
+.section-title{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:16px 0 8px;font-weight:700}
+.quote-msg{border-left:3px solid var(--amber);background:#fffaf0;padding:10px 12px;border-radius:0 8px 8px 0;margin:0 0 12px;font-size:13px;white-space:pre-wrap}
+
+/* Tablas: encabezado fijo en listas largas (mejora n.° 22) */
+.tablewrap.tall{max-height:460px;overflow:auto}
+table.sticky-head thead th{position:sticky;top:0;z-index:1}
+
+/* Pestañas */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tabs [role=tab]{padding:10px 14px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.tabs [role=tab]:hover{color:var(--ink)}
+.tabs [role=tab].active{color:var(--ink);border-bottom-color:var(--amber)}
+.tabs [role=tab]:focus-visible{outline:2px solid var(--amber);outline-offset:-2px;border-radius:6px 6px 0 0}
+.tab-count{background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:10.5px;font-family:var(--mono);padding:0 7px;border-radius:20px}
+.tabs [role=tab].active .tab-count{background:#fff2d6;border-color:#f1dca6;color:#9a6500}
+
+/* Barra de avance */
+.progress{height:6px;background:#eef1f4;border-radius:6px;overflow:hidden}
+.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--amber),var(--green));border-radius:6px}
+.progress-txt{font-size:11px;color:var(--soft);font-family:var(--mono)}
+
+/* Encabezado de documentos en modales */
+.doc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.doc-title{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.doc-meta{font-size:12.5px;color:var(--muted);margin-top:2px}
+
+/* Trazabilidad documental (mejora n.° 50) */
+.doc-chain{margin:0 0 14px}
+.doc-chain ol{list-style:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:9px 10px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.doc-chain li{display:inline-flex;align-items:center;gap:6px}
+.doc-chain-sep{color:var(--soft);font-weight:700}
+.doc-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:20px;border:1px solid var(--line);background:#fff;font-size:12px;color:var(--ink);line-height:1.5}
+.doc-chip-ic{color:var(--amber-deep);font-size:12px}
+.doc-chip-sub{color:var(--soft);font-size:11px}
+.doc-chip.is-link{cursor:pointer}
+.doc-chip.is-link:hover,.doc-chip.is-link:focus-visible{border-color:var(--blue);color:var(--blue);outline:none;box-shadow:0 0 0 3px rgba(47,111,176,.12)}
+.doc-chip.is-current{background:#fff2d6;border-color:#f1dca6;font-weight:700}
+
+/* Recepciones */
+.receipt{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.receipt-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.receipt-h b{color:var(--ink)}
+.receipt-items{list-style:none;margin-top:6px}
+.receipt-items li{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:4px 0;border-top:1px dashed #eef2f5;flex-wrap:wrap}
+.cell-input{width:90px;padding:6px 8px;border:1.5px solid var(--line);border-radius:7px;text-align:right;font-family:var(--mono)}
+.cell-input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,166,35,.14)}
+.cell-input[aria-invalid=true]{border-color:var(--red)}
+.confirm-box{margin-top:14px;border:1px solid #c3e6d0;background:#eaf7ef;color:#1d5a37;border-radius:11px;padding:12px 14px;font-size:13px}
+.confirm-box ul{margin:6px 0 0 18px}
+.confirm-box.is-empty{background:var(--panel);border-color:var(--line);color:var(--muted)}
+.confirm-box.is-warn{background:#fff6e0;border-color:#f1dca6;color:#7a5200}
+.li-row.li-purchase,.li-head.li-purchase{grid-template-columns:1fr 80px 120px 120px 36px}
+
+/* Reabastecimiento */
+.restock-group{margin-bottom:14px;padding:14px 16px}
+.restock-group-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.restock-group-h h3{margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--ink)}
+.restock-rule{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:3px}
+
+/* Panel lateral (drawer) */
+.drawer-bg{position:fixed;inset:0;background:rgba(8,16,24,.45);z-index:100;display:flex;justify-content:flex-end}
+.drawer{background:#fff;width:min(560px,100%);height:100%;display:flex;flex-direction:column;box-shadow:-20px 0 60px rgba(0,0,0,.3);animation:slide-in .18s ease-out;outline:none}
+@keyframes slide-in{from{transform:translateX(30px);opacity:.4}to{transform:none;opacity:1}}
+.drawer-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:flex-start}
+.drawer-h h3{font-family:var(--display);font-size:18px}
+.drawer-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.drawer-h .x{margin-left:auto;width:32px;height:32px;border-radius:8px;color:var(--muted);font-size:18px;flex-shrink:0}
+.drawer-h .x:hover{background:var(--panel)}
+.drawer-b{padding:16px 20px;overflow-y:auto;flex:1}
+.drawer-f{padding:12px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;background:#fafbfc}
+.drawer-section table{font-size:12.5px}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.mini-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.mini-kpis>div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px;display:flex;flex-direction:column;gap:2px}
+.mini-kpis span{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700}
+.mini-kpis b{font-family:var(--mono);font-size:17px}
+.mini-kpis small{font-size:11px;color:var(--soft)}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
+.facts dt{color:var(--muted)}
+.facts dd{font-weight:600}
+.plain-list{list-style:none}
+.plain-list li{padding:7px 0;border-bottom:1px solid #eef2f5;font-size:13px}
+.plain-list li:last-child{border:none}
+
+/* Línea de tiempo de movimientos (mejora n.° 16) */
+.timeline{list-style:none;position:relative;padding-left:18px}
+.timeline:before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.timeline li{position:relative;padding:0 0 14px}
+.timeline li:before{content:"";position:absolute;left:-17px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--blue);border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
+.timeline li.tl-in:before{background:var(--green)}
+.timeline li.tl-out:before{background:var(--red)}
+.tl-head{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.tl-meta{font-size:11.5px;color:var(--muted);margin:2px 0 4px}
+
+@media(max-width:880px){.mini-kpis{grid-template-columns:1fr}.li-row.li-purchase,.li-head.li-purchase{grid-template-columns:1fr 70px 100px 36px}.li-row.li-purchase input:nth-child(4),.li-head.li-purchase span:nth-child(4){display:none}}

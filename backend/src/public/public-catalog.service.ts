@@ -93,14 +93,30 @@ export class PublicCatalogService {
     return { ...this.toDto(p), related: related.map((r) => this.toDto(r)) };
   }
 
-  /** Filtros del catálogo: solo categorías/marcas activas que tienen productos visibles. */
+  /**
+   * Filtros del catálogo: solo categorías/marcas activas que tienen productos visibles.
+   * Cada categoría trae cuántos productos publicados tiene y su precio más bajo
+   * (la portada los muestra como un rótulo de precios "desde").
+   */
   async categories() {
-    const rows = await this.prisma.category.findMany({
-      where: { isActive: true, products: { some: this.visible() } },
-      select: { id: true, name: true },
-      orderBy: { name: 'asc' },
+    const [rows, stats] = await Promise.all([
+      this.prisma.category.findMany({
+        where: { isActive: true, products: { some: this.visible() } },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.product.groupBy({
+        by: ['categoryId'],
+        where: this.visible(),
+        _count: { _all: true },
+        _min: { salePrice: true },
+      }),
+    ]);
+    const byCategory = new Map(stats.map((s) => [s.categoryId, s]));
+    return rows.map((c) => {
+      const s = byCategory.get(c.id);
+      return { ...c, productCount: s?._count._all ?? 0, minPrice: s?._min.salePrice ? decimalToNumber(s._min.salePrice) : null };
     });
-    return rows;
   }
 
   async brands() {

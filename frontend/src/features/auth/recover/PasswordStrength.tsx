@@ -4,7 +4,8 @@ import { CheckIcon } from '../icons';
 /** Medidor de fuerza y lista de requisitos que se marcan mientras se escribe. */
 export function PasswordStrength({ password, username }: { password: string; username: string }) {
   const level = passwordStrength(password, username);
-  const rules = passwordRules(password, username);
+  // Sin nombre de usuario (registro de clientes) no se muestra esa regla.
+  const rules = passwordRules(password, username).filter((r) => r.id !== 'username' || username.trim());
   return (
     <>
       <div className="auth-strength" data-level={level} aria-hidden={!password}>

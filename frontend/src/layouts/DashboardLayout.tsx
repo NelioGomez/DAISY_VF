@@ -1,5 +1,5 @@
 /* Layout del panel interno: sidebar por rol + topbar + área de vista. */
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/common/Logo';
 import { MENU, TITLES, isModuleId, visibleModules } from '../config/navigation';
@@ -177,7 +177,10 @@ export function DashboardLayout() {
               </button>
             </div>
           ) : (
-            <Outlet />
+            // Cada módulo se descarga al abrirlo por primera vez (división del código).
+            <Suspense fallback={<ViewLoader text="Abriendo el módulo…" />}>
+              <Outlet />
+            </Suspense>
           )}
         </main>
       </div>

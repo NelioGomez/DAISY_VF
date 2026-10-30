@@ -120,7 +120,6 @@ export interface DataActions {
   facturarOrden(id: string, ventaId: string): Promise<Result>;
   cancelarOrden(id: string, motivo: string): Promise<Result>;
   /** Devuelve el código de la solicitud (SOL-000001). */
-  crearConsulta(nombre: string, contacto: string, producto: string, msg: string): Promise<Result<string | undefined>>;
   cambiarEstadoConsulta(id: string, estado: EstadoConsulta): Promise<Result>;
   obtenerConsulta(id: string): Promise<Result<ConsultaWeb>>;
   /** Solicitud web → cotización precargada (la solicitud pasa a Cotizada y se conserva). */

@@ -1,18 +1,34 @@
-/* MÓDULO: DASHBOARD (RF-20 / KPIs) — datos de GET /dashboard/summary. */
-import { Link } from 'react-router-dom';
+/* MÓDULO: DASHBOARD (RF-20 / KPIs) — datos de GET /dashboard/summary.
+   Centro de trabajo del día (n.° 40), acciones rápidas (n.° 8), KPIs con tendencia (n.° 9),
+   más vendidos (n.° 10) y antigüedad de cuentas por cobrar (n.° 24). */
+import type { ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { KpiCard } from '../../components/cards/KpiCard';
 import { BarChart } from '../../components/charts/BarChart';
 import { EmptyState } from '../../components/feedback/Empty';
+import { useModal } from '../../components/modals/useModal';
 import { EstadoTag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
 import type { DashboardResumen } from '../../types';
 import { money } from '../../utils/format';
+import { MovementFormModal } from '../inventory/MovementFormModal';
+import { PurchaseFormModal } from '../purchases/PurchaseFormModal';
+import { QuotationFormModal } from '../quotations/QuotationFormModal';
+import { agenda, variacion } from './agenda';
 
-const SEVERITY: Record<string, { ic: string; bg: string; col: string }> = {
-  critical: { ic: '▼', bg: 'var(--red-soft)', col: '#b32a20' },
-  warning: { ic: '◷', bg: '#fff2d6', col: '#9a6500' },
-  info: { ic: '◫', bg: 'var(--blue-soft)', col: '#205283' },
-};
+/** "▲ 12 % vs. 30 días anteriores" (o el texto alterno si no hay base para comparar). */
+function Trend({ actual, previo, sinBase }: { actual: number; previo: number; sinBase: string }) {
+  const v = variacion(actual, previo);
+  if (v === null) return <>{sinBase}</>;
+  return (
+    <>
+      <span className={`trend ${v > 0 ? 'up' : v < 0 ? 'down' : ''}`}>
+        <span aria-hidden="true">{v > 0 ? '▲' : v < 0 ? '▼' : '='}</span> {Math.abs(v)} %
+      </span>{' '}
+      vs. 30 días anteriores
+    </>
+  );
+}
 
 export function DashboardPage() {
   const { db } = useData();
@@ -25,8 +41,38 @@ export function DashboardPage() {
     );
 
   const sec = d.secciones;
+  const ticket = d.ventas30.facturas ? d.ventas30.total / d.ventas30.facturas : 0;
+  const ticketPrevio = d.ventasPrevias.facturas ? d.ventasPrevias.total / d.ventasPrevias.facturas : 0;
+  const conv = d.cotizaciones.conversion;
+  const tasa = (x: { emitidas: number; convertidas: number }) => (x.emitidas ? Math.round((x.convertidas / x.emitidas) * 100) : 0);
   const kpis = [
-    sec.ventas && <KpiCard key="v" lbl="Ventas (30 días)" val={money(d.ventas30.total)} sub={d.ventas30.facturas + ' facturas'} ic="⛽" />,
+    sec.ventas && (
+      <KpiCard
+        key="v"
+        lbl="Ventas (30 días)"
+        val={money(d.ventas30.total)}
+        sub={<Trend actual={d.ventas30.total} previo={d.ventasPrevias.total} sinBase={`${d.ventas30.facturas} facturas`} />}
+        ic="⛽"
+      />
+    ),
+    sec.ventas && (
+      <KpiCard
+        key="t"
+        lbl="Ticket promedio"
+        val={money(ticket)}
+        sub={<Trend actual={ticket} previo={ticketPrevio} sinBase={`${d.ventas30.facturas} facturas en 30 días`} />}
+        ic="◈"
+      />
+    ),
+    sec.cotizaciones && (
+      <KpiCard
+        key="cv"
+        lbl="Conversión de cotizaciones"
+        val={`${tasa(conv.actual)} %`}
+        sub={`${conv.actual.convertidas} de ${conv.actual.emitidas} emitidas${conv.previa.emitidas ? `; antes ${tasa(conv.previa)} %` : ''}`}
+        ic="▥"
+      />
+    ),
     sec.inventario && (
       <KpiCard
         key="s"
@@ -74,7 +120,8 @@ export function DashboardPage() {
 
   return (
     <>
-      <div className={`grid cols-${Math.min(4, Math.max(2, kpis.length))}`} style={{ marginBottom: 16 }}>
+      <QuickActions />
+      <div className={`grid cols-${Math.min(3, Math.max(2, kpis.length))}`} style={{ marginBottom: 16 }}>
         {kpis}
       </div>
 
@@ -96,35 +143,15 @@ export function DashboardPage() {
             <EmptyState msg="Sin indicadores para su rol" ic="▦" />
           </div>
         )}
-        <div className="card">
-          <h3>Alertas</h3>
-          {d.alertas.length ? (
-            d.alertas.map((a, i) => {
-              const s = SEVERITY[a.severidad] ?? SEVERITY.info;
-              return (
-                <div className="alert-li" key={a.tipo + i}>
-                  <div className="ic" style={{ background: s.bg, color: s.col }}>
-                    {s.ic}
-                  </div>
-                  <div>{a.mensaje}</div>
-                </div>
-              );
-            })
-          ) : (
-            <EmptyState msg="Sin alertas activas" ic="✓" />
-          )}
-          {d.cotizaciones.aprobadasSinVenta > 0 && (
-            <div className="alert-li">
-              <div className="ic" style={{ background: '#efeaff', color: '#503fa0' }}>
-                ▥
-              </div>
-              <div>
-                <b>{d.cotizaciones.aprobadasSinVenta}</b> cotización(es) aprobada(s) esperando convertirse en venta
-              </div>
-            </div>
-          )}
-        </div>
+        <Agenda d={d} />
       </div>
+
+      {(sec.ventas || sec.cxc) && (
+        <div className={`grid ${sec.ventas && sec.cxc ? 'cols-2' : ''}`} style={{ marginTop: 16 }}>
+          {sec.ventas && <TopProductos d={d} />}
+          {sec.cxc && <Antiguedad d={d} />}
+        </div>
+      )}
 
       {sec.ventas && (
         <div className={`grid ${sec.inventario ? 'cols-2' : ''}`} style={{ marginTop: 16 }}>
@@ -195,3 +222,144 @@ function StockCritico({ d }: { d: DashboardResumen }) {
     </div>
   );
 }
+
+/** Centro de trabajo del día (n.° 40): cada pendiente lleva a donde se resuelve. */
+function Agenda({ d }: { d: DashboardResumen }) {
+  const { can } = useAuth();
+  const items = agenda(d, can);
+  return (
+    <div className="card">
+      <h3>Pendientes para hoy</h3>
+      {items.length ? (
+        <div className="agenda">
+          {items.map((i) => (
+            <Link key={i.tipo} to={i.link} className="agenda-li">
+              <span className={`ic sev-${i.severidad}`} aria-hidden="true">
+                {i.ic}
+              </span>
+              <span className="txt">{i.mensaje}</span>
+              <span className="cta">{i.accion}</span>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <EmptyState msg="Todo al día: no hay pendientes" ic="✓" />
+      )}
+    </div>
+  );
+}
+
+/** Acciones rápidas (n.° 8), según los permisos del rol. */
+function QuickActions() {
+  const { can } = useAuth();
+  const navigate = useNavigate();
+  const modal = useModal();
+  const actions: Array<{ key: string; show: boolean; label: string; kbd?: string; primary?: boolean; run(): void }> = [
+    { key: 'venta', show: can('sales:write') && can('customers:read'), label: 'Nueva venta', kbd: 'Alt+V', primary: true, run: () => navigate('/app/ventas/nueva') },
+    {
+      key: 'cot',
+      show: can('quotations:write') && can('customers:read'),
+      label: 'Nueva cotización',
+      kbd: 'Alt+C',
+      run: () => {
+        navigate('/app/cotizaciones');
+        modal.open(<QuotationFormModal />);
+      },
+    },
+    { key: 'entrada', show: can('inventory:write'), label: 'Registrar entrada', run: () => modal.open(<MovementFormModal tipo="Entrada" />) },
+    {
+      key: 'compra',
+      show: can('purchases:write'),
+      label: 'Nueva compra',
+      run: () => {
+        navigate('/app/compras');
+        modal.open(<PurchaseFormModal />);
+      },
+    },
+    { key: 'pago', show: can('payments:write'), label: 'Registrar pago', run: () => navigate('/app/pagos') },
+  ];
+  const visible = actions.filter((a) => a.show);
+  if (!visible.length) return null;
+  return (
+    <div className="quick" role="toolbar" aria-label="Acciones rápidas">
+      {visible.map((a) => (
+        <button key={a.key} className={`b ${a.primary ? 'b-amber' : 'b-out'}`} onClick={a.run} title={a.kbd ? `Atajo: ${a.kbd}` : undefined}>
+          <span aria-hidden="true">＋</span> {a.label}
+          {a.kbd && <kbd>{a.kbd}</kbd>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Ranking de productos más vendidos en 30 días (n.° 10). */
+function TopProductos({ d }: { d: DashboardResumen }) {
+  const max = Math.max(1, ...d.topProductos.map((p) => p.unidades));
+  return (
+    <div className="card">
+      <div className="card-h">
+        <h3>Más vendidos (30 días)</h3>
+        <Link to="/app/reportes" className="b b-out b-sm">
+          Ver reportes
+        </Link>
+      </div>
+      {d.topProductos.length ? (
+        <ol className="rank">
+          {d.topProductos.map((p, i) => (
+            <li key={p.sku}>
+              <span className="pos">{i + 1}</span>
+              <span className="name">
+                {p.nombre}
+                <small className="mono">{p.sku}</small>
+              </span>
+              <span className="units">{p.unidades} u.</span>
+              <Bar value={p.unidades} max={max} />
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <EmptyState msg="Sin ventas en los últimos 30 días" />
+      )}
+    </div>
+  );
+}
+
+/** Antigüedad de las cuentas por cobrar (n.° 24): mismos tramos que el reporte. */
+function Antiguedad({ d }: { d: DashboardResumen }) {
+  const total = d.cxc.antiguedad.reduce((t, a) => t + a.monto, 0);
+  return (
+    <div className="card">
+      <div className="card-h">
+        <h3>Antigüedad de cuentas por cobrar</h3>
+        <Link to="/app/pagos" className="b b-out b-sm">
+          Ir a Pagos
+        </Link>
+      </div>
+      {total > 0 ? (
+        <ul className="aging">
+          {d.cxc.antiguedad.map((a) => (
+            <li key={a.clave} className={`ag-${a.clave}`}>
+              <span className="name">{a.etiqueta}</span>
+              <span className="units">
+                {a.facturas} {a.facturas === 1 ? 'factura' : 'facturas'}
+              </span>
+              <span className="amt">{money(a.monto)}</span>
+              <Bar value={a.monto} max={total} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <EmptyState msg="No hay saldos pendientes" ic="✓" />
+      )}
+    </div>
+  );
+}
+
+function Bar({ value, max }: { value: number; max: number }): ReactNode {
+  return (
+    <span className="meter" aria-hidden="true">
+      <i style={{ width: `${Math.max(2, (value / max) * 100)}%` }} />
+    </span>
+  );
+}
+

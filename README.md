@@ -186,6 +186,7 @@ sesión de los clientes). Los datos de contacto del sitio público se guardan co
 | `GET/POST /portal/inquiries`, `GET /portal/inquiries/:id` | Lista de cotización enviada y su seguimiento |
 | `GET /portal/quotations`, `GET /portal/quotations/:id` | Cotizaciones del cliente (sin borradores) |
 | `GET /public/products/:id` · `GET /public/categories` | Ficha pública con relacionados; categorías con cantidad y precio "desde" |
+| `GET /dashboard/summary` (ampliado) | Ventas de los 30 días anteriores, conversión de cotizaciones, antigüedad de CxC, compras por recibir y pendientes accionables (campana y "Pendientes para hoy") |
 
 El token de cliente no sirve en la API interna y el del personal no sirve en `/portal`.
 

@@ -407,20 +407,35 @@ export interface RegistroAuditoria {
 
 export interface DashboardResumen {
   /** Secciones que el servidor envió según los permisos del rol. */
-  secciones: { ventas: boolean; inventario: boolean; cxc: boolean; ordenes: boolean; cotizaciones: boolean; consultas: boolean };
+  secciones: { ventas: boolean; inventario: boolean; cxc: boolean; ordenes: boolean; cotizaciones: boolean; consultas: boolean; compras: boolean };
   ventas30: { total: number; facturas: number };
+  /** Los 30 días anteriores (tendencia, mejora n.° 9). */
+  ventasPrevias: { total: number; facturas: number };
   ventasAcumuladas: { total: number; facturas: number };
   ventasPorDia: Array<{ dia: string; total: number }>;
   topProductos: Array<{ sku: string; nombre: string; unidades: number }>;
   porMetodo: Array<{ metodo: MetodoPago; total: number; facturas: number }>;
   ventasRecientes: Array<{ id: string; factura: string; cliente: string; total: number; estado: EstadoVenta }>;
   inventario: { productos: number; criticos: number; agotados: number; valor: number; reponer: Array<{ id: string; sku: string; nombre: string; stock: number; stockMin: number; faltan: number }> };
-  cxc: { facturas: number; total: number; vencidas: number; montoVencido: number };
+  cxc: {
+    facturas: number;
+    total: number;
+    vencidas: number;
+    montoVencido: number;
+    /** Antigüedad de saldos (mejora n.° 24): vigente, 1-30, 31-60, 61-90 y más de 90 días de atraso. */
+    antiguedad: Array<{ clave: string; etiqueta: string; facturas: number; monto: number }>;
+  };
   ordenesAbiertas: number;
   ordenesPorEstado: Array<{ estado: EstadoOrden; cantidad: number }>;
-  cotizaciones: { pendientes: number; aprobadasSinVenta: number; porVencer: number };
+  cotizaciones: {
+    pendientes: number;
+    aprobadasSinVenta: number;
+    porVencer: number;
+    /** Emitidas y convertidas en venta en los últimos 30 días y en los 30 anteriores. */
+    conversion: { actual: { emitidas: number; convertidas: number }; previa: { emitidas: number; convertidas: number } };
+  };
   consultasNuevas: number;
-  alertas: Array<{ tipo: string; severidad: 'info' | 'warning' | 'critical' | string; mensaje: string }>;
+  alertas: Array<{ tipo: string; severidad: 'info' | 'warning' | 'critical' | string; mensaje: string; cantidad: number }>;
 }
 
 /** Un registro del historial de precios (lo llena un trigger de la base de datos). */

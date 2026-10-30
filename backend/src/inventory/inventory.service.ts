@@ -4,12 +4,13 @@ import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { dateRange } from '../common/utils/dates';
 import { decimalToNumber } from '../common/utils/decimal';
 import { buildPagination } from '../common/utils/pagination';
-import { InventoryMovementType } from '../generated/prisma/client';
+import { Currency, InventoryMovementType } from '../generated/prisma/client';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilterProductDto } from '../products/dto/product.dto';
 import { ProductsService } from '../products/products.service';
 import { CreateMovementDto, FilterMovementDto } from './dto/inventory.dto';
+import { rememberSupplierCost } from './product-suppliers';
 import { MovementResult, StockService } from './stock.service';
 
 const MOVEMENT_INCLUDE = {
@@ -113,13 +114,19 @@ export class InventoryService {
     const result: MovementResult = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
         switch (dto.type) {
-          case InventoryMovementType.ENTRY:
-            return this.stock.registerEntry(tx, {
+          case InventoryMovementType.ENTRY: {
+            const res = await this.stock.registerEntry(tx, {
               productId: dto.productId,
               quantity: dto.quantity!,
               unitCost: dto.unitCost!,
               ...ctx,
             });
+            // Una entrada manual con proveedor también alimenta el proveedor preferente y su último costo.
+            if (supplierId) {
+              await rememberSupplierCost(tx, { productId: dto.productId, supplierId, unitCost: dto.unitCost!, currency: Currency.NIO });
+            }
+            return res;
+          }
           case InventoryMovementType.EXIT:
             return this.stock.registerExit(tx, { productId: dto.productId, quantity: dto.quantity!, ...ctx });
           default:

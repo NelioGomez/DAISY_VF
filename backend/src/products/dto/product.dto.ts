@@ -82,6 +82,17 @@ export class CreateProductDto {
   @Max(1_000_000)
   minStock?: number;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    minimum: 0,
+    description: 'Tope de reposición: el panel de reabastecimiento sugiere comprar hasta este nivel (≥ stock mínimo)',
+  })
+  @IsOptional()
+  @IsInt({ message: 'El stock máximo debe ser un número entero' })
+  @Min(0, { message: 'El stock máximo no puede ser negativo' })
+  @Max(1_000_000)
+  maxStock?: number | null;
+
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()

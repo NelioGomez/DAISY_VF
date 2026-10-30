@@ -18,6 +18,7 @@ import { ProductsPage } from '../../features/products/ProductsPage';
 import { PurchasesPage } from '../../features/purchases/PurchasesPage';
 import { QuotationsPage } from '../../features/quotations/QuotationsPage';
 import { ReportsPage } from '../../features/reports/ReportsPage';
+import { PosPage } from '../../features/sales/PosPage';
 import { SalesPage } from '../../features/sales/SalesPage';
 import { ServiceOrdersPage } from '../../features/service-orders/ServiceOrdersPage';
 import { SuppliersPage } from '../../features/suppliers/SuppliersPage';
@@ -63,6 +64,15 @@ export function AppRouter() {
         {(Object.keys(MODULE_PAGES) as ModuleId[]).map((id) => (
           <Route key={id} path={id} element={<RequireModule id={id}>{MODULE_PAGES[id]}</RequireModule>} />
         ))}
+        {/* Venta tipo POS: pantalla propia dentro del módulo Ventas. */}
+        <Route
+          path="ventas/nueva"
+          element={
+            <RequireModule id="ventas">
+              <PosPage />
+            </RequireModule>
+          }
+        />
         <Route path="*" element={<HomeRedirect />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />

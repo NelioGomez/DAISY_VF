@@ -1,5 +1,6 @@
 /* MÓDULO: VENTAS Y FACTURACIÓN (RF-12/13/14) — IVA, descuenta stock */
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
@@ -8,7 +9,6 @@ import { EstadoTag, Tag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
 import { fmtDate, matches, money } from '../../utils/format';
 import { InvoiceModal } from './InvoiceModal';
-import { SaleFormModal } from './SaleFormModal';
 import { useExportVentas } from './useExportVentas';
 
 export function SalesPage() {
@@ -31,9 +31,9 @@ export function SalesPage() {
               ⬇ Exportar CSV
             </button>
             {canSell && (
-              <button className="b b-amber" onClick={() => modal.open(<SaleFormModal />)}>
+              <Link className="b b-amber" to="/app/ventas/nueva" title="Atajo: Alt + V">
                 + Nueva venta
-              </button>
+              </Link>
             )}
           </>
         }

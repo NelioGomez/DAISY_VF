@@ -1,6 +1,6 @@
 /* Layout del panel interno: sidebar por rol + topbar + área de vista. */
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/common/Logo';
 import { MENU, TITLES, isModuleId, visibleModules } from '../config/navigation';
 import { ViewLoader } from '../components/feedback/FullScreenLoader';
@@ -8,8 +8,15 @@ import { RealtimeIndicator } from '../components/feedback/RealtimeIndicator';
 import { SESSION_IDLE_MINUTES } from '../config/security';
 import { readNoticesEnabled, storeNoticesEnabled, useRealtimeNotices } from '../features/realtime/useRealtimeNotices';
 import { useIdleTimeout } from '../hooks/useIdleTimeout';
+import { useModal } from '../components/modals/useModal';
+import { QuotationFormModal } from '../features/quotations/QuotationFormModal';
 import { useAuth, useData } from '../store/hooks';
 import type { ModuleId } from '../types';
+
+/** Pantallas dentro de un módulo (título propio y breadcrumb). */
+const SUBPAGES: Record<string, string> = {
+  '/app/ventas/nueva': 'Nueva venta (POS)',
+};
 
 function useClock(): string {
   const fmt = () => new Date().toLocaleString('es-NI', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -22,11 +29,12 @@ function useClock(): string {
 }
 
 export function DashboardLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
+  const modal = useModal();
   const { db, status, loadError, reload, realtime } = useData();
   const navigate = useNavigate();
   const location = useLocation();
-  const match = useMatch('/app/:module');
+  const match = useMatch('/app/:module/*');
   const clock = useClock();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notices, setNotices] = useState(readNoticesEnabled);
@@ -41,12 +49,32 @@ export function DashboardLayout() {
   // (RequireAuth redirige al login guardando la ruta; el login lee el motivo de la sesión.)
   useIdleTimeout(SESSION_IDLE_MINUTES, () => logout('idle'), !!user);
 
+  // Atajos de teclado (mejora n.° 31): Alt + V nueva venta, Alt + C nueva cotización.
+  // Se usa e.code (tecla física) para que funcione con teclado en español.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.code === 'KeyV' && can('sales:write') && can('customers:read')) {
+        e.preventDefault();
+        navigate('/app/ventas/nueva');
+      } else if (e.code === 'KeyC' && can('quotations:write') && can('customers:read')) {
+        e.preventDefault();
+        navigate('/app/cotizaciones');
+        modal.open(<QuotationFormModal />);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [can, modal, navigate]);
+
   if (!user) return null;
 
   const allowed = visibleModules(user);
   const param = match?.params.module;
   const moduleId: ModuleId = isModuleId(param) ? param : 'dashboard';
   const [title, crumb] = TITLES[moduleId];
+  // Ruta de navegación (breadcrumb) para pantallas dentro de un módulo, p. ej. Ventas › Nueva venta.
+  const sub = SUBPAGES[location.pathname];
 
   const badges: Partial<Record<ModuleId, number>> = {
     inventario: db.productos.filter((p) => p.stock <= p.stockMin).length,
@@ -97,8 +125,16 @@ export function DashboardLayout() {
             ☰
           </button>
           <div>
-            <h1>{title}</h1>
-            <div className="crumb">NORCOR · {crumb}</div>
+            <h1>{sub ?? title}</h1>
+            <nav className="crumb" aria-label="Ruta">
+              {sub ? (
+                <>
+                  NORCOR › <Link to={`/app/${moduleId}`}>{title}</Link> › {sub}
+                </>
+              ) : (
+                <>NORCOR · {crumb}</>
+              )}
+            </nav>
           </div>
           <div className="spacer" />
           <RealtimeIndicator

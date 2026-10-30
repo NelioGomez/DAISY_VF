@@ -14,8 +14,9 @@ const RULES: Record<string, (v: string) => string | null> = {
   COMPANY_EMAIL: (v) => (!v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? null : 'Correo inválido'),
   COMPANY_WHATSAPP: () => null,
   COMPANY_ADDRESS: () => null,
+  COMPANY_HOURS: () => null,
 };
-const PUBLIC_KEYS = ['COMPANY_NAME', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_WHATSAPP', 'COMPANY_ADDRESS'];
+const PUBLIC_KEYS = ['COMPANY_NAME', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_WHATSAPP', 'COMPANY_ADDRESS', 'COMPANY_HOURS'];
 
 const toCamel = (key: string) => key.toLowerCase().replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
 

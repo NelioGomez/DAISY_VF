@@ -11,7 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FilterInquiryDto } from './dto/inquiry.dto';
 import { canMoveInquiry } from './inquiry-status';
 
-const INQUIRY_SELECT = {
+export const INQUIRY_SELECT = {
   id: true,
   code: true,
   name: true,
@@ -21,10 +21,22 @@ const INQUIRY_SELECT = {
   status: true,
   statusChangedAt: true,
   customerId: true,
+  customerAccountId: true,
   assignedToId: true,
   createdAt: true,
-  items: { select: { productId: true, quantity: true, note: true, product: { select: { sku: true, name: true } } } },
-  quotation: { select: { id: true, code: true } },
+  customer: { select: { id: true, name: true, ruc: true } },
+  assignedTo: { select: { id: true, username: true } },
+  items: {
+    orderBy: { id: 'asc' as const },
+    select: {
+      productId: true,
+      quantity: true,
+      note: true,
+      product: { select: { sku: true, name: true, salePrice: true, stock: true, minStock: true, isActive: true } },
+    },
+  },
+  // Cadena SOL → COT → FAC: la cotización generada y, si ya se convirtió, su factura.
+  quotation: { select: { id: true, code: true, status: true, total: true, sale: { select: { id: true, invoiceNumber: true } } } },
 } as const;
 
 interface InquiryRow {
@@ -37,10 +49,46 @@ interface InquiryRow {
   status: InquiryStatus;
   statusChangedAt: Date;
   customerId: string | null;
+  customerAccountId: string | null;
   assignedToId: string | null;
   createdAt: Date;
-  items: { productId: string; quantity: number; note: string | null; product: { sku: string; name: string } }[];
-  quotation: { id: string; code: string } | null;
+  customer: { id: string; name: string; ruc: string | null } | null;
+  assignedTo: { id: string; username: string } | null;
+  items: {
+    productId: string;
+    quantity: number;
+    note: string | null;
+    product: { sku: string; name: string; salePrice: { toString(): string }; stock: number; minStock: number; isActive: boolean };
+  }[];
+  quotation: {
+    id: string;
+    code: string;
+    status: string;
+    total: { toString(): string };
+    sale: { id: string; invoiceNumber: string } | null;
+  } | null;
+}
+
+/** Forma pública de una solicitud (sin decimales de Prisma; disponibilidad orientativa por línea). */
+export function inquiryToDto(r: InquiryRow) {
+  return {
+    ...r,
+    source: r.customerAccountId ? ('PORTAL' as const) : ('WEB_FORM' as const),
+    items: r.items.map((i) => ({
+      productId: i.productId,
+      quantity: i.quantity,
+      note: i.note,
+      product: {
+        sku: i.product.sku,
+        name: i.product.name,
+        salePrice: Number(i.product.salePrice.toString()),
+        stock: i.product.stock,
+        minStock: i.product.minStock,
+        isActive: i.product.isActive,
+      },
+    })),
+    quotation: r.quotation ? { ...r.quotation, total: Number(r.quotation.total.toString()) } : null,
+  };
 }
 
 @Injectable()
@@ -109,13 +157,13 @@ export class InquiriesService {
     for (const g of groups as unknown as { status: InquiryStatus; _count: { _all: number } }[]) {
       summary[g.status] = g._count._all;
     }
-    return { data: rows as InquiryRow[], pagination: buildPagination(page, limit, total), summary };
+    return { data: (rows as unknown as InquiryRow[]).map(inquiryToDto), pagination: buildPagination(page, limit, total), summary };
   }
 
   async findOne(id: string) {
-    const row = (await this.prisma.webInquiry.findUnique({ where: { id }, select: INQUIRY_SELECT })) as InquiryRow | null;
+    const row = (await this.prisma.webInquiry.findUnique({ where: { id }, select: INQUIRY_SELECT })) as unknown as InquiryRow | null;
     if (!row) throw new NotFoundException('Consulta no encontrada');
-    return row;
+    return inquiryToDto(row);
   }
 
   async setStatus(id: string, to: InquiryStatus, actor: AuthUser, ip?: string) {

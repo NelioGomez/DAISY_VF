@@ -27,6 +27,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
     marcaId: p?.marcaId ?? '',
     precio: String(p?.precio ?? ''),
     stockMin: String(p?.stockMin ?? 0),
+    stockMax: p?.stockMax !== null && p?.stockMax !== undefined ? String(p.stockMax) : '',
     motivoPrecio: '',
     activo: p?.activo ?? true,
   });
@@ -35,6 +36,9 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
   const save = async () => {
     if (!f.sku.trim() || !f.nombre.trim()) return toast('SKU y nombre son obligatorios', 'err');
     if (canPrice && (f.precio === '' || Number(f.precio) < 0)) return toast('Indique un precio de venta válido', 'err');
+    const stockMin = Math.max(0, Math.round(Number(f.stockMin) || 0));
+    const stockMax = f.stockMax.trim() === '' ? null : Math.max(0, Math.round(Number(f.stockMax) || 0));
+    if (stockMax !== null && stockMax < stockMin) return toast('El stock máximo no puede ser menor que el mínimo', 'err');
     const precio = Number(f.precio);
     const cambiaPrecio = canPrice && (!p || precio !== p.precio);
     setSaving(true);
@@ -45,7 +49,8 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
       categoriaId: f.categoriaId || null,
       marcaId: f.marcaId || null,
       ...(cambiaPrecio && { precio, motivoPrecio: f.motivoPrecio.trim() || undefined }),
-      stockMin: Math.max(0, Math.round(Number(f.stockMin) || 0)),
+      stockMin,
+      stockMax,
     });
     if (r.ok && p && f.activo !== p.activo) {
       const s = await cambiarEstadoProducto(p.id, f.activo);
@@ -105,7 +110,15 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
         {canPrice && p && f.precio !== '' && Number(f.precio) !== p.precio && (
           <InputField label="Motivo del cambio de precio" value={f.motivoPrecio} onChange={set('motivoPrecio')} placeholder="Ej: ajuste por tipo de cambio" full />
         )}
-        <InputField label="Stock mínimo" type="number" value={f.stockMin} onChange={set('stockMin')} help="Debajo de este nivel se marca como crítico" />
+        <InputField label="Stock mínimo" type="number" value={f.stockMin} onChange={set('stockMin')} help="En este nivel o menos se marca como crítico" />
+        <InputField
+          label="Stock máximo (reposición)"
+          type="number"
+          value={f.stockMax}
+          onChange={set('stockMax')}
+          placeholder="Opcional"
+          help="El panel de reabastecimiento sugiere comprar hasta este nivel"
+        />
         {p && (
           <Field label="Estado">
             <select value={f.activo ? '1' : '0'} onChange={(e) => setF((s) => ({ ...s, activo: e.target.value === '1' }))}>

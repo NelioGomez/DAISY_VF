@@ -52,6 +52,7 @@ export function DashboardLayout() {
     inventario: db.productos.filter((p) => p.stock <= p.stockMin).length,
     productos: db.productos.filter((p) => p.stock <= p.stockMin).length,
     consultas: db.consultas.filter((c) => c.estado === 'Nueva').length,
+    compras: db.comprasResumen?.pendientes ?? 0,
     pagos: db.cxc.length,
     cotizaciones: db.cotizaciones.filter((c) => c.estado === 'Pendiente').length,
   };

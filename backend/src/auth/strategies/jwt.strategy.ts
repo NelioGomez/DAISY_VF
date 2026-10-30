@@ -24,7 +24,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * Verifica que el usuario exista y esté activo, y toma el ROL y los PERMISOS
    * de la base de datos (nunca de lo que envíe el cliente).
    */
-  async validate(payload: JwtPayload): Promise<AuthUser> {
+  async validate(payload: JwtPayload & { typ?: string }): Promise<AuthUser> {
+    // Un token del portal de clientes nunca abre la API interna.
+    if (payload.typ === 'customer') throw new UnauthorizedException('Token no válido para el sistema interno');
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {

@@ -14,6 +14,7 @@ import { ReportsModule } from './reports/reports.module';
 import { DocumentsModule } from './documents/documents.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PaymentsModule } from './payments/payments.module';
+import { PortalModule } from './portal/portal.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { SalesModule } from './sales/sales.module';
@@ -62,6 +63,7 @@ import { UsersModule } from './users/users.module';
     ReportsModule,
     InquiriesModule,
     PublicModule,
+    PortalModule,
     SettingsModule,
   ],
   controllers: [HealthController],

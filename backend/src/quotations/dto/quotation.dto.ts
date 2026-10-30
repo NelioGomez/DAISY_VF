@@ -78,6 +78,43 @@ export class UpdateQuotationDto {
   notes?: string | null;
 }
 
+/**
+ * Cotización a partir de una solicitud web (mejora n.° 45). Todo es opcional: por defecto toma el
+ * cliente y los productos de la solicitud; el vendedor solo ajusta lo necesario.
+ */
+export class CreateQuotationFromInquiryDto {
+  @ApiPropertyOptional({ format: 'uuid', description: 'Obligatorio si la solicitud no está ligada a un cliente' })
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
+
+  @ApiPropertyOptional({ type: [DocumentItemDto], description: 'Por defecto, los productos y cantidades de la solicitud' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Debe incluir al menos un producto' })
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => DocumentItemDto)
+  items?: DocumentItemDto[];
+
+  @ApiPropertyOptional({ example: '2026-12-31' })
+  @IsOptional()
+  @IsDateString()
+  validUntil?: string;
+
+  @ApiPropertyOptional()
+  @Transform(trim)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  asDraft?: boolean;
+}
+
 export class RejectQuotationDto {
   @ApiPropertyOptional({ description: 'Motivo del rechazo (queda en la auditoría)' })
   @Transform(trim)

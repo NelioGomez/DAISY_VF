@@ -269,10 +269,13 @@ export class ReportsService {
     const rows = (await this.prisma.$queryRaw(Prisma.sql`
       SELECT p.sku, p.name, b.name AS brand, c.name AS category,
              p.stock, p.min_stock, p.avg_cost::text AS avg_cost, p.sale_price::text AS sale_price,
-             (p.stock * p.avg_cost)::text AS stock_value, (p.stock <= p.min_stock) AS critical
+             (p.stock * p.avg_cost)::text AS stock_value, (p.stock <= p.min_stock) AS critical,
+             COALESCE(bod.quantity, 0) AS warehouse, COALESCE(suc.quantity, 0) AS branch
       FROM products p
       LEFT JOIN brands b ON b.id = p.brand_id
       LEFT JOIN categories c ON c.id = p.category_id
+      LEFT JOIN product_stocks bod ON bod.product_id = p.id AND bod.location_id = 1
+      LEFT JOIN product_stocks suc ON suc.product_id = p.id AND suc.location_id = 2
       ${where(conds)}
       ORDER BY p.name`)) as Raw[];
     const all: ReportRow[] = rows.map((r) => ({
@@ -281,6 +284,8 @@ export class ReportsService {
       brand: (r.brand as string | null) ?? null,
       category: (r.category as string | null) ?? null,
       stock: int(r.stock),
+      warehouse: int(r.warehouse),
+      branch: int(r.branch),
       minStock: int(r.min_stock),
       avgCost: money(r.avg_cost),
       salePrice: money(r.sale_price),
@@ -295,6 +300,8 @@ export class ReportsService {
         { key: 'brand', header: 'Marca', type: 'text' },
         { key: 'category', header: 'Categoría', type: 'text' },
         { key: 'stock', header: 'Stock', type: 'int' },
+        { key: 'warehouse', header: 'En bodega', type: 'int' },
+        { key: 'branch', header: 'En sucursal', type: 'int' },
         { key: 'minStock', header: 'Stock mínimo', type: 'int' },
         { key: 'avgCost', header: 'Costo promedio', type: 'money' },
         { key: 'salePrice', header: 'Precio de venta', type: 'money' },
@@ -305,6 +312,8 @@ export class ReportsService {
       {
         products: all.length,
         units: this.sum(all, 'stock'),
+        warehouseUnits: this.sum(all, 'warehouse'),
+        branchUnits: this.sum(all, 'branch'),
         stockValue: money(this.sum(all, 'stockValue')),
         criticalProducts: all.filter((r) => r.critical).length,
       },

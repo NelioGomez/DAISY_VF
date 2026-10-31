@@ -13,11 +13,28 @@ const prod = (over: Partial<Prod> = {}): Prod => ({
   id: 'p1', sku: 'GIL-1', name: 'Boquilla', stock: 10, avgCost: '60.0000', salePrice: '100.00', isActive: true, ...over,
 });
 
-function build(products: Prod[] = [prod()]) {
+function build(products: Prod[] = [prod()], byLocation?: Record<string, Record<number, number>>) {
   const db = new Map(products.map((p) => [p.id, { ...p }]));
+  // Existencias por ubicación: por defecto todo está en la sucursal (2), donde se vende.
+  const stockRows = products.flatMap((p) =>
+    Object.entries(byLocation?.[p.id] ?? { 2: p.stock }).map(([loc, quantity]) => ({ productId: p.id, locationId: Number(loc), quantity })),
+  );
   let seq = 0;
   const tx: Record<string, any> = {
     $queryRaw: jest.fn().mockResolvedValue([]),
+    productStock: {
+      findMany: jest.fn(({ where }) => Promise.resolve(stockRows.filter((r) => where.productId.in.includes(r.productId)).map((r) => ({ ...r })))),
+      update: jest.fn(({ where, data }) => {
+        const k = where.productId_locationId;
+        const row = stockRows.find((r) => r.productId === k.productId && r.locationId === k.locationId)!;
+        row.quantity += data.quantity.increment;
+        return Promise.resolve(row);
+      }),
+      create: jest.fn(({ data }) => {
+        stockRows.push({ ...data });
+        return Promise.resolve(data);
+      }),
+    },
     systemConfig: { findUnique: jest.fn(({ where }) => Promise.resolve(where.key === 'TAX_RATE' ? { value: '0.15' } : null)) },
     customer: { findUnique: jest.fn().mockResolvedValue({ isActive: true }) },
     documentSequence: { upsert: jest.fn(() => Promise.resolve({ lastValue: ++seq })) },
@@ -60,7 +77,7 @@ function build(products: Prod[] = [prod()]) {
     prisma as never, audit as never, new StockService(), new TaxService(prisma as never),
     new DocumentSequenceService(), new DocumentLinesService(),
   );
-  return { service, tx, prisma, audit, db };
+  return { service, tx, prisma, audit, db, stockRows };
 }
 
 describe('SalesService.create (venta directa)', () => {
@@ -81,6 +98,20 @@ describe('SalesService.create (venta directa)', () => {
       type: 'EXIT', reference: 'FAC-000001', saleId: expect.any(String), locationId: 2, userId: 'seller1',
     });
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ module: 'sales', action: 'CREATE' }));
+  });
+
+  it('si la sucursal no alcanza, despacha el resto desde la bodega', async () => {
+    const { service, tx, stockRows } = build([prod({ stock: 10 })], { p1: { 1: 8, 2: 1 } });
+    await service.create({ customerId: 'c1', paymentMethod: 'CASH', items: [{ productId: 'p1', quantity: 3 }] } as never, actor);
+    const movs = tx.inventoryMovement.create.mock.calls.map((c: any[]) => c[0].data);
+    expect(movs).toEqual([
+      expect.objectContaining({ type: 'EXIT', quantity: 1, locationId: 2 }),
+      expect.objectContaining({ type: 'EXIT', quantity: 2, locationId: 1 }),
+    ]);
+    expect(stockRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ locationId: 2, quantity: 0 }),
+      expect.objectContaining({ locationId: 1, quantity: 6 }),
+    ]));
   });
 
   it('precio negociado distinto al de lista', async () => {

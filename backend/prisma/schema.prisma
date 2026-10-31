@@ -172,6 +172,7 @@ model User {
   sales              Sale[]
   payments           Payment[]
   inventoryMovements InventoryMovement[]
+  stockTransfers     StockTransfer[]
   serviceOrders      ServiceOrder[]       @relation("ServiceOrderTechnician")
   priceChanges       ProductPrice[]
   purchases          Purchase[]
@@ -249,9 +250,12 @@ model Location {
   isActive  Boolean      @default(true) @map("is_active")
   createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  movements InventoryMovement[]
-  sales     Sale[]
-  receipts  PurchaseReceipt[]
+  movements     InventoryMovement[]
+  sales         Sale[]
+  receipts      PurchaseReceipt[]
+  stocks        ProductStock[]
+  transfersFrom StockTransfer[]     @relation("TransferFrom")
+  transfersTo   StockTransfer[]     @relation("TransferTo")
 
   @@map("locations")
 }
@@ -306,6 +310,8 @@ model Product {
   category       Category?           @relation(fields: [categoryId], references: [id])
   brand          Brand?              @relation(fields: [brandId], references: [id])
   movements      InventoryMovement[]
+  /// Reparto del stock entre la bodega y la sucursal (la suma siempre es igual a stock).
+  stocks         ProductStock[]
   quotationItems QuotationItem[]
   saleItems      SaleItem[]
   prices         ProductPrice[]
@@ -462,6 +468,8 @@ model InventoryMovement {
   productionOrderId     String?               @map("production_order_id") @db.Uuid
   /// Lote liberado por calidad que origina la entrada del producto terminado.
   productionLotId       String?               @map("production_lot_id") @db.Uuid
+  /// Traslado entre ubicaciones: una salida en el origen y una entrada en el destino.
+  transferId            String?               @map("transfer_id") @db.Uuid
   createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
 
   product             Product              @relation(fields: [productId], references: [id])
@@ -472,6 +480,7 @@ model InventoryMovement {
   purchaseReceiptItem PurchaseReceiptItem? @relation(fields: [purchaseReceiptItemId], references: [id], onDelete: Restrict)
   productionOrder     ProductionOrder?     @relation(fields: [productionOrderId], references: [id], onDelete: Restrict)
   productionLot       ProductionLot?       @relation(fields: [productionLotId], references: [id], onDelete: Restrict)
+  transfer            StockTransfer?       @relation(fields: [transferId], references: [id], onDelete: Restrict)
 
   @@index([productId, createdAt])
   @@index([createdAt])
@@ -481,7 +490,44 @@ model InventoryMovement {
   @@index([saleId])
   @@index([productionOrderId])
   @@index([productionLotId])
+  @@index([transferId])
   @@map("inventory_movements")
+}
+
+/// Existencias de un producto en una ubicación (Bodega principal o Sucursal).
+/// products.stock sigue siendo el total; aquí se reparte y la BD verifica que la suma coincida.
+model ProductStock {
+  productId  String   @map("product_id") @db.Uuid
+  locationId Int      @map("location_id") @db.SmallInt
+  quantity   Int      @default(0)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id])
+
+  @@id([productId, locationId])
+  @@index([locationId])
+  @@map("product_stocks")
+}
+
+/// Traslado de mercadería entre la bodega y la sucursal (TR-000001). No cambia el stock total.
+model StockTransfer {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  code           String   @unique @db.VarChar(30)
+  fromLocationId Int      @map("from_location_id") @db.SmallInt
+  toLocationId   Int      @map("to_location_id") @db.SmallInt
+  note           String?  @db.VarChar(500)
+  userId         String   @map("user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  fromLocation Location            @relation("TransferFrom", fields: [fromLocationId], references: [id])
+  toLocation   Location            @relation("TransferTo", fields: [toLocationId], references: [id])
+  user         User                @relation(fields: [userId], references: [id])
+  movements    InventoryMovement[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("stock_transfers")
 }
 
 // ───────────────────────── COMPRAS Y RECEPCIÓN ─────────────────────────

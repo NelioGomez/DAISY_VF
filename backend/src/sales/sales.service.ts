@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
-import { BRANCH_ID } from '../common/constants/locations';
+import { BRANCH_ID, SALE_SOURCES } from '../common/constants/locations';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { dateRange } from '../common/utils/dates';
 import { decimalToNumber } from '../common/utils/decimal';
@@ -274,7 +274,8 @@ export class SalesService {
           include: SALE_INCLUDE,
         })) as SaleRow;
 
-        // 7) Salida de inventario enlazada a la venta. Si falta stock, se revierte toda la transacción.
+        // 7) Salida de inventario enlazada a la venta: primero de la sucursal y, si no alcanza,
+        //    de la bodega (despacho desde bodega). Si falta stock, se revierte toda la transacción.
         await this.stock.registerExits(
           tx,
           lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
@@ -285,6 +286,8 @@ export class SalesService {
             saleId,
             locationId: BRANCH_ID,
           },
+          'items',
+          SALE_SOURCES,
         );
 
         if (source.quotation) {

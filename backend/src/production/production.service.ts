@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
+import { MAIN_WAREHOUSE_ID, PRODUCTION_SOURCES } from '../common/constants/locations';
 import { parseBoundary } from '../common/utils/dates';
 import { decimalToNumber } from '../common/utils/decimal';
 import { lockProductionLot, lockProductionOrder, TX_OPTIONS } from '../common/utils/locks';
@@ -415,11 +416,13 @@ export class ProductionService {
       const current = await this.lockedOrder(tx, id);
       this.assertMove(current.status, ProductionOrderStatus.IN_PROGRESS);
       const lines = await tx.productionConsumption.findMany({ where: { orderId: id }, orderBy: { id: 'asc' } });
+      // Materiales: primero de la bodega (taller) y, si no alcanza, de la sucursal.
       const results = await this.stock.registerExits(
         tx,
         lines.map((l) => ({ productId: l.componentId, quantity: l.plannedQuantity })),
         { userId: actor.id, reference: current.code, note: `Consumo de materiales de ${current.code}`, productionOrderId: id },
         'materials',
+        PRODUCTION_SOURCES,
       );
       let cost = new Decimal(0);
       for (let i = 0; i < lines.length; i++) {
@@ -607,6 +610,7 @@ export class ProductionService {
           note: `Lote ${lot.code} liberado por calidad (${qc.code})${dto.disposition === 'RELEASE' && defective > 0 ? ', incluye concesión' : ''}`,
           productionOrderId: lot.orderId,
           productionLotId: lot.id,
+          locationId: MAIN_WAREHOUSE_ID,
         });
       }
       return { qc: qc.code, lot: lot.code, inspected: outcome.inspected, toStock: outcome.toStock };

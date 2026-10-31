@@ -9,6 +9,7 @@ import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { Compra } from '../../types';
 import { money } from '../../utils/format';
+import { BODEGA, UBICACIONES, type UbicacionId } from '../../utils/locations';
 import { PurchaseDetailModal } from './PurchaseDetailModal';
 import { nextAverageCost } from './purchaseFormat';
 
@@ -19,7 +20,9 @@ export function ReceivePurchaseModal({ compra }: { compra: Compra }) {
   const pendientes = (compra.items ?? []).filter((i) => i.pendiente > 0);
   const [cant, setCant] = useState<Record<string, string>>(() => Object.fromEntries(pendientes.map((i) => [i.id, String(i.pendiente)])));
   const [notas, setNotas] = useState('');
+  const [ubicacion, setUbicacion] = useState<UbicacionId>(BODEGA);
   const [saving, setSaving] = useState(false);
+  const lugar = UBICACIONES.find((u) => u.id === ubicacion)!;
 
   const lines = pendientes.map((i) => {
     const q = Math.round(Number(cant[i.id] || 0));
@@ -41,10 +44,11 @@ export function ReceivePurchaseModal({ compra }: { compra: Compra }) {
       compra.id,
       recibidas.map((l) => ({ lineaId: l.i.id, cant: l.q })),
       notas,
+      ubicacion,
     );
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
-    toast(`Recepción ${r.data.recepcion} registrada · ${unidades} u. ingresaron a bodega`, 'ok');
+    toast(`Recepción ${r.data.recepcion} registrada · ${unidades} u. ingresaron a ${lugar.corto.toLowerCase()}`, 'ok');
     modal.open(<PurchaseDetailModal compraId={compra.id} />);
   };
 
@@ -108,15 +112,26 @@ export function ReceivePurchaseModal({ compra }: { compra: Compra }) {
           </tbody>
         </table>
       </div>
-      <Field label="Notas de la recepción" full>
-        <input value={notas} onChange={(e) => setNotas(e.target.value)} maxLength={500} placeholder="Factura o guía del proveedor, estado de la mercadería…" />
-      </Field>
+      <div className="form-grid">
+        <Field label="Se recibe en" htmlFor="rc-ubicacion" help="Normalmente la bodega; la sucursal si el proveedor entrega allí">
+          <select id="rc-ubicacion" value={ubicacion} onChange={(e) => setUbicacion(Number(e.target.value) as UbicacionId)}>
+            {UBICACIONES.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nombre}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Notas de la recepción" htmlFor="rc-notas">
+          <input id="rc-notas" value={notas} onChange={(e) => setNotas(e.target.value)} maxLength={500} placeholder="Factura o guía del proveedor, estado de la mercadería…" />
+        </Field>
+      </div>
 
       <div className={`confirm-box ${unidades ? '' : 'is-empty'}`} role="status" aria-live="polite">
         {unidades ? (
           <>
             <b>
-              Ingresarán {unidades} unidad(es) de {recibidas.length} producto(s) a la Bodega principal.
+              Ingresarán {unidades} unidad(es) de {recibidas.length} producto(s) a la {lugar.nombre}.
             </b>
             <ul>
               <li>Se registrará una entrada de inventario por producto, enlazada a esta recepción.</li>

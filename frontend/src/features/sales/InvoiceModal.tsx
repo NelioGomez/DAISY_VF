@@ -1,4 +1,5 @@
 /* Factura: se carga el detalle real desde GET /sales/:id. */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import type { Efectivo } from './paymentTerms';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -23,18 +24,21 @@ export function InvoiceModal({ ventaId, efectivo }: { ventaId: string; efectivo?
   const navigate = useNavigate();
   const [v, setV] = useState<Venta | null>(null);
   const [error, setError] = useState('');
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let alive = true;
     void obtenerVenta(ventaId).then((r) => {
       if (!alive) return;
-      if (r.ok) setV(r.data);
-      else setError(r.error);
+      if (r.ok) {
+        setV(r.data);
+        setError('');
+      } else setError(r.error);
     });
     return () => {
       alive = false;
     };
-  }, [ventaId, obtenerVenta]);
+  }, [ventaId, obtenerVenta, version]);
 
   const irAPagos = () => {
     modal.close();
@@ -68,10 +72,7 @@ export function InvoiceModal({ ventaId, efectivo }: { ventaId: string; efectivo?
       }
     >
       {error ? (
-        <div className="note" role="alert">
-          <span className="ic">⚠️</span>
-          <div>{error}</div>
-        </div>
+        <ErrorState msg={error} onRetry={() => setVersion((n) => n + 1)} />
       ) : !v ? (
         <ViewLoader text="Cargando factura…" />
       ) : (

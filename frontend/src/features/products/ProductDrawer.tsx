@@ -2,6 +2,7 @@
    Reúne datos maestros, existencias, rotación, movimientos en línea de tiempo (n.° 16),
    ventas recientes, proveedores, compras en camino e historial de precios. Cada sección
    aparece solo si el rol puede verla (el servidor la envía en null si no). */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useEffect, useState } from 'react';
 import { DocChip } from '../../components/common/DocChain';
 import { Tabs, type TabItem } from '../../components/common/Tabs';
@@ -12,22 +13,17 @@ import { useModal } from '../../components/modals/useModal';
 import { Tag, type TagTone } from '../../components/tables/Tag';
 import { subscribeRealtime } from '../../services/realtime/realtime';
 import { useAuth, useData } from '../../store/hooks';
-import type { FichaProducto, Rotacion } from '../../types';
+import type { FichaProducto } from '../../types';
 import { ago, fmtDate, fmtDateTime, money } from '../../utils/format';
 import { useOpenDocument } from '../documents/useOpenDocument';
 import { MovementFormModal } from '../inventory/MovementFormModal';
 import { costIn } from '../purchases/purchaseFormat';
+import { ROTACION } from '../inventory/rotation';
 import { PriceModal } from './PriceModal';
 import { ProductFormModal } from './ProductFormModal';
 
 type Tab = 'resumen' | 'movimientos' | 'ventas' | 'proveedores' | 'precios';
 
-const ROTACION: Record<Rotacion, { txt: string; tone: TagTone; ic: string }> = {
-  ALTA: { txt: 'Rotación alta', tone: 't-green', ic: '▲' },
-  MEDIA: { txt: 'Rotación media', tone: 't-blue', ic: '◆' },
-  BAJA: { txt: 'Rotación baja', tone: 't-amber', ic: '▼' },
-  SIN_MOVIMIENTO: { txt: 'Sin movimiento (90 d)', tone: 't-gray', ic: '○' },
-};
 
 const STOCK_TONE: Record<FichaProducto['estadoStock'], { tone: TagTone; ic: string }> = {
   Agotado: { tone: 't-red', ic: '✕' },
@@ -50,7 +46,10 @@ export function ProductDrawer({ productoId }: { productoId: string }) {
     let alive = true;
     void fichaProducto(productoId).then((r) => {
       if (!alive) return;
-      if (r.ok) setF(r.data);
+      if (r.ok) {
+        setF(r.data);
+        setError('');
+      }
       else setError(r.error);
     });
     return () => {
@@ -70,10 +69,7 @@ export function ProductDrawer({ productoId }: { productoId: string }) {
   if (error)
     return (
       <Drawer title="Producto">
-        <div className="note" role="alert">
-          <span className="ic">⚠️</span>
-          <div>{error}</div>
-        </div>
+        <ErrorState msg={error} onRetry={() => setVersion((n) => n + 1)} />
       </Drawer>
     );
   if (!f)
@@ -141,6 +137,9 @@ export function ProductDrawer({ productoId }: { productoId: string }) {
           <span>Stock</span>
           <b>{p.stock}</b>
           <small>
+            bodega {p.stockBodega} · sucursal {p.stockSucursal}
+          </small>
+          <small>
             mín. {p.stockMin}
             {p.stockMax !== null && ` · máx. ${p.stockMax}`}
           </small>
@@ -167,6 +166,12 @@ export function ProductDrawer({ productoId }: { productoId: string }) {
               <dd>
                 {f.stats.vendidas30} / {f.stats.vendidas90} u.
               </dd>
+              {f.stats.consumidas90 > 0 && (
+                <>
+                  <dt>Consumidas en producción (90 días)</dt>
+                  <dd>{f.stats.consumidas90} u. (cuentan para la rotación)</dd>
+                </>
+              )}
               <dt>Días de inventario</dt>
               <dd>{f.stats.diasCobertura === null ? 'sin ventas recientes' : `≈ ${f.stats.diasCobertura} días al ritmo actual`}</dd>
               <dt>Última venta</dt>

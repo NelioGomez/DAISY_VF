@@ -12,6 +12,7 @@ const DOC_LABEL: Record<TipoDocumento, string> = {
   MOVIMIENTO: 'Inventario',
   PRODUCCION: 'Orden de producción',
   LOTE: 'Lote',
+  TRASLADO: 'Traslado',
 };
 
 const DOC_ICON: Record<TipoDocumento, string> = {
@@ -24,6 +25,7 @@ const DOC_ICON: Record<TipoDocumento, string> = {
   MOVIMIENTO: '⇅',
   PRODUCCION: '⚙',
   LOTE: '▦',
+  TRASLADO: '⇄',
 };
 
 interface DocChipProps {

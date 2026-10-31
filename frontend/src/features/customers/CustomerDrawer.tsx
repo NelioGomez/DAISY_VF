@@ -1,5 +1,6 @@
 /* Perfil 360° del cliente (mejora n.° 13) en panel lateral (n.° 33): contacto, indicadores y
    pestañas de ventas, cotizaciones, solicitudes, pagos y OPI, con acciones según el rol. */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DocChip } from '../../components/common/DocChain';
@@ -148,10 +149,7 @@ export function CustomerDrawer({ clienteId }: { clienteId: string }) {
   if ('error' in current)
     return (
       <Drawer title="Cliente">
-        <div className="note" role="alert">
-          <span className="ic">⚠️</span>
-          <div>{current.error}</div>
-        </div>
+        <ErrorState msg={current.error} onRetry={() => setVersion((n) => n + 1)} />
       </Drawer>
     );
 

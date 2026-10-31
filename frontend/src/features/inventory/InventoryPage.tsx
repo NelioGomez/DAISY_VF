@@ -1,37 +1,48 @@
 /* MÓDULO: INVENTARIO (RF-06/07/08/09) — costo promedio móvil.
-   Cada movimiento muestra su documento de origen (factura, recepción de compra u orden de
-   producción con su lote) y se puede abrir. */
-import { Link } from 'react-router-dom';
+   Existencias repartidas entre la Bodega principal y la Sucursal con traslados (mejora n.° 23),
+   kardex paginado y filtrado en el servidor (n.° 18-20), rotación y días de inventario (n.° 11-12).
+   Cada movimiento muestra dónde ocurrió y su documento de origen, y se puede abrir. */
+import { Link, useSearchParams } from 'react-router-dom';
 import { KpiCard } from '../../components/cards/KpiCard';
-import { DocChip } from '../../components/common/DocChain';
+import { Tabs } from '../../components/common/Tabs';
 import { ViewHead } from '../../components/common/ViewHead';
-import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
-import { StockTag, TipoMovTag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
 import type { TipoMovimiento } from '../../types';
-import { fmtDateTime, money } from '../../utils/format';
+import { money } from '../../utils/format';
 import { stockCritico } from '../dashboard/kpis';
-import { useOpenDocument } from '../documents/useOpenDocument';
-import { PriceModal } from '../products/PriceModal';
-import { ProductDrawer } from '../products/ProductDrawer';
 import { MovementFormModal } from './MovementFormModal';
+import { MovementsPanel } from './MovementsPanel';
+import { RotationPanel } from './RotationPanel';
+import { StockPanel } from './StockPanel';
+import { TransferFormModal } from './TransferFormModal';
+import { TransfersPanel } from './TransfersPanel';
+
+type Tab = 'existencias' | 'movimientos' | 'traslados' | 'rotacion';
+const TABS: Tab[] = ['existencias', 'movimientos', 'traslados', 'rotacion'];
 
 export function InventoryPage() {
   const { db } = useData();
   const { can } = useAuth();
   const modal = useModal();
-  const doc = useOpenDocument();
-  const valor = db.inventarioValor || db.productos.reduce((a, p) => a + p.stock * p.costo, 0);
+  const [params, setParams] = useSearchParams();
+  const raw = params.get('tab') as Tab | null;
+  const tab: Tab = raw && TABS.includes(raw) ? raw : 'existencias';
+  const setTab = (t: Tab) => setParams(t === 'existencias' ? {} : { tab: t }, { replace: true });
+
+  const activos = db.productos.filter((p) => p.activo);
+  const valor = db.inventarioValor || activos.reduce((a, p) => a + p.stock * p.costo, 0);
+  const bodega = activos.reduce((a, p) => ({ u: a.u + p.stockBodega, v: a.v + p.stockBodega * p.costo }), { u: 0, v: 0 });
+  const sucursal = activos.reduce((a, p) => ({ u: a.u + p.stockSucursal, v: a.v + p.stockSucursal * p.costo }), { u: 0, v: 0 });
+  const sinSucursal = activos.filter((p) => p.stock > 0 && p.stockSucursal === 0).length;
   const criticos = stockCritico(db).length;
   const abrir = (tipo: TipoMovimiento) => modal.open(<MovementFormModal tipo={tipo} />);
-  const ficha = (id: string) => modal.open(<ProductDrawer productoId={id} />);
 
   return (
     <>
       <ViewHead
         title="Inventario"
-        desc="Entradas, salidas y ajustes. El servidor recalcula el costo promedio móvil con cada entrada (RF-08). Las compras recibidas generan sus entradas solas."
+        desc="Existencias de la Bodega principal y la Sucursal, entradas, salidas, ajustes y traslados. El servidor recalcula el costo promedio móvil con cada entrada (RF-08); las ventas salen primero de la sucursal y, si no alcanza, de la bodega."
         actions={
           <>
             {can('purchases:read') && (
@@ -41,6 +52,9 @@ export function InventoryPage() {
             )}
             {can('inventory:write') && (
               <>
+                <button className="b b-out" onClick={() => modal.open(<TransferFormModal />)}>
+                  ⇄ Trasladar
+                </button>
                 <button className="b b-out" onClick={() => abrir('Entrada')}>
                   ↧ Entrada
                 </button>
@@ -55,109 +69,34 @@ export function InventoryPage() {
           </>
         }
       />
-      <div className="grid cols-3" style={{ marginBottom: 16 }}>
-        <KpiCard lbl="Valor de inventario" val={money(valor)} sub={db.productos.length + ' SKU'} ic="◰" />
-        <KpiCard lbl="Productos críticos" val={criticos} sub="requieren compra" ic="▼" tone={criticos ? 'warn' : 'good'} />
-        <KpiCard lbl="Movimientos" val={db.movimientos.length} sub="más recientes" ic="⇅" />
+      <div className="grid cols-4" style={{ marginBottom: 16 }}>
+        <KpiCard lbl="Valor de inventario" val={money(valor)} sub={`${activos.length} productos activos`} ic="◰" />
+        <KpiCard lbl="Bodega principal" val={`${bodega.u.toLocaleString('es-NI')} u.`} sub={money(bodega.v)} ic="▤" />
+        <KpiCard
+          lbl="Sucursal principal"
+          val={`${sucursal.u.toLocaleString('es-NI')} u.`}
+          sub={sinSucursal ? `${money(sucursal.v)} · ${sinSucursal} producto(s) solo en bodega` : money(sucursal.v)}
+          ic="⊞"
+        />
+        <KpiCard lbl="Productos críticos" val={criticos} sub="en o bajo el mínimo" ic="▼" tone={criticos ? 'warn' : 'good'} />
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <h3>Existencias por producto</h3>
-        <div className="tablewrap tall" style={{ border: 'none' }}>
-          <table className="sticky-head">
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>Producto</th>
-                <th className="num">Stock</th>
-                <th className="num">Mínimo</th>
-                <th className="num">Costo prom.</th>
-                <th className="num">Precio</th>
-                <th>Estado</th>
-                {can('prices:write') && <th />}
-              </tr>
-            </thead>
-            <tbody>
-              {db.productos.map((p) => (
-                <tr key={p.id}>
-                  <td className="mono">{p.sku}</td>
-                  <td>
-                    <button className="link-btn" onClick={() => ficha(p.id)} title="Ver ficha del producto">
-                      {p.ic} {p.nombre}
-                    </button>
-                  </td>
-                  <td className="num">{p.stock}</td>
-                  <td className="num">{p.stockMin}</td>
-                  <td className="num">{money(p.costo)}</td>
-                  <td className="num">{p.precio > 0 ? money(p.precio) : <span style={{ color: 'var(--muted)' }}>sin precio</span>}</td>
-                  <td>
-                    <StockTag stock={p.stock} min={p.stockMin} />
-                  </td>
-                  {can('prices:write') && (
-                    <td>
-                      <button className="b b-out b-sm" onClick={() => modal.open(<PriceModal producto={p} />)}>
-                        Precio
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Tabs
+        label="Secciones de inventario"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'existencias', label: 'Existencias' },
+          { id: 'movimientos', label: 'Movimientos' },
+          { id: 'traslados', label: 'Traslados' },
+          { id: 'rotacion', label: 'Rotación' },
+        ]}
+      />
 
-      <div className="card">
-        <h3>Bitácora de movimientos</h3>
-        <div className="tablewrap tall" style={{ border: 'none' }}>
-          <table className="sticky-head">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Producto</th>
-                <th className="num">Cant.</th>
-                <th className="num">Costo unit.</th>
-                <th className="num">Stock final</th>
-                <th>Documento / referencia</th>
-                <th>Responsable</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!db.movimientos.length && <EmptyRow cols={8} msg="Sin movimientos" />}
-              {db.movimientos.map((m) => (
-                <tr key={m.id}>
-                  <td className="mono" style={{ fontSize: 12 }}>
-                    {fmtDateTime(m.fecha)}
-                  </td>
-                  <td>
-                    <TipoMovTag tipo={m.tipo} />
-                  </td>
-                  <td>
-                    <button className="link-btn" onClick={() => ficha(m.prod)}>
-                      {m.prodN}
-                    </button>
-                  </td>
-                  <td className="num">
-                    {m.tipo === 'Ajuste' ? (m.stockDespues >= m.stockAntes ? '+' : '-') : m.tipo === 'Salida' ? '-' : '+'}
-                    {m.cant}
-                  </td>
-                  <td className="num">{m.costo ? money(m.costo) : '—'}</td>
-                  <td className="num">{m.stockDespues}</td>
-                  <td title={m.nota}>
-                    {m.origen ? (
-                      <DocChip tipo={m.origen.tipo} codigo={m.origen.codigo} detalle={m.origen.lote} onOpen={doc.canOpen(m.origen) ? () => doc.open(m.origen!) : undefined} />
-                    ) : (
-                      m.ref || m.nota || '—'
-                    )}
-                  </td>
-                  <td className="mono">@{m.resp}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {tab === 'existencias' && <StockPanel />}
+      {tab === 'movimientos' && <MovementsPanel />}
+      {tab === 'traslados' && <TransfersPanel />}
+      {tab === 'rotacion' && <RotationPanel />}
     </>
   );
 }

@@ -1,5 +1,6 @@
 /* Detalle de una solicitud web (registro auditable, mejora n.° 44) con la acción
    "Crear cotización" precargada (mejora n.° 45) y la cadena SOL › COT › FAC (n.° 50). */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useCallback, useEffect, useState } from 'react';
 import { DocChain, type ChainItem } from '../../components/common/DocChain';
 import { ViewLoader } from '../../components/feedback/FullScreenLoader';
@@ -33,7 +34,10 @@ export function InquiryDetailModal({ consultaId }: { consultaId: string }) {
     let alive = true;
     void obtenerConsulta(consultaId).then((r) => {
       if (!alive) return;
-      if (r.ok) setC(r.data);
+      if (r.ok) {
+        setC(r.data);
+        setError('');
+      }
       else setError(r.error);
     });
     return () => {
@@ -104,10 +108,7 @@ export function InquiryDetailModal({ consultaId }: { consultaId: string }) {
       }
     >
       {error ? (
-        <div className="note" role="alert">
-          <span className="ic">⚠️</span>
-          <div>{error}</div>
-        </div>
+        <ErrorState msg={error} onRetry={load} />
       ) : !c ? (
         <ViewLoader text="Cargando solicitud…" />
       ) : (

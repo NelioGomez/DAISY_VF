@@ -82,6 +82,8 @@ export interface MovimientoInput {
   /** Solo ajuste: existencia contada. */
   nuevoStock?: number;
   proveedorId?: string;
+  /** Dónde ocurre (1 = bodega, 2 = sucursal). En un ajuste, lo contado es de esa ubicación. */
+  ubicacionId: number;
   ref: string;
   nota: string;
 }
@@ -140,7 +142,7 @@ export interface DataActions {
   /** Ya ordenada: solo fecha esperada y notas. */
   actualizarSeguimientoCompra(id: string, esperada: string | null, notas: string): Promise<Result>;
   ordenarCompra(id: string): Promise<Result>;
-  recibirCompra(id: string, lineas: Array<{ lineaId: string; cant: number }>, notas: string): Promise<Result<{ recepcion: string; estado: Compra['estado'] }>>;
+  recibirCompra(id: string, lineas: Array<{ lineaId: string; cant: number }>, notas: string, ubicacionId?: number): Promise<Result<{ recepcion: string; estado: Compra['estado'] }>>;
   cancelarCompra(id: string, motivo: string): Promise<Result>;
   eliminarCompra(id: string): Promise<Result>;
   obtenerCompra(id: string): Promise<Result<Compra>>;
@@ -172,6 +174,8 @@ export interface StoreValue {
   booting: boolean;
   status: LoadStatus;
   loadError: string | null;
+  /** Colecciones que fallaron en la última carga, con su mensaje (mejora n.° 29). */
+  failed: Partial<Record<RefreshKey, string>>;
   login(username: string, password: string): Promise<LoginResult>;
   logout(reason?: LogoutReason): void;
   /** Motivo del último cierre de sesión (para avisar en el login). */

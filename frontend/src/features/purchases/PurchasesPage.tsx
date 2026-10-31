@@ -1,25 +1,28 @@
 /* MÓDULO: COMPRAS (mejoras n.° 41, 48 y 2 del análisis UX)
    Ciclo de reposición: Stock crítico → Sugerencia → Compra → Pendiente de recibir →
-   Recepción → Entrada de inventario. La pestaña Reabastecimiento propone qué comprar. */
-import { useState } from 'react';
+   Recepción → Entrada de inventario. La pestaña Reabastecimiento propone qué comprar.
+   Filtros con chips y paginación (n.° 18-20). */
 import { useSearchParams } from 'react-router-dom';
 import { KpiCard } from '../../components/cards/KpiCard';
 import { ViewHead } from '../../components/common/ViewHead';
 import { Tabs } from '../../components/common/Tabs';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
-import { SearchToolbar } from '../../components/tables/SearchToolbar';
+import { FilterBar } from '../../components/tables/FilterBar';
+import { Pagination } from '../../components/tables/Pagination';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
+import { useListFilters, type SelectFilter } from '../../hooks/useListFilters';
+import { usePaged } from '../../hooks/usePaged';
 import { useAuth, useData } from '../../store/hooks';
 import type { Compra, EstadoCompra } from '../../types';
-import { fmtDate, matches, money } from '../../utils/format';
+import { fmtDate, money } from '../../utils/format';
 import { PurchaseDetailModal } from './PurchaseDetailModal';
 import { PurchaseFormModal } from './PurchaseFormModal';
 import { RestockPanel } from './RestockPanel';
 import { moneyIn } from './purchaseFormat';
 
 type Tab = 'ordenes' | 'reabastecimiento';
-const ESTADOS: Array<EstadoCompra | 'Todas' | 'Pendientes'> = ['Todas', 'Pendientes', 'Borrador', 'Ordenada', 'Parcial', 'Recibida', 'Cancelada'];
+const ESTADOS: EstadoCompra[] = ['Borrador', 'Ordenada', 'Parcial', 'Recibida', 'Cancelada'];
 
 export function PurchasesPage() {
   const { db } = useData();
@@ -28,16 +31,35 @@ export function PurchasesPage() {
   const modal = useModal();
   const [params, setParams] = useSearchParams();
   const tab: Tab = params.get('tab') === 'reabastecimiento' ? 'reabastecimiento' : 'ordenes';
-  const [q, setQ] = useState('');
-  const [estado, setEstado] = useState<(typeof ESTADOS)[number]>('Todas');
 
   const r = db.comprasResumen;
   const atrasadas = db.compras.filter((c) => c.atrasada).length;
-  const rows = db.compras.filter(
-    (c) =>
-      (estado === 'Todas' || (estado === 'Pendientes' ? c.estado === 'Ordenada' || c.estado === 'Parcial' : c.estado === estado)) &&
-      matches(q, c.codigo, c.proveedor, c.estado, fmtDate(c.fecha)),
-  );
+  const proveedores = [...new Set(db.compras.map((c) => c.proveedor))].sort();
+  const selects: SelectFilter<Compra>[] = [
+    {
+      key: 'estado',
+      label: 'Estado',
+      options: [
+        { value: 'pendientes', label: 'Pendientes de recibir' },
+        { value: 'atrasadas', label: 'Atrasadas' },
+        ...ESTADOS.map((x) => ({ value: x, label: x })),
+      ],
+      test: (c, v) => (v === 'pendientes' ? c.estado === 'Ordenada' || c.estado === 'Parcial' : v === 'atrasadas' ? !!c.atrasada : c.estado === v),
+    },
+    { key: 'proveedor', label: 'Proveedor', options: proveedores.map((x) => ({ value: x, label: x })), test: (c, v) => c.proveedor === v },
+    {
+      key: 'moneda',
+      label: 'Moneda',
+      options: [
+        { value: 'NIO', label: 'Córdobas' },
+        { value: 'USD', label: 'Dólares' },
+      ],
+      test: (c, v) => c.moneda === v,
+    },
+  ];
+  const f = useListFilters(db.compras, { search: (c) => [c.codigo, c.proveedor, c.notas], selects, date: (c) => c.ordenada ?? c.fecha });
+  const rows = f.filtered;
+  const pg = usePaged(rows, f.key, 'compras');
 
   const setTab = (t: Tab) => setParams(t === 'ordenes' ? {} : { tab: t }, { replace: true });
   const abrir = (c: Compra) => modal.open(<PurchaseDetailModal compraId={c.id} />);
@@ -77,13 +99,7 @@ export function PurchasesPage() {
             <KpiCard lbl="Atrasadas" val={atrasadas} sub="pasaron la fecha esperada" ic="⚠" tone={atrasadas ? 'warn' : 'good'} />
           </div>
 
-          <SearchToolbar value={q} onChange={setQ} placeholder="Buscar por código o proveedor…">
-            <select value={estado} onChange={(e) => setEstado(e.target.value as typeof estado)} aria-label="Estado" className="toolbar-select">
-              {ESTADOS.map((x) => (
-                <option key={x}>{x}</option>
-              ))}
-            </select>
-          </SearchToolbar>
+          <FilterBar f={f} placeholder="Buscar por código, proveedor o notas…" />
 
           <div className="tablewrap">
             <table>
@@ -101,8 +117,8 @@ export function PurchasesPage() {
               </thead>
               <tbody>
                 {!db.compras.length && <EmptyRow cols={8} msg="Aún no hay compras. Use «Nueva compra» o la pestaña Reabastecimiento." ic="⇩" />}
-                {!!db.compras.length && !rows.length && <EmptyRow cols={8} msg="Ninguna compra coincide con el filtro" ic="🔍" />}
-                {rows.map((c) => {
+                {!!db.compras.length && !rows.length && <EmptyRow cols={8} msg="Ninguna compra coincide con los filtros" ic="🔍" />}
+                {pg.pageRows.map((c) => {
                   const pct = c.unidades ? Math.round((c.recibidas / c.unidades) * 100) : 0;
                   return (
                     <tr key={c.id} className="row-link" onClick={() => abrir(c)}>
@@ -147,6 +163,7 @@ export function PurchasesPage() {
               </tbody>
             </table>
           </div>
+          <Pagination p={pg} label="compras" />
         </>
       )}
     </>

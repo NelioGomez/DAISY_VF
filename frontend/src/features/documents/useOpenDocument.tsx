@@ -5,6 +5,7 @@ import { useCallback } from 'react';
 import { useModal } from '../../components/modals/useModal';
 import { useAuth } from '../../store/hooks';
 import type { DocumentoRef } from '../../types';
+import { TransferDetailModal } from '../inventory/TransferDetailModal';
 import { LotDetailModal } from '../production/LotDetailModal';
 import { OrderDetailModal } from '../production/OrderDetailModal';
 import { PurchaseDetailModal } from '../purchases/PurchaseDetailModal';
@@ -22,6 +23,7 @@ const PERMISSION: Record<DocumentoRef['tipo'], string | null> = {
   MOVIMIENTO: null,
   PRODUCCION: 'production:read',
   LOTE: 'production:read',
+  TRASLADO: 'inventory:read',
 };
 
 export function useOpenDocument() {
@@ -56,6 +58,8 @@ export function useOpenDocument() {
           return modal.open(<OrderDetailModal ordenId={ref.id} />);
         case 'LOTE':
           return modal.open(<LotDetailModal loteId={ref.id} />);
+        case 'TRASLADO':
+          return modal.open(<TransferDetailModal trasladoId={ref.id} />);
         default:
           return undefined;
       }

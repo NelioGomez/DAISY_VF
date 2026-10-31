@@ -9,6 +9,8 @@ export interface SummaryLine {
   /** Existencia actual y mínimo (si se conocen) para advertir. */
   stock?: number;
   min?: number;
+  /** Existencia en la sucursal (lo que excede se despacha desde la bodega). */
+  suc?: number;
 }
 
 export interface StockWarning {

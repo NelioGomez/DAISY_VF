@@ -3,6 +3,7 @@
    IMPORTANTE: ocultar módulos aquí solo mejora la experiencia; la
    autorización real debe aplicarse en NestJS con guards por rol.
    ===================================================================== */
+import type { RefreshKey } from '../store/storeContext';
 import type { ModuleId, RoleInfo, RoleKey } from '../types';
 
 export const ROLES: Record<RoleKey, RoleInfo> = {
@@ -115,6 +116,25 @@ export const MODULE_PERMISSION: Record<ModuleId, string> = {
   catalogo: 'catalog:read',
   consultas: 'inquiries:read',
   auditoria: 'audit:read',
+};
+
+/** Colecciones del store que usa cada módulo: si alguna falla, la pantalla ofrece reintentar. */
+export const MODULE_DATA: Record<ModuleId, RefreshKey[]> = {
+  dashboard: ['dashboard'],
+  productos: ['productos', 'catalogos'],
+  inventario: ['productos', 'catalogos'],
+  compras: ['compras', 'productos', 'proveedores'],
+  produccion: ['productos'],
+  clientes: ['clientes'],
+  proveedores: ['proveedores'],
+  cotizaciones: ['cotizaciones', 'clientes', 'productos'],
+  ventas: ['ventas', 'clientes', 'productos'],
+  pagos: ['pagos', 'cxc'],
+  ordenes: ['ordenes'],
+  reportes: [],
+  catalogo: ['productos', 'catalogos'],
+  consultas: ['consultas'],
+  auditoria: [],
 };
 
 /**

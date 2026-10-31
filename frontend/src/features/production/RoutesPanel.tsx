@@ -1,7 +1,8 @@
 /* Rutas de producción: operaciones en orden, centro de trabajo y tiempo estándar por unidad. */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useState } from 'react';
 import { EmptyRow } from '../../components/feedback/Empty';
-import { ViewLoader } from '../../components/feedback/FullScreenLoader';
+import { SkeletonTable } from '../../components/feedback/Skeleton';
 import { useModal } from '../../components/modals/useModal';
 import { SearchToolbar } from '../../components/tables/SearchToolbar';
 import { EstadoTag } from '../../components/tables/Tag';
@@ -15,17 +16,11 @@ export function RoutesPanel() {
   const { can } = useAuth();
   const canWrite = can('production:write');
   const modal = useModal();
-  const { data, error } = useProduccion(produccionApi.rutas);
+  const { data, error, reload } = useProduccion(produccionApi.rutas);
   const [q, setQ] = useState('');
 
-  if (error)
-    return (
-      <div className="note note-danger" role="alert">
-        <span className="ic">⚠️</span>
-        <div>{error}</div>
-      </div>
-    );
-  if (!data) return <ViewLoader text="Cargando rutas…" />;
+  if (error && !data) return <ErrorState msg={error} onRetry={reload} />;
+  if (!data) return <SkeletonTable cols={7} />;
 
   const rows = data.filter((r) => matches(q, r.codigo, r.nombre, r.producto.nombre, r.producto.sku, ...r.operaciones.map((o) => `${o.nombre} ${o.centro}`)));
 

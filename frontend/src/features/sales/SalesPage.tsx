@@ -1,13 +1,17 @@
-/* MÓDULO: VENTAS Y FACTURACIÓN (RF-12/13/14) — IVA, descuenta stock */
-import { useState } from 'react';
+/* MÓDULO: VENTAS Y FACTURACIÓN (RF-12/13/14) — IVA, descuenta stock.
+   Filtros por estado, forma de pago, vendedor y fechas con chips, y paginación (n.° 18-20). */
 import { Link } from 'react-router-dom';
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
-import { SearchToolbar } from '../../components/tables/SearchToolbar';
+import { FilterBar } from '../../components/tables/FilterBar';
+import { Pagination } from '../../components/tables/Pagination';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
+import { useListFilters, type SelectFilter } from '../../hooks/useListFilters';
+import { usePaged } from '../../hooks/usePaged';
 import { useAuth, useData } from '../../store/hooks';
-import { fmtDate, matches, money } from '../../utils/format';
+import type { Venta } from '../../types';
+import { fmtDate, money } from '../../utils/format';
 import { InvoiceModal } from './InvoiceModal';
 import { useExportVentas } from './useExportVentas';
 
@@ -17,8 +21,20 @@ export function SalesPage() {
   const canSell = can('sales:write') && can('customers:read') && can('products:read');
   const modal = useModal();
   const exportVentas = useExportVentas();
-  const [q, setQ] = useState('');
-  const rows = db.ventas.filter((v) => matches(q, v.factura, fmtDate(v.fecha), v.cliN, v.metodo, v.estado));
+  const vendedores = [...new Set(db.ventas.map((v) => v.vendedor).filter(Boolean))].sort();
+  const selects: SelectFilter<Venta>[] = [
+    {
+      key: 'estado',
+      label: 'Estado',
+      options: ['Pagada', 'Parcial', 'Pendiente', 'Vencida', 'Anulada'].map((x) => ({ value: x, label: x === 'Vencida' ? 'Vencidas (con saldo)' : x })),
+      test: (v, x) => (x === 'Vencida' ? v.vencida && v.estado !== 'Anulada' && v.saldo > 0 : v.estado === x),
+    },
+    { key: 'metodo', label: 'Forma de pago', options: ['Contado', 'Transferencia', 'Crédito'].map((x) => ({ value: x, label: x })), test: (v, x) => v.metodo === x },
+    ...(vendedores.length > 1 ? [{ key: 'vendedor', label: 'Vendedor', options: vendedores.map((x) => ({ value: x, label: x })), test: (v: Venta, x: string) => v.vendedor === x }] : []),
+  ];
+  const f = useListFilters(db.ventas, { search: (v) => [v.factura, v.cliN, v.ruc, v.cotizacion], selects, date: (v) => v.fecha });
+  const pg = usePaged(f.filtered, f.key, 'ventas');
+  const totalFiltrado = f.filtered.filter((v) => v.estado !== 'Anulada').reduce((t, v) => t + v.total, 0);
 
   return (
     <>
@@ -38,7 +54,12 @@ export function SalesPage() {
           </>
         }
       />
-      <SearchToolbar value={q} onChange={setQ} placeholder="Buscar por factura o cliente…" />
+      <FilterBar f={f} placeholder="Buscar por factura, cliente, RUC o cotización…" />
+      {f.active.length > 0 && (
+        <p className="doc-meta" style={{ margin: '-6px 0 10px' }}>
+          Total facturado en la selección (sin anuladas): <b>{money(totalFiltrado)}</b>
+        </p>
+      )}
       <div className="tablewrap">
         <table>
           <thead>
@@ -55,7 +76,8 @@ export function SalesPage() {
           </thead>
           <tbody>
             {!db.ventas.length && <EmptyRow cols={8} msg="Sin ventas registradas" />}
-            {rows.map((v) => (
+            {!!db.ventas.length && !f.filtered.length && <EmptyRow cols={8} msg="Ninguna venta coincide con los filtros" ic="🔍" />}
+            {pg.pageRows.map((v) => (
               <tr key={v.id}>
                 <td className="mono">{v.factura}</td>
                 <td className="mono">{fmtDate(v.fecha)}</td>
@@ -81,6 +103,7 @@ export function SalesPage() {
           </tbody>
         </table>
       </div>
+      <Pagination p={pg} label="ventas" />
     </>
   );
 }

@@ -1,6 +1,7 @@
 /* Órdenes de producción: avance por pasos de la ruta y resultado de calidad de sus lotes. */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useState } from 'react';
-import { ViewLoader } from '../../components/feedback/FullScreenLoader';
+import { SkeletonTable } from '../../components/feedback/Skeleton';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
 import { SearchToolbar } from '../../components/tables/SearchToolbar';
@@ -17,18 +18,12 @@ const ABIERTAS: EstadoOP[] = ['Borrador', 'Liberada', 'En proceso'];
 export function OrdersPanel() {
   const { can } = useAuth();
   const modal = useModal();
-  const { data, error } = useProduccion(produccionApi.ordenes);
+  const { data, error, reload } = useProduccion(produccionApi.ordenes);
   const [q, setQ] = useState('');
   const [estado, setEstado] = useState<(typeof FILTROS)[number]>('Todas');
 
-  if (error)
-    return (
-      <div className="note note-danger" role="alert">
-        <span className="ic">⚠️</span>
-        <div>{error}</div>
-      </div>
-    );
-  if (!data) return <ViewLoader text="Cargando órdenes…" />;
+  if (error && !data) return <ErrorState msg={error} onRetry={reload} />;
+  if (!data) return <SkeletonTable cols={8} />;
 
   const rows = data.filter(
     (o) =>

@@ -123,6 +123,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [booting, setBooting] = useState(() => readSession() !== null);
   const [status, setStatus] = useState<LoadStatus>('idle');
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Colecciones que no se pudieron cargar (mejora n.° 29): la pantalla ofrece reintentar solo esas.
+  const [failed, setFailed] = useState<Partial<Record<RefreshKey, string>>>({});
   const [lastLogout, setLastLogout] = useState<LogoutInfo | null>(null);
 
   const [realtime, setRealtime] = useState<RealtimeStatus>('off');
@@ -183,11 +185,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     async (keys: RefreshKey[]) => {
       const results = await Promise.allSettled(keys.map((k) => loaders[k]()));
       const patch: Partial<Database> = {};
-      results.forEach((r) => {
+      const errs: Partial<Record<RefreshKey, string>> = {};
+      results.forEach((r, i) => {
         if (r.status === 'fulfilled') Object.assign(patch, r.value);
-        else if (!(r.reason instanceof ApiError && r.reason.status === 401)) console.warn('No se pudo actualizar una colección:', r.reason);
+        else if (!(r.reason instanceof ApiError && r.reason.status === 401)) {
+          console.warn('No se pudo actualizar una colección:', r.reason);
+          errs[keys[i]] = errorMessage(r.reason);
+        }
       });
-      if (userRef.current) setDb((prev) => ({ ...prev, ...patch }));
+      if (!userRef.current) return;
+      setDb((prev) => ({ ...prev, ...patch }));
+      setFailed((prev) => {
+        const next = { ...prev };
+        keys.forEach((k) => {
+          if (errs[k]) next[k] = errs[k];
+          else delete next[k];
+        });
+        return next;
+      });
     },
     [loaders],
   );
@@ -199,8 +214,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!userRef.current) return;
     const patch: Partial<Database> = {};
     const failures: unknown[] = [];
-    results.forEach((r) => (r.status === 'fulfilled' ? Object.assign(patch, r.value) : failures.push(r.reason)));
+    const errs: Partial<Record<RefreshKey, string>> = {};
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') Object.assign(patch, r.value);
+      else {
+        failures.push(r.reason);
+        errs[ALL_KEYS[i]] = errorMessage(r.reason);
+      }
+    });
     setDb({ ...EMPTY_DB, ...patch });
+    setFailed(errs);
     if (failures.length === results.length && failures.length > 0) {
       setStatus('error');
       setLoadError(errorMessage(failures[0]));
@@ -254,6 +277,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     writeSession(null);
     setUser(null);
     setDb(EMPTY_DB);
+    setFailed({});
     setStatus('idle');
   }, []);
 
@@ -350,7 +374,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       registrarMovimiento: (d) =>
         run(async () => {
-          const body: Record<string, unknown> = { productId: d.prodId, type: MOVEMENT_TO_API[d.tipo] };
+          const body: Record<string, unknown> = { productId: d.prodId, type: MOVEMENT_TO_API[d.tipo], locationId: d.ubicacionId };
           if (d.tipo === 'Ajuste') body.newStock = d.nuevoStock;
           else body.quantity = d.cantidad;
           if (d.tipo === 'Entrada') {
@@ -512,11 +536,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       ordenarCompra: (id) => run(() => api.post(`/purchases/${id}/order`).then(() => undefined), PURCHASE_KEYS),
 
-      recibirCompra: (id, lineas, notas) =>
+      recibirCompra: (id, lineas, notas, ubicacionId) =>
         run(async () => {
           const c = await api.post<Json>(`/purchases/${id}/receive`, {
             items: lineas.filter((l) => l.cant > 0).map((l) => ({ purchaseItemId: l.lineaId, quantity: l.cant })),
             ...(notas.trim() ? { notes: notas.trim() } : {}),
+            ...(ubicacionId ? { locationId: ubicacionId } : {}),
           });
           return { recepcion: String(c.lastReceipt?.code ?? ''), estado: PURCHASE_STATUS[c.status as ApiPurchaseStatus] ?? 'Parcial' };
         }, PURCHASE_KEYS),
@@ -559,6 +584,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       booting,
       status,
       loadError,
+      failed,
       lastLogout,
       realtime,
       actions,
@@ -577,7 +603,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
     }),
     // `user` se incluye para que `can` (estable) se reevalúe en los componentes al cambiar de sesión.
-    [db, user, booting, status, loadError, lastLogout, realtime, actions, can, loadAll, startSession, endSession],
+    [db, user, booting, status, loadError, failed, lastLogout, realtime, actions, can, loadAll, startSession, endSession],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

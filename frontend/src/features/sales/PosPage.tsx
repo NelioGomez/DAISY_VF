@@ -40,6 +40,9 @@ function readCart(key: string): SavedCart | null {
   }
 }
 
+/** Unidades de la línea que no hay en la sucursal y saldrán de la bodega (si alcanza el total). */
+const desdeBodega = (l: SummaryLine) => (l.stock !== undefined && l.suc !== undefined && l.cant <= l.stock ? Math.max(0, l.cant - l.suc) : 0);
+
 export function PosPage() {
   const { db } = useData();
   const { can, user } = useAuth();
@@ -82,7 +85,7 @@ export function PosPage() {
   const lines: SummaryLine[] = cart.flatMap((l) => {
     const p = db.productos.find((x) => x.id === l.prod);
     if (!p) return [];
-    return [{ prod: p.id, nombre: p.nombre, sku: p.sku, cant: l.cant, precio: p.precio, sub: Math.round(p.precio * l.cant * 100) / 100, stock: p.stock, min: p.stockMin }];
+    return [{ prod: p.id, nombre: p.nombre, sku: p.sku, cant: l.cant, precio: p.precio, sub: Math.round(p.precio * l.cant * 100) / 100, stock: p.stock, suc: p.stockSucursal, min: p.stockMin }];
   });
   const totals = calcTotales(
     lines.reduce((a, l) => a + l.sub, 0),
@@ -257,7 +260,10 @@ export function PosPage() {
                     <span className="pos-price">
                       <b className="mono">{money(p.precio)}</b>
                       <span>
-                        <StockTag stock={p.stock - enCarrito} min={p.stockMin} /> <span className="mono muted-sm">{p.stock - enCarrito} disp.</span>
+                        <StockTag stock={p.stock - enCarrito} min={p.stockMin} />{' '}
+                        <span className="mono muted-sm" title={`Sucursal ${p.stockSucursal} · Bodega ${p.stockBodega}`}>
+                          {p.stock - enCarrito} disp.
+                        </span>
                       </span>
                     </span>
                   </button>
@@ -302,8 +308,13 @@ export function PosPage() {
                         {l.nombre}
                       </button>
                       <div className="muted-sm">
-                        <span className="mono">{l.sku}</span> · {money(l.precio)} c/u · disponible {l.stock}
+                        <span className="mono">{l.sku}</span> · {money(l.precio)} c/u · disponible {l.stock} (sucursal {l.suc ?? 0})
                       </div>
+                      {desdeBodega(l) > 0 && (
+                        <div className="pos-note">
+                          <span aria-hidden="true">⇄</span> {desdeBodega(l)} se despacha{desdeBodega(l) === 1 ? '' : 'n'} desde la bodega
+                        </div>
+                      )}
                       {w && (
                         <div className="pos-warn" role={w.tipo === 'falta' ? 'alert' : undefined}>
                           {w.tipo === 'falta' ? '✕' : '▼'} {w.texto}

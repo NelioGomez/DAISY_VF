@@ -102,6 +102,14 @@ export function StockTag({ stock, min }: { stock: number; min: number }) {
   );
 }
 
+const MOV_ICON: Record<string, string> = { Entrada: '↧', Salida: '↥', Ajuste: '⚖' };
+
+/** Tipo de movimiento con ícono y texto (no depende solo del color). */
 export function TipoMovTag({ tipo }: { tipo: string }) {
-  return <Tag tone={tipo === 'Entrada' ? 't-green' : tipo === 'Salida' ? 't-red' : 't-blue'}>{tipo}</Tag>;
+  return (
+    <Tag tone={tipo === 'Entrada' ? 't-green' : tipo === 'Salida' ? 't-red' : 't-blue'}>
+      {MOV_ICON[tipo] && <span aria-hidden="true">{MOV_ICON[tipo]}</span>}
+      {tipo}
+    </Tag>
+  );
 }

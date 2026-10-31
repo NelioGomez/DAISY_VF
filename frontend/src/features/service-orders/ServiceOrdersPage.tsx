@@ -1,18 +1,23 @@
 /* MÓDULO: ÓRDENES DE SERVICIO / OPI (RF-21)
    Flujo del servidor: Registrada → Asignada → En proceso → Completada → Facturada.
-   Se puede cancelar desde cualquier estado que no sea final. */
+   Se puede cancelar desde cualquier estado que no sea final. Filtros con chips y paginación (n.° 18-20). */
 import { useState } from 'react';
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useToast } from '../../components/feedback/useToast';
 import { useModal } from '../../components/modals/useModal';
-import { SearchToolbar } from '../../components/tables/SearchToolbar';
+import { FilterBar } from '../../components/tables/FilterBar';
+import { Pagination } from '../../components/tables/Pagination';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
-import type { OrdenServicio } from '../../types';
-import { fmtDate, matches } from '../../utils/format';
+import type { EstadoOrden, OrdenServicio } from '../../types';
+import { useListFilters, type SelectFilter } from '../../hooks/useListFilters';
+import { usePaged } from '../../hooks/usePaged';
+import { fmtDate } from '../../utils/format';
 import { OrderActionModal } from './OrderActionModal';
 import { ServiceOrderFormModal } from './ServiceOrderFormModal';
+
+const ESTADOS_OPI: EstadoOrden[] = ['Registrada', 'Asignada', 'En proceso', 'Completada', 'Facturada', 'Cancelada'];
 
 export function ServiceOrdersPage() {
   const { db, iniciarOrden, completarOrden } = useData();
@@ -20,9 +25,20 @@ export function ServiceOrdersPage() {
   const canWrite = can('service-orders:write');
   const modal = useModal();
   const toast = useToast();
-  const [q, setQ] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
-  const rows = db.ordenes.filter((o) => matches(q, o.codigo, fmtDate(o.fecha), o.cli, o.desc, o.tecnico, o.estado));
+  const tecnicos = [...new Set(db.ordenes.map((o) => o.tecnico).filter(Boolean))].sort();
+  const selects: SelectFilter<OrdenServicio>[] = [
+    { key: 'estado', label: 'Estado', options: ESTADOS_OPI.map((x) => ({ value: x, label: x })), test: (o, v) => o.estado === v },
+    ...(tecnicos.length > 1 ? [{ key: 'tecnico', label: 'Técnico', options: tecnicos.map((x) => ({ value: x, label: x })), test: (o: OrdenServicio, v: string) => o.tecnico === v }] : []),
+    {
+      key: 'asignacion',
+      label: 'Asignación',
+      options: [{ value: 'sin', label: 'Sin técnico asignado' }],
+      test: (o) => !o.tecnicoId,
+    },
+  ];
+  const f = useListFilters(db.ordenes, { search: (o) => [o.codigo, o.cli, o.desc, o.tecnico, o.factura], selects, date: (o) => o.fecha });
+  const pg = usePaged(f.filtered, f.key, 'ordenes-opi');
 
   const step = async (o: OrdenServicio, accion: 'start' | 'complete') => {
     setBusy(o.id);
@@ -79,7 +95,7 @@ export function ServiceOrdersPage() {
           )
         }
       />
-      <SearchToolbar value={q} onChange={setQ} placeholder="Buscar orden…" />
+      <FilterBar f={f} placeholder="Buscar por código, cliente, descripción o técnico…" />
       <div className="tablewrap">
         <table>
           <thead>
@@ -95,7 +111,8 @@ export function ServiceOrdersPage() {
           </thead>
           <tbody>
             {!db.ordenes.length && <EmptyRow cols={7} msg="Sin órdenes" />}
-            {rows.map((o) => (
+            {!!db.ordenes.length && !f.filtered.length && <EmptyRow cols={7} msg="Ninguna orden coincide con los filtros" ic="🔍" />}
+            {pg.pageRows.map((o) => (
               <tr key={o.id}>
                 <td className="mono">{o.codigo}</td>
                 <td className="mono">{fmtDate(o.fecha)}</td>
@@ -111,6 +128,7 @@ export function ServiceOrdersPage() {
           </tbody>
         </table>
       </div>
+      <Pagination p={pg} label="órdenes" />
     </>
   );
 }

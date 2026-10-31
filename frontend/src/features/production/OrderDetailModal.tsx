@@ -1,6 +1,7 @@
 /* Detalle de una orden de producción: materiales de la BOM, pasos de la ruta, lotes con su
    inspección de calidad y los movimientos de inventario que generó. Desde aquí se libera,
    se inicia (descarga los materiales), se registran los pasos, se termina o se cancela. */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useCallback, useState } from 'react';
 import { DocChain } from '../../components/common/DocChain';
 import { ViewLoader } from '../../components/feedback/FullScreenLoader';
@@ -31,7 +32,7 @@ export function OrderDetailModal({ ordenId }: { ordenId: string }) {
   const toast = useToast();
   const modal = useModal();
   const load = useCallback(() => produccionApi.orden(ordenId), [ordenId]);
-  const { data: o, error, set } = useProduccion(load);
+  const { data: o, error, set, reload } = useProduccion(load);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState(false);
 
@@ -102,11 +103,8 @@ export function OrderDetailModal({ ordenId }: { ordenId: string }) {
         )
       }
     >
-      {error ? (
-        <div className="note note-danger" role="alert">
-          <span className="ic">⚠️</span>
-          <div>{error}</div>
-        </div>
+      {error && !o ? (
+        <ErrorState msg={error} onRetry={reload} />
       ) : !o ? (
         <ViewLoader text="Cargando orden…" />
       ) : (

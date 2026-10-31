@@ -1,16 +1,19 @@
 /* MÓDULO: CONSULTAS WEB (RF-17) — solicitudes del catálogo público y del portal de clientes.
    Se conservan siempre (evidencia): Nueva → En revisión → Cotizada → Cerrada; Cancelada para spam o duplicadas.
-   Abrir una solicitud permite crear la cotización precargada (mejora n.° 45). */
-import { useState } from 'react';
+   Abrir una solicitud permite crear la cotización precargada (mejora n.° 45).
+   Filtros con chips y paginación (n.° 18-20). */
 import { ViewHead } from '../../components/common/ViewHead';
 import { DocChip } from '../../components/common/DocChain';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
-import { SearchToolbar } from '../../components/tables/SearchToolbar';
+import { FilterBar } from '../../components/tables/FilterBar';
+import { Pagination } from '../../components/tables/Pagination';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
 import { useData } from '../../store/hooks';
-import type { EstadoConsulta } from '../../types';
-import { ago, fmtDate, matches } from '../../utils/format';
+import { useListFilters, type SelectFilter } from '../../hooks/useListFilters';
+import { usePaged } from '../../hooks/usePaged';
+import type { ConsultaWeb, EstadoConsulta } from '../../types';
+import { ago, fmtDate } from '../../utils/format';
 import { useOpenDocument } from '../documents/useOpenDocument';
 import { InquiryDetailModal } from './InquiryDetailModal';
 
@@ -20,11 +23,21 @@ export function WebInquiriesPage() {
   const { db } = useData();
   const modal = useModal();
   const doc = useOpenDocument();
-  const [q, setQ] = useState('');
-  const [estado, setEstado] = useState<(typeof ESTADOS)[number]>('Todas');
-  const rows = db.consultas.filter(
-    (c) => (estado === 'Todas' || c.estado === estado) && matches(q, c.codigo, c.nombre, c.contacto, c.producto, c.msg, c.cliente?.nombre),
-  );
+  const selects: SelectFilter<ConsultaWeb>[] = [
+    { key: 'estado', label: 'Estado', options: ESTADOS.filter((x) => x !== 'Todas').map((x) => ({ value: x, label: x })), test: (c, v) => c.estado === v },
+    {
+      key: 'origen',
+      label: 'Origen',
+      options: [
+        { value: 'PORTAL', label: 'Portal de clientes' },
+        { value: 'WEB', label: 'Formulario web' },
+      ],
+      test: (c, v) => c.origen === v,
+    },
+  ];
+  const f = useListFilters(db.consultas, { search: (c) => [c.codigo, c.nombre, c.contacto, c.producto, c.msg, c.cliente?.nombre], selects, date: (c) => c.fecha });
+  const rows = f.filtered;
+  const pg = usePaged(rows, f.key, 'consultas-web');
 
   return (
     <>
@@ -32,13 +45,7 @@ export function WebInquiriesPage() {
         title="Consultas Web"
         desc="Solicitudes del catálogo público y del portal de clientes (RF-17). Nunca se borran: quedan como evidencia aunque se coticen. Abra una para crear la cotización sin volver a digitar."
       />
-      <SearchToolbar value={q} onChange={setQ} placeholder="Buscar por código, cliente, contacto o producto…">
-        <select value={estado} onChange={(e) => setEstado(e.target.value as typeof estado)} aria-label="Estado" className="toolbar-select">
-          {ESTADOS.map((x) => (
-            <option key={x}>{x}</option>
-          ))}
-        </select>
-      </SearchToolbar>
+      <FilterBar f={f} placeholder="Buscar por código, cliente, contacto o producto…" />
       <div className="tablewrap">
         <table>
           <thead>
@@ -55,7 +62,7 @@ export function WebInquiriesPage() {
           <tbody>
             {!db.consultas.length && <EmptyRow cols={7} msg="Sin consultas" />}
             {!!db.consultas.length && !rows.length && <EmptyRow cols={7} msg="Ninguna solicitud coincide con el filtro" ic="🔍" />}
-            {rows.map((c) => (
+            {pg.pageRows.map((c) => (
               <tr key={c.id} className="row-link" onClick={() => modal.open(<InquiryDetailModal consultaId={c.id} />)}>
                 <td className="mono">{c.codigo || '—'}</td>
                 <td className="mono">{fmtDate(c.fecha)}</td>
@@ -88,6 +95,7 @@ export function WebInquiriesPage() {
           </tbody>
         </table>
       </div>
+      <Pagination p={pg} label="solicitudes" />
     </>
   );
 }

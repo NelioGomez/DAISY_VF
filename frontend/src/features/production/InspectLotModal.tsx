@@ -1,6 +1,7 @@
 /* Control de calidad de un lote: se inspeccionan todas las unidades pendientes (o las que
    vuelven de retrabajo). Las conformes entran al inventario; para las no conformes se decide
    la disposición: retrabajo, scrap (desecho) o liberación por concesión. */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useCallback, useState } from 'react';
 import { Field } from '../../components/forms/Field';
 import { ViewLoader } from '../../components/feedback/FullScreenLoader';
@@ -25,7 +26,7 @@ export function InspectLotModal({ loteId, volverA }: Props) {
   const toast = useToast();
   const modal = useModal();
   const load = useCallback(() => produccionApi.lote(loteId), [loteId]);
-  const { data: l, error } = useProduccion(load);
+  const { data: l, error, reload } = useProduccion(load);
   const [malas, setMalas] = useState('0');
   const [disp, setDisp] = useState<Disposicion | ''>('');
   const [defecto, setDefecto] = useState('');
@@ -77,11 +78,8 @@ export function InspectLotModal({ loteId, volverA }: Props) {
         </>
       }
     >
-      {error ? (
-        <div className="note note-danger" role="alert">
-          <span className="ic">⚠️</span>
-          <div>{error}</div>
-        </div>
+      {error && !l ? (
+        <ErrorState msg={error} onRetry={reload} />
       ) : !l ? (
         <ViewLoader text="Cargando lote…" />
       ) : total <= 0 ? (

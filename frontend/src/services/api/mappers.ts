@@ -37,6 +37,7 @@ import type {
   Venta,
   Configuracion,
 } from '../../types';
+import { isUnidad } from '../../utils/units';
 
 /* ---------- Códigos de la API ---------- */
 
@@ -112,6 +113,7 @@ export const mapProducto = (p: Json): Producto => ({
   codigoBarras: s(p.barcode),
   nombre: s(p.name),
   descripcion: s(p.description),
+  unidad: isUnidad(p.unit) ? p.unit : 'UNIT',
   marca: s(p.brand?.name),
   marcaId: p.brandId ?? p.brand?.id ?? null,
   categoria: s(p.category?.name),
@@ -169,11 +171,13 @@ export const mapMovimiento = (m: Json): Movimiento => ({
   origen: mapOrigen(m.origin),
 });
 
-/** Origen de un movimiento según la API: venta o recepción de compra. */
+/** Origen de un movimiento según la API: venta, recepción de compra u orden de producción. */
 export function mapOrigen(o: Json): DocumentoRef | null {
   if (!o) return null;
   if (o.type === 'SALE') return { tipo: 'VENTA', id: s(o.id), codigo: s(o.code) };
   if (o.type === 'RECEIPT') return { tipo: 'RECEPCION', id: s(o.id), codigo: s(o.code), compraId: s(o.purchaseId) };
+  // Consumo de materiales (salida) o lote liberado por calidad (entrada) de una orden de producción.
+  if (o.type === 'PRODUCTION') return { tipo: 'PRODUCCION', id: s(o.id), codigo: s(o.code), ...(o.lotCode ? { lote: s(o.lotCode) } : {}) };
   return null;
 }
 
@@ -490,7 +494,7 @@ export const mapConsulta = (c: Json): ConsultaWeb => ({
 const MODULE_LABEL: Record<string, string> = {
   auth: 'Seguridad', users: 'Usuarios', products: 'Productos', inventory: 'Inventario', purchases: 'Compras', portal: 'Portal clientes', customers: 'Clientes',
   suppliers: 'Proveedores', quotations: 'Cotizaciones', sales: 'Ventas', payments: 'Pagos', 'service-orders': 'OPI',
-  inquiries: 'Consultas', categories: 'Categorías', brands: 'Marcas', roles: 'Roles', reports: 'Reportes',
+  inquiries: 'Consultas', categories: 'Categorías', brands: 'Marcas', roles: 'Roles', reports: 'Reportes', production: 'Producción',
 };
 
 export const mapAuditoria = (a: Json): RegistroAuditoria => ({
@@ -516,6 +520,7 @@ export const mapDashboard = (d: Json): DashboardResumen => ({
     cotizaciones: !!d.quotations,
     consultas: !!d.inquiries,
     compras: !!d.purchases,
+    produccion: !!d.production,
   },
   ventas30: { total: n(d.sales?.last30Days?.total), facturas: n(d.sales?.last30Days?.invoices) },
   ventasPrevias: { total: n(d.sales?.previous30Days?.total), facturas: n(d.sales?.previous30Days?.invoices) },
@@ -561,6 +566,23 @@ export const mapDashboard = (d: Json): DashboardResumen => ({
     },
   },
   consultasNuevas: n(d.inquiries?.new),
+  produccion: d.production
+    ? {
+        liberadas: n(d.production.releasedOrders),
+        enProceso: n(d.production.inProgressOrders),
+        terminadas30: n(d.production.completedOrders30),
+        planificadas30: n(d.production.plannedUnits30),
+        liberadasCalidad30: n(d.production.releasedUnits30),
+        desechadas30: n(d.production.scrappedUnits30),
+        porInspeccionar30: n(d.production.awaitingInspectionUnits30),
+        rendimiento: d.production.yieldPercent === null || d.production.yieldPercent === undefined ? null : n(d.production.yieldPercent),
+        inspeccionadas30: n(d.production.inspectedUnits30),
+        noConformes30: n(d.production.defectiveUnits30),
+        noConformidad: d.production.nonconformityPercent === null || d.production.nonconformityPercent === undefined ? null : n(d.production.nonconformityPercent),
+        cicloHoras: n(d.production.avgCycleHours),
+        lotesPorInspeccionar: n(d.production.lotsPendingQc),
+      }
+    : null,
   alertas: (d.alerts ?? []).map((a: Json) => ({ tipo: s(a.type), severidad: s(a.severity), mensaje: s(a.message), cantidad: n(a.count) })),
 });
 

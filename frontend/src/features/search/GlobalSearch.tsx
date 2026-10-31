@@ -23,7 +23,7 @@ import { useOpenDocument } from '../documents/useOpenDocument';
 import { CustomerDrawer } from '../customers/CustomerDrawer';
 import { ProductDrawer } from '../products/ProductDrawer';
 
-type Tipo = 'PRODUCT' | 'CUSTOMER' | 'SUPPLIER' | 'SALE' | 'QUOTATION' | 'INQUIRY' | 'PURCHASE' | 'SERVICE_ORDER';
+type Tipo = 'PRODUCT' | 'CUSTOMER' | 'SUPPLIER' | 'SALE' | 'QUOTATION' | 'INQUIRY' | 'PURCHASE' | 'SERVICE_ORDER' | 'PRODUCTION_ORDER' | 'PRODUCTION_LOT';
 
 interface Hit {
   tipo: Tipo;
@@ -42,9 +42,14 @@ const GROUPS: Array<[Tipo, string]> = [
   ['QUOTATION', 'Cotizaciones'],
   ['INQUIRY', 'Solicitudes web'],
   ['PURCHASE', 'Compras'],
+  ['PRODUCTION_ORDER', 'Órdenes de producción'],
+  ['PRODUCTION_LOT', 'Lotes de producción'],
   ['SERVICE_ORDER', 'Órdenes OPI'],
   ['SUPPLIER', 'Proveedores'],
 ];
+
+const PRODUCTION_STATUS: Record<string, string> = { DRAFT: 'Borrador', RELEASED: 'Liberada', IN_PROGRESS: 'En proceso', COMPLETED: 'Terminada', CANCELLED: 'Cancelada' };
+const LOT_STATUS: Record<string, string> = { PENDING_QC: 'Por inspeccionar', REWORK: 'En retrabajo', RELEASED: 'Liberado', SCRAPPED: 'Desechado' };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function estado(tipo: Tipo, s: any): string | null {
@@ -54,6 +59,8 @@ function estado(tipo: Tipo, s: any): string | null {
   if (tipo === 'INQUIRY') return INQUIRY_STATUS[s as ApiInquiryStatus] ?? null;
   if (tipo === 'PURCHASE') return PURCHASE_STATUS[s as ApiPurchaseStatus] ?? null;
   if (tipo === 'SERVICE_ORDER') return ORDER_STATUS[s as ApiServiceOrderStatus] ?? null;
+  if (tipo === 'PRODUCTION_ORDER') return PRODUCTION_STATUS[s] ?? null;
+  if (tipo === 'PRODUCTION_LOT') return LOT_STATUS[s] ?? null;
   return null;
 }
 
@@ -120,6 +127,10 @@ export function GlobalSearch() {
       case 'SERVICE_ORDER':
         modal.close();
         return navigate('/app/ordenes');
+      case 'PRODUCTION_ORDER':
+        return openDoc({ tipo: 'PRODUCCION', id: h.id, codigo: h.codigo });
+      case 'PRODUCTION_LOT':
+        return openDoc({ tipo: 'LOTE', id: h.id, codigo: h.codigo });
     }
   };
 

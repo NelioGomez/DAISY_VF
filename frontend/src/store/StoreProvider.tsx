@@ -40,6 +40,8 @@ const CHANGE_KEYS: Record<string, RefreshKey[]> = {
   sales: ['ventas', 'productos', 'movimientos', 'pagos', 'cxc', 'clientes', 'cotizaciones', 'ordenes', 'dashboard'],
   payments: ['pagos', 'cxc', 'ventas', 'clientes', 'dashboard'],
   'service-orders': ['ordenes', 'dashboard'],
+  // Producción consume componentes y, al liberar un lote, entra producto terminado.
+  production: ['productos', 'movimientos', 'dashboard'],
   inquiries: ['consultas', 'dashboard'],
   settings: ['config', 'dashboard'],
 };
@@ -323,6 +325,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     return {
       refresh,
+      ejecutar: (fn, keys) => run(fn, [...keys, 'auditoria']),
       registrarAuditoria() {
         /* el backend registra la auditoría de cada operación */
       },
@@ -330,7 +333,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       guardarProducto: (id, d) =>
         run(async () => {
           const body = {
-            sku: d.sku, barcode: d.codigoBarras.trim() || null, name: d.nombre, description: d.descripcion || undefined,
+            sku: d.sku, barcode: d.codigoBarras.trim() || null, name: d.nombre, description: d.descripcion || undefined, unit: d.unidad,
             categoryId: d.categoriaId, brandId: d.marcaId, minStock: d.stockMin, maxStock: d.stockMax,
           };
           if (id) {

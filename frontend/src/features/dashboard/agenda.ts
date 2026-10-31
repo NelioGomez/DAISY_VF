@@ -26,6 +26,8 @@ const SPEC: Record<string, { ic: string; link: string | ((can: (p: string) => bo
   PURCHASES_TO_RECEIVE: { ic: '▣', link: '/app/compras', accion: 'Registrar recepción' },
   SERVICE_ORDERS_UNASSIGNED: { ic: '▩', link: '/app/ordenes', accion: 'Asignar técnico' },
   SERVICE_ORDERS_ASSIGNED: { ic: '▩', link: '/app/ordenes', accion: 'Ver mis órdenes' },
+  LOTS_PENDING_QC: { ic: '▦', link: '/app/produccion?tab=lotes', accion: 'Inspeccionar' },
+  PRODUCTION_RELEASED: { ic: '⚙', link: '/app/produccion', accion: 'Iniciar producción' },
 };
 
 /** Pendientes ordenados por urgencia: críticos, luego advertencias y al final informativos. */

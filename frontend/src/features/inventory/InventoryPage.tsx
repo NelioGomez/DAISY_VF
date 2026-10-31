@@ -1,5 +1,6 @@
 /* MÓDULO: INVENTARIO (RF-06/07/08/09) — costo promedio móvil.
-   Cada movimiento muestra su documento de origen (factura o recepción de compra) y se puede abrir. */
+   Cada movimiento muestra su documento de origen (factura, recepción de compra u orden de
+   producción con su lote) y se puede abrir. */
 import { Link } from 'react-router-dom';
 import { KpiCard } from '../../components/cards/KpiCard';
 import { DocChip } from '../../components/common/DocChain';
@@ -145,7 +146,7 @@ export function InventoryPage() {
                   <td className="num">{m.stockDespues}</td>
                   <td title={m.nota}>
                     {m.origen ? (
-                      <DocChip tipo={m.origen.tipo} codigo={m.origen.codigo} onOpen={doc.canOpen(m.origen) ? () => doc.open(m.origen!) : undefined} />
+                      <DocChip tipo={m.origen.tipo} codigo={m.origen.codigo} detalle={m.origen.lote} onOpen={doc.canOpen(m.origen) ? () => doc.open(m.origen!) : undefined} />
                     ) : (
                       m.ref || m.nota || '—'
                     )}

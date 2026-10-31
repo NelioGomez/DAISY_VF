@@ -1,6 +1,7 @@
 /* MÓDULO: DASHBOARD (RF-20 / KPIs) — datos de GET /dashboard/summary.
    Centro de trabajo del día (n.° 40), acciones rápidas (n.° 8), KPIs con tendencia (n.° 9),
-   más vendidos (n.° 10) y antigüedad de cuentas por cobrar (n.° 24). */
+   más vendidos (n.° 10), antigüedad de cuentas por cobrar (n.° 24) y KPI de manufactura
+   (rendimiento, no conformidad y tiempo de ciclo). */
 import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { KpiCard } from '../../components/cards/KpiCard';
@@ -9,9 +10,11 @@ import { EmptyState } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
 import { EstadoTag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
-import type { DashboardResumen } from '../../types';
+import type { DashboardResumen, ResumenProduccion } from '../../types';
 import { money } from '../../utils/format';
 import { MovementFormModal } from '../inventory/MovementFormModal';
+import { OrderFormModal } from '../production/OrderFormModal';
+import { fmtHoras, pct } from '../production/productionFormat';
 import { PurchaseFormModal } from '../purchases/PurchaseFormModal';
 import { QuotationFormModal } from '../quotations/QuotationFormModal';
 import { agenda, variacion } from './agenda';
@@ -146,6 +149,8 @@ export function DashboardPage() {
         <Agenda d={d} />
       </div>
 
+      {d.produccion && <Manufactura p={d.produccion} />}
+
       {(sec.ventas || sec.cxc) && (
         <div className={`grid ${sec.ventas && sec.cxc ? 'cols-2' : ''}`} style={{ marginTop: 16 }}>
           {sec.ventas && <TopProductos d={d} />}
@@ -276,6 +281,15 @@ function QuickActions() {
         modal.open(<PurchaseFormModal />);
       },
     },
+    {
+      key: 'op',
+      show: can('production:write'),
+      label: 'Orden de producción',
+      run: () => {
+        navigate('/app/produccion');
+        modal.open(<OrderFormModal />);
+      },
+    },
     { key: 'pago', show: can('payments:write'), label: 'Registrar pago', run: () => navigate('/app/pagos') },
   ];
   const visible = actions.filter((a) => a.show);
@@ -350,6 +364,62 @@ function Antiguedad({ d }: { d: DashboardResumen }) {
         </ul>
       ) : (
         <EmptyState msg="No hay saldos pendientes" ic="✓" />
+      )}
+    </div>
+  );
+}
+
+/** KPI de manufactura (entrega 2), calculados por el servidor con los datos de producción y calidad. */
+function Manufactura({ p }: { p: ResumenProduccion }) {
+  const total = p.liberadasCalidad30 + p.desechadas30 + p.porInspeccionar30;
+  const w = (v: number) => `${total ? (v / total) * 100 : 0}%`;
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div className="card-h">
+        <h3>Manufactura — últimos 30 días</h3>
+        <Link to="/app/produccion" className="b b-out b-sm">
+          Ir a Producción
+        </Link>
+      </div>
+      <div className="mini-kpis mfg-kpis">
+        <div>
+          <span>Rendimiento (yield)</span>
+          <b>{pct(p.rendimiento)}</b>
+          <small>{p.planificadas30 ? `${p.liberadasCalidad30} liberadas de ${p.planificadas30} planificadas` : 'sin órdenes terminadas'}</small>
+        </div>
+        <div>
+          <span>Tasa de no conformidad</span>
+          <b>{pct(p.noConformidad)}</b>
+          <small>{p.inspeccionadas30 ? `${p.noConformes30} de ${p.inspeccionadas30} inspeccionadas` : 'sin inspecciones'}</small>
+        </div>
+        <div>
+          <span>Tiempo de ciclo promedio</span>
+          <b>{p.terminadas30 ? fmtHoras(p.cicloHoras) : '—'}</b>
+          <small>{p.terminadas30} orden(es) terminada(s)</small>
+        </div>
+        <div>
+          <span>Lotes por inspeccionar</span>
+          <b>{p.lotesPorInspeccionar}</b>
+          <small>
+            {p.enProceso} OP en proceso · {p.liberadas} por iniciar
+          </small>
+        </div>
+      </div>
+      {total > 0 ? (
+        <>
+          <div className="mfg-bar" role="img" aria-label={`${p.liberadasCalidad30} unidades liberadas, ${p.desechadas30} desechadas y ${p.porInspeccionar30} por inspeccionar`}>
+            <i className="ok" style={{ width: w(p.liberadasCalidad30) }} />
+            <i className="bad" style={{ width: w(p.desechadas30) }} />
+            <i className="wait" style={{ width: w(p.porInspeccionar30) }} />
+          </div>
+          <ul className="mfg-legend">
+            <li className="ok">{p.liberadasCalidad30} liberadas al inventario</li>
+            <li className="bad">{p.desechadas30} scrap</li>
+            <li className="wait">{p.porInspeccionar30} por inspeccionar o en retrabajo</li>
+          </ul>
+        </>
+      ) : (
+        <EmptyState msg="Sin órdenes terminadas en los últimos 30 días" ic="⚙" />
       )}
     </div>
   );

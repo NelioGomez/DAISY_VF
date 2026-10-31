@@ -233,6 +233,7 @@ export function ProductDrawer({ productoId }: { productoId: string }) {
                       <DocChip
                         tipo={m.origen.tipo}
                         codigo={m.origen.codigo}
+                        detalle={m.origen.lote}
                         onOpen={doc.canOpen(m.origen) ? () => doc.open(m.origen!) : undefined}
                       />
                     ) : (

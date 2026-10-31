@@ -36,6 +36,7 @@ const DashboardPage = page(() => import('../../features/dashboard/DashboardPage'
 const ProductsPage = page(() => import('../../features/products/ProductsPage'), 'ProductsPage');
 const InventoryPage = page(() => import('../../features/inventory/InventoryPage'), 'InventoryPage');
 const PurchasesPage = page(() => import('../../features/purchases/PurchasesPage'), 'PurchasesPage');
+const ProductionPage = page(() => import('../../features/production/ProductionPage'), 'ProductionPage');
 const CustomersPage = page(() => import('../../features/customers/CustomersPage'), 'CustomersPage');
 const SuppliersPage = page(() => import('../../features/suppliers/SuppliersPage'), 'SuppliersPage');
 const QuotationsPage = page(() => import('../../features/quotations/QuotationsPage'), 'QuotationsPage');
@@ -56,6 +57,7 @@ const MODULE_PAGES: Record<ModuleId, ReactElement> = {
   productos: <ProductsPage />,
   inventario: <InventoryPage />,
   compras: <PurchasesPage />,
+  produccion: <ProductionPage />,
   clientes: <CustomersPage />,
   proveedores: <SuppliersPage />,
   cotizaciones: <QuotationsPage />,

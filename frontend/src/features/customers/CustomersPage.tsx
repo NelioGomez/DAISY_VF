@@ -6,6 +6,7 @@ import { useModal } from '../../components/modals/useModal';
 import { SearchToolbar } from '../../components/tables/SearchToolbar';
 import { useAuth, useData } from '../../store/hooks';
 import { matches, money } from '../../utils/format';
+import { CustomerDrawer } from './CustomerDrawer';
 import { CustomerFormModal } from './CustomerFormModal';
 
 export function CustomersPage() {
@@ -49,7 +50,9 @@ export function CustomersPage() {
             {rows.map((c) => (
               <tr key={c.id}>
                 <td>
-                  <b>{c.nombre}</b>
+                  <button className="link-btn" onClick={() => modal.open(<CustomerDrawer clienteId={c.id} />)} title="Ver perfil 360°">
+                    <b>{c.nombre}</b>
+                  </button>
                 </td>
                 <td className="mono">{c.ruc}</td>
                 <td>{c.contacto}</td>

@@ -443,3 +443,51 @@ kbd{font-family:var(--mono);font-size:10.5px;background:var(--panel);border:1px 
 .aging .ag-d61_90 .meter i{background:var(--red)}
 .aging .ag-d90plus .meter i{background:#8f1d15}
 
+/* ---------- Búsqueda global Ctrl + K (n.° 7) ---------- */
+.search-chip{display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--muted);font-size:13px;min-width:200px}
+.search-chip:hover{border-color:#b9c6d1;color:var(--ink)}
+.search-chip span{flex:1;text-align:left}
+.search-chip kbd,.cmdk kbd{font-family:var(--mono);font-size:10.5px;padding:2px 6px;border-radius:5px;background:#fff;border:1px solid var(--line);color:var(--muted)}
+.cmdk-bg{padding-top:9vh}
+.cmdk{background:#fff;border-radius:14px;width:100%;max-width:680px;box-shadow:0 30px 80px rgba(0,0,0,.4);overflow:hidden;display:flex;flex-direction:column;max-height:76vh}
+.cmdk-input{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--muted)}
+.cmdk-input input{flex:1;border:0;font-size:16px;color:var(--ink);background:transparent;min-width:0}
+.cmdk-input input:focus{outline:none}
+.cmdk-body{overflow-y:auto;padding:6px 8px 10px}
+.cmdk-group{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;padding:12px 8px 4px}
+.cmdk-item{display:flex;align-items:center;gap:12px;width:100%;padding:9px 10px;border-radius:9px;text-align:left;font-size:13px;color:var(--ink)}
+.cmdk-item.is-active{background:#fff4dc;box-shadow:inset 3px 0 0 var(--amber)}
+.cmdk-item .code{font-size:12px;color:var(--muted);min-width:96px}
+.cmdk-item .main{flex:1;min-width:0;display:flex;flex-direction:column}
+.cmdk-item .main b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdk-item .main small{color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdk-item .amt{font-size:12px;white-space:nowrap}
+.cmdk-hint{padding:18px 10px;color:var(--muted);font-size:13px;line-height:1.5}
+.cmdk-hint.is-error{color:#b32a20}
+.cmdk-foot{display:flex;gap:16px;padding:9px 16px;border-top:1px solid var(--line);background:#f8fafb;font-size:11.5px;color:var(--muted)}
+.topbar .clock{white-space:nowrap}
+.drawer a:not(.b){color:var(--blue)}
+@media (max-width:1500px){.search-chip span{display:none}.search-chip{min-width:0}}
+@media (max-width:1100px){.search-chip kbd{display:none}}
+
+/* ---------- Pipeline de cotizaciones (n.° 14) ---------- */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff;margin-left:auto}
+.seg button{padding:8px 14px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--steel);color:#fff}
+.kanban{display:grid;grid-template-columns:repeat(6,minmax(230px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px;align-items:start}
+.kanban-col{background:#eaeff3;border-radius:12px;padding:10px;border-top:3px solid #b9c6d1;min-height:160px}
+.kanban-col.st-pendiente{border-top-color:var(--amber)}
+.kanban-col.st-aprobada{border-top-color:var(--green)}
+.kanban-col.st-convertida{border-top-color:var(--violet)}
+.kanban-col.st-rechazada{border-top-color:var(--red)}
+.kanban-col h4{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;font-size:11.5px;color:var(--muted);font-family:var(--mono);font-weight:600}
+.kcard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 11px;margin-bottom:8px;cursor:pointer;display:flex;flex-direction:column;gap:3px;font-size:12.5px}
+.kcard:hover{border-color:#a9b8c4;box-shadow:0 4px 12px rgba(17,33,46,.06)}
+.kcard-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.kcard-top b{font-family:var(--mono);font-size:13px}
+.kcard-cli{font-weight:600;color:var(--ink)}
+.kcard-actions{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.kcard-actions:empty{display:none}
+.kanban-empty{color:var(--soft);font-size:12px;text-align:center;padding:12px 4px}
+

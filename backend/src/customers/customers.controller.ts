@@ -40,6 +40,14 @@ export class CustomersController {
     return this.customers.findOne(id);
   }
 
+  @Get(':id/summary')
+  @Permissions('customers:read')
+  @ApiOperation({ summary: 'Perfil 360°: indicadores e historial de ventas, cotizaciones, solicitudes, pagos y OPI (según permisos)' })
+  @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
+  summary(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.customers.summary(id, actor);
+  }
+
   @Post()
   @Permissions('customers:write')
   @ApiResponse({ status: 409, description: 'El RUC ya existe' })

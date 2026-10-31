@@ -5,6 +5,7 @@ import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { decimalToNumber } from '../common/utils/decimal';
 import { buildPagination } from '../common/utils/pagination';
 import { isForeignKeyViolation, isUniqueViolation } from '../common/utils/prisma-errors';
+import { SaleStatus, UserRole } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateCustomerDto,
@@ -181,6 +182,86 @@ export class CustomersService {
         errors: [{ field: 'ruc', message: 'Ya existe un cliente con ese RUC' }],
       });
     }
+  }
+
+  /**
+   * Perfil 360° (mejora n.° 13): datos de contacto, indicadores comerciales y el historial de
+   * ventas, cotizaciones, solicitudes, pagos y OPI. Cada historial depende del permiso de su módulo.
+   */
+  async summary(id: string, actor: AuthUser) {
+    const c = await this.prisma.customer.findUnique({ where: { id }, select: CUSTOMER_SELECT });
+    if (!c) throw new NotFoundException('Cliente no encontrado');
+    const can = (perm: string) => actor.role === UserRole.ADMIN || actor.permissions.includes(perm);
+    const now = new Date();
+    const TAKE = 10;
+    const active = { customerId: id, status: SaleStatus.ACTIVE };
+
+    const [totals, overdue, lastSale, sales, quotations, inquiries, payments, orders, account] = await Promise.all([
+      this.prisma.sale.aggregate({ where: active, _count: { _all: true }, _sum: { total: true, balance: true } }),
+      this.prisma.sale.aggregate({ where: { ...active, balance: { gt: 0 }, dueDate: { lt: now } }, _count: { _all: true }, _sum: { balance: true } }),
+      this.prisma.sale.findFirst({ where: active, orderBy: { soldAt: 'desc' }, select: { soldAt: true } }),
+      can('sales:read')
+        ? this.prisma.sale.findMany({
+            where: { customerId: id },
+            orderBy: { soldAt: 'desc' },
+            take: TAKE,
+            select: { id: true, invoiceNumber: true, soldAt: true, dueDate: true, total: true, balance: true, status: true, paymentStatus: true },
+          })
+        : null,
+      can('quotations:read')
+        ? this.prisma.quotation.findMany({
+            where: { customerId: id },
+            orderBy: { issuedAt: 'desc' },
+            take: TAKE,
+            select: { id: true, code: true, issuedAt: true, validUntil: true, total: true, status: true },
+          })
+        : null,
+      can('inquiries:read')
+        ? this.prisma.webInquiry.findMany({
+            where: { customerId: id },
+            orderBy: { createdAt: 'desc' },
+            take: TAKE,
+            select: { id: true, code: true, createdAt: true, status: true, _count: { select: { items: true } } },
+          })
+        : null,
+      can('payments:read') || can('sales:read')
+        ? this.prisma.payment.findMany({
+            where: { sale: { customerId: id } },
+            orderBy: { paidAt: 'desc' },
+            take: TAKE,
+            select: { id: true, paidAt: true, amount: true, method: true, reference: true, sale: { select: { id: true, invoiceNumber: true } } },
+          })
+        : null,
+      can('service-orders:read')
+        ? this.prisma.serviceOrder.findMany({
+            where: { customerId: id, ...(actor.role === UserRole.TECHNICIAN && { technicianId: actor.id }) },
+            orderBy: { registeredAt: 'desc' },
+            take: TAKE,
+            select: { id: true, code: true, registeredAt: true, status: true, description: true },
+          })
+        : null,
+      this.prisma.customerAccount.findFirst({ where: { customerId: id }, select: { email: true, createdAt: true, lastLoginAt: true, isActive: true } }),
+    ]);
+
+    const n = (v: { toString(): string } | null | undefined) => (v ? decimalToNumber(v) : 0);
+    return {
+      customer: c,
+      stats: {
+        salesCount: totals._count._all,
+        totalPurchases: n(totals._sum.total),
+        pendingBalance: n(totals._sum.balance),
+        overdueInvoices: overdue._count._all,
+        overdueBalance: n(overdue._sum.balance),
+        lastPurchaseAt: lastSale?.soldAt ?? null,
+        averageTicket: totals._count._all ? Math.round((n(totals._sum.total) / totals._count._all) * 100) / 100 : 0,
+      },
+      portalAccount: account,
+      sales: sales?.map((x) => ({ ...x, total: n(x.total), balance: n(x.balance) })) ?? null,
+      quotations: quotations?.map((x) => ({ ...x, total: n(x.total) })) ?? null,
+      inquiries: inquiries?.map(({ _count, ...x }) => ({ ...x, items: _count.items })) ?? null,
+      payments: payments?.map((x) => ({ ...x, amount: n(x.amount) })) ?? null,
+      serviceOrders: orders,
+    };
   }
 
   /** Total comprado y saldo pendiente (solo ventas vigentes). */

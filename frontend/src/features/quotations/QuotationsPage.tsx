@@ -1,7 +1,8 @@
 /* MÓDULO: COTIZACIONES (RF-10 / RF-11)
    Flujo del servidor: Borrador → Pendiente → Aprobada → Convertida.
    Pendiente o Aprobada pueden rechazarse; vencen al pasar su validez.
-   Muestra la antigüedad del estado (mejora n.° 15) y el origen web (n.° 50). */
+   Muestra la antigüedad del estado (mejora n.° 15), el origen web (n.° 50) y una vista
+   de pipeline por estado (n.° 14) alternable con la tabla. */
 import { useState } from 'react';
 import { ViewHead } from '../../components/common/ViewHead';
 import { DocChip } from '../../components/common/DocChain';
@@ -11,7 +12,7 @@ import { useModal } from '../../components/modals/useModal';
 import { SearchToolbar } from '../../components/tables/SearchToolbar';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
-import type { Cotizacion } from '../../types';
+import type { Cotizacion, EstadoCotizacion } from '../../types';
 import { ago, daysSince, fmtDate, matches, money } from '../../utils/format';
 import { useOpenDocument } from '../documents/useOpenDocument';
 import { SaleFormModal } from '../sales/SaleFormModal';
@@ -21,6 +22,20 @@ import { RejectQuotationModal } from './RejectQuotationModal';
 
 /** Días en Pendiente a partir de los cuales conviene dar seguimiento. */
 const SEGUIMIENTO_DIAS = 5;
+
+type Vista = 'tabla' | 'pipeline';
+const VISTA_KEY = 'siven.cotizaciones.vista';
+const PIPELINE: EstadoCotizacion[] = ['Borrador', 'Pendiente', 'Aprobada', 'Convertida', 'Rechazada', 'Vencida'];
+/** En las columnas cerradas se muestran solo las más recientes. */
+const MAX_CERRADAS = 20;
+
+function readVista(): Vista {
+  try {
+    return localStorage.getItem(VISTA_KEY) === 'pipeline' ? 'pipeline' : 'tabla';
+  } catch {
+    return 'tabla';
+  }
+}
 
 export function QuotationsPage() {
   const { db, cambiarEstadoCotizacion, obtenerCotizacion } = useData();
@@ -32,6 +47,15 @@ export function QuotationsPage() {
   const doc = useOpenDocument();
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  const [vista, setVista] = useState<Vista>(readVista);
+  const cambiarVista = (v: Vista) => {
+    setVista(v);
+    try {
+      localStorage.setItem(VISTA_KEY, v);
+    } catch {
+      /* sin almacenamiento: solo dura esta visita */
+    }
+  };
   const rows = db.cotizaciones.filter((c) => matches(q, c.codigo, fmtDate(c.fecha), c.cliN, money(c.total), c.estado, c.solicitud?.codigo));
 
   const transition = async (c: Cotizacion, accion: 'submit' | 'approve') => {
@@ -50,6 +74,36 @@ export function QuotationsPage() {
     modal.open(<SaleFormModal cotizacion={r.data} />);
   };
 
+  const acciones = (c: Cotizacion) => {
+    const working = busy === c.id;
+    if (c.estado === 'Convertida') return <Tag tone="t-violet">{c.factura ?? 'Convertida'}</Tag>;
+    if (!canWrite || ['Rechazada', 'Vencida'].includes(c.estado)) return null;
+    return (
+      <>
+        {c.estado === 'Borrador' && (
+          <button className="b b-out b-sm" disabled={working} onClick={() => transition(c, 'submit')}>
+            Enviar
+          </button>
+        )}
+        {c.estado === 'Pendiente' && (
+          <button className="b b-out b-sm" disabled={working} onClick={() => transition(c, 'approve')}>
+            Aprobar
+          </button>
+        )}{' '}
+        {c.estado === 'Aprobada' && canConvert && (
+          <button className="b b-green b-sm" disabled={working} onClick={() => convertir(c)}>
+            → Venta
+          </button>
+        )}{' '}
+        {(c.estado === 'Pendiente' || c.estado === 'Aprobada') && (
+          <button className="b b-red b-sm" disabled={working} onClick={() => modal.open(<RejectQuotationModal cotizacion={c} />)}>
+            Rechazar
+          </button>
+        )}
+      </>
+    );
+  };
+
   return (
     <>
       <ViewHead
@@ -63,7 +117,67 @@ export function QuotationsPage() {
           )
         }
       />
-      <SearchToolbar value={q} onChange={setQ} placeholder="Buscar cotización, cliente o solicitud…" />
+      <SearchToolbar value={q} onChange={setQ} placeholder="Buscar cotización, cliente o solicitud…">
+        <div className="seg" role="group" aria-label="Vista">
+          <button className={vista === 'tabla' ? 'on' : ''} aria-pressed={vista === 'tabla'} onClick={() => cambiarVista('tabla')}>
+            Tabla
+          </button>
+          <button className={vista === 'pipeline' ? 'on' : ''} aria-pressed={vista === 'pipeline'} onClick={() => cambiarVista('pipeline')}>
+            Pipeline
+          </button>
+        </div>
+      </SearchToolbar>
+      {vista === 'pipeline' ? (
+        <div className="kanban" aria-label="Cotizaciones por estado">
+          {PIPELINE.map((estado) => {
+            const col = rows.filter((c) => c.estado === estado);
+            const cerrada = ['Convertida', 'Rechazada', 'Vencida'].includes(estado);
+            const visibles = cerrada ? col.slice(0, MAX_CERRADAS) : col;
+            return (
+              <section key={estado} className={`kanban-col st-${estado.toLowerCase()}`} aria-label={`${estado}: ${col.length}`}>
+                <h4>
+                  <EstadoTag estado={estado} />
+                  <span>
+                    {col.length} · {money(col.reduce((t, c) => t + c.total, 0))}
+                  </span>
+                </h4>
+                {visibles.map((c) => {
+                  const dias = daysSince(c.estadoDesde);
+                  const seguimiento = c.estado === 'Pendiente' && dias >= SEGUIMIENTO_DIAS;
+                  return (
+                    <article key={c.id} className="kcard" onClick={() => modal.open(<QuotationDetailModal cotizacionId={c.id} />)}>
+                      <div className="kcard-top">
+                        <button
+                          className="mono link-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            modal.open(<QuotationDetailModal cotizacionId={c.id} />);
+                          }}
+                        >
+                          {c.codigo}
+                        </button>
+                        <b className="num">{money(c.total)}</b>
+                      </div>
+                      <div className="kcard-cli">{c.cliN}</div>
+                      <div className={`age ${seguimiento ? 'is-late' : ''}`} title={`Desde ${fmtDate(c.estadoDesde)}`}>
+                        {ago(c.estadoDesde)}
+                        {seguimiento && ' · dar seguimiento'}
+                        {c.solicitud && ` · ${c.solicitud.codigo}`}
+                      </div>
+                      {!cerrada && <div className="muted-sm">Válida hasta {fmtDate(c.validaHasta)}</div>}
+                      <div className="kcard-actions" onClick={(e) => e.stopPropagation()}>
+                        {acciones(c)}
+                      </div>
+                    </article>
+                  );
+                })}
+                {!col.length && <p className="kanban-empty">Sin cotizaciones</p>}
+                {col.length > visibles.length && <p className="kanban-empty">y {col.length - visibles.length} más en la tabla</p>}
+              </section>
+            );
+          })}
+        </div>
+      ) : (
       <div className="tablewrap">
         <table>
           <thead>
@@ -81,7 +195,6 @@ export function QuotationsPage() {
           <tbody>
             {!db.cotizaciones.length && <EmptyRow cols={8} msg="Sin cotizaciones" />}
             {rows.map((c) => {
-              const working = busy === c.id;
               const dias = daysSince(c.estadoDesde);
               const seguimiento = c.estado === 'Pendiente' && dias >= SEGUIMIENTO_DIAS;
               return (
@@ -110,32 +223,7 @@ export function QuotationsPage() {
                     </div>
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                    {c.estado === 'Convertida' ? (
-                      <Tag tone="t-violet">{c.factura ?? 'Convertida'}</Tag>
-                    ) : !canWrite || ['Rechazada', 'Vencida'].includes(c.estado) ? null : (
-                      <>
-                        {c.estado === 'Borrador' && (
-                          <button className="b b-out b-sm" disabled={working} onClick={() => transition(c, 'submit')}>
-                            Enviar
-                          </button>
-                        )}
-                        {c.estado === 'Pendiente' && (
-                          <button className="b b-out b-sm" disabled={working} onClick={() => transition(c, 'approve')}>
-                            Aprobar
-                          </button>
-                        )}{' '}
-                        {c.estado === 'Aprobada' && canConvert && (
-                          <button className="b b-green b-sm" disabled={working} onClick={() => convertir(c)}>
-                            → Venta
-                          </button>
-                        )}{' '}
-                        {(c.estado === 'Pendiente' || c.estado === 'Aprobada') && (
-                          <button className="b b-red b-sm" disabled={working} onClick={() => modal.open(<RejectQuotationModal cotizacion={c} />)}>
-                            Rechazar
-                          </button>
-                        )}
-                      </>
-                    )}
+                    {acciones(c)}
                   </td>
                 </tr>
               );
@@ -143,6 +231,7 @@ export function QuotationsPage() {
           </tbody>
         </table>
       </div>
+      )}
     </>
   );
 }

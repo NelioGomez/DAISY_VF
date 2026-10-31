@@ -8,6 +8,7 @@ import { BrandsModule } from './brands/brands.module';
 import { CategoriesModule } from './categories/categories.module';
 import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { SearchModule } from './search/search.module';
 import { InquiriesModule } from './inquiries/inquiries.module';
 import { PublicModule } from './public/public.module';
 import { ReportsModule } from './reports/reports.module';
@@ -60,6 +61,7 @@ import { UsersModule } from './users/users.module';
     PaymentsModule,
     ServiceOrdersModule,
     DashboardModule,
+    SearchModule,
     ReportsModule,
     InquiriesModule,
     PublicModule,

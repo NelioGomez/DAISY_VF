@@ -3,7 +3,7 @@
    cantidades, elegir la forma de pago con tarjetas y revisar un resumen con advertencias de
    stock antes de confirmar. El carrito se conserva si la venta falla o se cambia de pantalla. */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyState } from '../../components/feedback/Empty';
 import { useToast } from '../../components/feedback/useToast';
@@ -45,7 +45,9 @@ export function PosPage() {
   const canSell = can('sales:write') && can('customers:read') && can('products:read');
   const storageKey = `siven.pos.${user?.id ?? ''}`;
   const [saved] = useState(() => readCart(storageKey));
-  const [cliId, setCliId] = useState(saved?.cliId ?? '');
+  // Desde el perfil del cliente se llega con ?cliente=<id> para venderle directamente.
+  const [params] = useSearchParams();
+  const [cliId, setCliId] = useState(params.get('cliente') ?? saved?.cliId ?? '');
   const [cart, setCart] = useState<CartItem[]>(saved?.cart ?? []);
   const [terms, setTerms] = useState<TermsState>(initialTerms);
   const [q, setQ] = useState('');

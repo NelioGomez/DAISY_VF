@@ -21,6 +21,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
   const [saving, setSaving] = useState(false);
   const [f, setF] = useState({
     sku: p?.sku ?? '',
+    codigoBarras: p?.codigoBarras ?? '',
     nombre: p?.nombre ?? '',
     descripcion: p?.descripcion ?? '',
     categoriaId: p?.categoriaId ?? '',
@@ -44,6 +45,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
     setSaving(true);
     const r = await guardarProducto(p?.id ?? null, {
       sku: f.sku.trim().toUpperCase(),
+      codigoBarras: f.codigoBarras.trim(),
       nombre: f.nombre.trim(),
       descripcion: f.descripcion.trim(),
       categoriaId: f.categoriaId || null,
@@ -90,6 +92,13 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
           </select>
         </Field>
         <InputField label="Nombre del producto" value={f.nombre} onChange={set('nombre')} full />
+        <InputField
+          label="Código de barras (opcional)"
+          value={f.codigoBarras}
+          onChange={set('codigoBarras')}
+          placeholder="Escanéelo o escríbalo"
+          help="Con él se agrega el producto en el punto de venta usando el lector"
+        />
         <Field label="Categoría">
           <select value={f.categoriaId} onChange={(e) => set('categoriaId')(e.target.value)}>
             <option value="">— Sin categoría —</option>

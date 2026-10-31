@@ -16,6 +16,7 @@ import {
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { SortOrder } from '../../common/dto/sort-order.enum';
+import { emptyToNull } from '../../common/transformers/text.transformers';
 import { toBoolean } from '../../common/transformers/to-boolean.transformer';
 
 const trim = ({ value }: { value: unknown }): unknown =>
@@ -46,6 +47,15 @@ export class CreateProductDto {
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
   @MaxLength(200)
   name!: string;
+
+  /** Código de barras (EAN/UPC/Code 128) que lee el escáner del punto de venta (mejora n.° 17). */
+  @ApiPropertyOptional({ example: '7501234567890', nullable: true, description: 'Único; vacío = sin código' })
+  @Transform(emptyToNull)
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Matches(/^[A-Za-z0-9\-.]+$/, { message: 'El código de barras solo admite letras, números, guion y punto' })
+  barcode?: string | null;
 
   @ApiPropertyOptional()
   @Transform(trim)

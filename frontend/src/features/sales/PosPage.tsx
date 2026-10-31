@@ -1,7 +1,9 @@
-/* VENTA TIPO POS (mejoras n.° 5, 6, 25 y 26 del análisis UX)
-   Pantalla rápida: buscar por nombre o SKU (↑ ↓ y Enter), ver precio y existencia, ajustar
-   cantidades, elegir la forma de pago con tarjetas y revisar un resumen con advertencias de
-   stock antes de confirmar. El carrito se conserva si la venta falla o se cambia de pantalla. */
+/* PUNTO DE VENTA (mejoras n.° 5, 6, 17, 25 y 26 del análisis UX)
+   Pantalla rápida: escanear el código de barras o buscar por nombre o SKU (↑ ↓ y Enter), ver
+   precio y existencia, ajustar cantidades, elegir la forma de pago con tarjetas (con vuelto en
+   efectivo) y revisar un resumen con advertencias de stock antes de confirmar.
+   Atajos: F2 buscar producto, F4 cliente, F9 cobrar. El carrito se conserva si la venta falla
+   o se cambia de pantalla. */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ViewHead } from '../../components/common/ViewHead';
@@ -13,7 +15,8 @@ import { useAuth, useData } from '../../store/hooks';
 import { calcTotales } from '../../utils/documents';
 import { matches, money } from '../../utils/format';
 import { ProductDrawer } from '../products/ProductDrawer';
-import { buildTerms, initialTerms, type TermsState } from './paymentTerms';
+import { CustomerFormModal } from '../customers/CustomerFormModal';
+import { buildTerms, efectivoDe, initialTerms, type TermsState } from './paymentTerms';
 import { PaymentTermsFields } from './PaymentTermsFields';
 import { SaleConfirmModal } from './SaleConfirmModal';
 import { stockWarnings, type SummaryLine } from './stockWarnings';
@@ -54,6 +57,7 @@ export function PosPage() {
   const [cat, setCat] = useState('');
   const [active, setActive] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
+  const clienteRef = useRef<HTMLSelectElement>(null);
 
   // El carrito sobrevive a recargar o cambiar de pantalla (solo en esta pestaña).
   useEffect(() => {
@@ -72,7 +76,7 @@ export function PosPage() {
     const ids = new Set(vendibles.map((p) => p.categoriaId).filter(Boolean));
     return db.categorias.filter((c) => ids.has(c.id));
   }, [vendibles, db.categorias]);
-  const results = vendibles.filter((p) => (!cat || p.categoriaId === cat) && matches(q, p.nombre, p.sku, p.marca, p.categoria)).slice(0, 40);
+  const results = vendibles.filter((p) => (!cat || p.categoriaId === cat) && matches(q, p.nombre, p.sku, p.codigoBarras, p.marca, p.categoria)).slice(0, 40);
   const activeIndex = Math.min(active, Math.max(0, results.length - 1));
 
   const lines: SummaryLine[] = cart.flatMap((l) => {
@@ -99,7 +103,25 @@ export function PosPage() {
   const setCant = (id: string, n: number) =>
     setCart((c) => (n <= 0 ? c.filter((l) => l.prod !== id) : c.map((l) => (l.prod === id ? { ...l, cant: Math.min(n, 1_000_000) } : l))));
 
+  /** Código exacto (lector de barras o SKU completo): se agrega directo y se limpia para el siguiente. */
+  const porCodigo = (code: string) => {
+    const c = code.trim().toUpperCase();
+    if (!c) return null;
+    return vendibles.find((p) => (p.codigoBarras && p.codigoBarras.toUpperCase() === c) || p.sku.toUpperCase() === c) ?? null;
+  };
+
   const onSearchKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const exacto = porCodigo(q);
+      if (exacto) {
+        e.preventDefault();
+        if (exacto.stock > 0) add(exacto.id);
+        else toast(`${exacto.sku}: sin existencia`, 'err');
+        setQ('');
+        setActive(0);
+        return;
+      }
+    }
     if (e.key === 'ArrowDown') {
       setActive(Math.min(activeIndex + 1, results.length - 1));
       e.preventDefault();
@@ -122,13 +144,42 @@ export function PosPage() {
   };
 
   const revisar = () => {
-    if (!cliId || !cliente) return toast('Seleccione el cliente', 'err');
+    if (!cliId || !cliente) {
+      clienteRef.current?.focus();
+      return toast('Seleccione el cliente', 'err');
+    }
     if (!lines.length) return toast('Agregue al menos un producto', 'err');
     if (bloqueada) return toast('Hay productos sin existencia suficiente: ajuste las cantidades', 'err');
     const t = buildTerms(terms, totals.total);
     if (typeof t === 'string') return toast(t, 'err');
-    modal.open(<SaleConfirmModal cliId={cliId} cliente={cliente.nombre} lines={lines} totals={totals} terms={t} onDone={vaciar} />);
+    modal.open(
+      <SaleConfirmModal cliId={cliId} cliente={cliente.nombre} lines={lines} totals={totals} terms={t} efectivo={efectivoDe(terms, totals.total)} onDone={vaciar} />,
+    );
   };
+
+  // Atajos del punto de venta (solo si no hay una ventana abierta encima).
+  const revisarRef = useRef(revisar);
+  useEffect(() => {
+    revisarRef.current = revisar;
+  });
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (document.querySelector('.modal-bg, .drawer-bg')) return;
+      if (e.key === 'F2') {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        clienteRef.current?.focus();
+      } else if (e.key === 'F9') {
+        e.preventDefault();
+        revisarRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   if (!canSell)
     return (
@@ -140,8 +191,8 @@ export function PosPage() {
   return (
     <>
       <ViewHead
-        title="Nueva venta"
-        desc="Busque por nombre o SKU, agregue con Enter y revise el resumen antes de confirmar. El servidor valida el stock y genera la factura."
+        title="Punto de venta"
+        desc="Escanee el código de barras o busque por nombre o SKU y agregue con Enter. Revise el resumen antes de confirmar: el servidor valida el stock y genera la factura."
         actions={
           <Link to="/app/ventas" className="b b-out">
             ← Ventas
@@ -160,8 +211,8 @@ export function PosPage() {
                 setActive(0);
               }}
               onKeyDown={onSearchKey}
-              placeholder="Buscar por nombre, SKU o marca…"
-              aria-label="Buscar producto"
+              placeholder="Escanee el código o busque por nombre, SKU o marca…  (F2)"
+              aria-label="Buscar producto o escanear código de barras"
               aria-controls="pos-results"
             />
           </div>
@@ -176,7 +227,7 @@ export function PosPage() {
             ))}
           </div>
           <p className="kbd-hint">
-            <kbd>↑</kbd> <kbd>↓</kbd> para moverse · <kbd>Enter</kbd> agrega una unidad · <kbd>Esc</kbd> limpia la búsqueda
+            <kbd>↑</kbd> <kbd>↓</kbd> moverse · <kbd>Enter</kbd> agrega una unidad · <kbd>Esc</kbd> limpia · <kbd>F4</kbd> cliente · <kbd>F9</kbd> cobrar
           </p>
           <ul id="pos-results" className="pos-results" role="listbox" aria-label="Resultados">
             {!results.length && <li className="muted-sm">Ningún producto coincide.</li>}
@@ -218,8 +269,15 @@ export function PosPage() {
 
         <section className="card pos-cart" aria-label="Venta en curso">
           <div className="field">
-            <label htmlFor="pos-cliente">Cliente</label>
-            <select id="pos-cliente" value={cliId} onChange={(e) => setCliId(e.target.value)}>
+            <div className="pos-cli-label">
+              <label htmlFor="pos-cliente">Cliente (F4)</label>
+              {can('customers:write') && (
+                <button type="button" className="link-btn" onClick={() => modal.open(<CustomerFormModal onSaved={(id) => setCliId(id)} />)}>
+                  ＋ Cliente nuevo
+                </button>
+              )}
+            </div>
+            <select id="pos-cliente" ref={clienteRef} value={cliId} onChange={(e) => setCliId(e.target.value)}>
               <option value="">— Seleccione el cliente —</option>
               {clientes.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -309,7 +367,7 @@ export function PosPage() {
               Vaciar
             </button>
             <button className="b b-amber pos-go" onClick={revisar} disabled={!lines.length || bloqueada}>
-              Revisar y confirmar · {money(totals.total)}
+              Cobrar · {money(totals.total)} <kbd>F9</kbd>
             </button>
           </div>
         </section>

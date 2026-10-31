@@ -180,11 +180,12 @@ describe('ProductsService', () => {
       expect(res.data[0]).toMatchObject({ avgCost: 10.5, salePrice: 25, stock: 3, lowStock: true });
     });
 
-    it('búsqueda es insensible a mayúsculas en sku, nombre y descripción', async () => {
+    it('búsqueda insensible a mayúsculas en sku, nombre y descripción, y exacta por código de barras', async () => {
       await service.findAll(Object.assign(new FilterProductDto(), { page: 1, limit: 20, search: 'noz' }));
       const { OR } = ctx.prisma.product.findMany.mock.calls[0][0].where;
-      expect(OR).toHaveLength(3);
+      expect(OR).toHaveLength(4);
       expect(OR[0].sku.mode).toBe('insensitive');
+      expect(OR).toContainEqual({ barcode: { equals: 'noz' } });
     });
   });
 

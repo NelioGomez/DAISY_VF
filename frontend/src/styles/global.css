@@ -491,3 +491,24 @@ kbd{font-family:var(--mono);font-size:10.5px;background:var(--panel);border:1px 
 .kcard-actions:empty{display:none}
 .kanban-empty{color:var(--soft);font-size:12px;text-align:center;padding:12px 4px}
 
+/* ---------- Punto de venta: cliente nuevo, efectivo y vuelto, impresión de la factura ---------- */
+.pos-cli-label{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.pos-cli-label .link-btn{font-size:12px;font-weight:600;color:var(--blue)}
+.pos-go kbd{font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(35,23,3,.12);color:#5a3c00;margin-left:4px}
+.cash-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:end;margin-top:12px}
+.cash-row .field{margin-bottom:0}
+.cash-row>.b{margin-bottom:18px}
+.cash-change{display:flex;flex-direction:column;align-items:flex-end;padding:6px 12px;border-radius:9px;background:var(--green-soft);color:#11603a;margin-bottom:16px;min-width:120px}
+.cash-change span{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+.cash-change b{font-family:var(--mono);font-size:17px}
+.cash-change.is-short{background:var(--red-soft);color:#9c241b}
+/* Al imprimir con una factura abierta, solo sale la factura (sin la pantalla de fondo). */
+@media print{
+  html:has(.modal.print-doc),body:has(.modal.print-doc){background:#fff!important}
+  body:has(.modal.print-doc) #root>:not(#modalRoot){display:none!important}
+  body:has(.modal.print-doc) *{transition:none!important;animation:none!important}
+  .modal-bg:has(.print-doc){position:static;background:none;backdrop-filter:none;padding:0;display:block;overflow:visible}
+  .modal.print-doc{max-width:none;box-shadow:none;border-radius:0}
+  .modal.print-doc .modal-h .x,.modal.print-doc .modal-f{display:none!important}
+}
+

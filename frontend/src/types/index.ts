@@ -49,6 +49,8 @@ export interface Catalogo {
 export interface Producto {
   id: string;
   sku: string;
+  /** Código de barras para el lector del punto de venta ('' = sin código). */
+  codigoBarras: string;
   nombre: string;
   descripcion: string;
   marca: string;

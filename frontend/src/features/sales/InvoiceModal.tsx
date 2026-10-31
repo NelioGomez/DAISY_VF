@@ -1,4 +1,5 @@
 /* Factura: se carga el detalle real desde GET /sales/:id. */
+import type { Efectivo } from './paymentTerms';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DocChain } from '../../components/common/DocChain';
@@ -13,7 +14,8 @@ import { fmtDate, fmtDateTime, money } from '../../utils/format';
 import { useOpenDocument } from '../documents/useOpenDocument';
 import { VoidSaleModal } from './VoidSaleModal';
 
-export function InvoiceModal({ ventaId }: { ventaId: string }) {
+/** `efectivo` llega solo al terminar una venta de contado en el punto de venta (para el comprobante). */
+export function InvoiceModal({ ventaId, efectivo }: { ventaId: string; efectivo?: Efectivo | null }) {
   const { obtenerVenta } = useData();
   const { can } = useAuth();
   const modal = useModal();
@@ -43,6 +45,7 @@ export function InvoiceModal({ ventaId }: { ventaId: string }) {
     <Modal
       title={v ? 'Factura ' + v.factura : 'Factura'}
       wide
+      className="print-doc"
       footer={
         <>
           {v && v.estado !== 'Anulada' && can('sales:void') && (
@@ -51,6 +54,11 @@ export function InvoiceModal({ ventaId }: { ventaId: string }) {
             </button>
           )}
           <CancelButton label="Cerrar" />
+          {v && (
+            <button className="b b-out" onClick={() => window.print()}>
+              Imprimir
+            </button>
+          )}
           {v && v.saldo > 0 && v.estado !== 'Anulada' && can('payments:write') && (
             <button className="b b-amber" onClick={irAPagos}>
               Registrar pago
@@ -159,6 +167,18 @@ export function InvoiceModal({ ventaId }: { ventaId: string }) {
                 <span>Saldo pendiente</span>
                 <span>{money(v.saldo)}</span>
               </div>
+            )}
+            {efectivo && (
+              <>
+                <div className="r">
+                  <span>Efectivo recibido</span>
+                  <span>{money(efectivo.recibido)}</span>
+                </div>
+                <div className="r" style={{ fontWeight: 700 }}>
+                  <span>Vuelto</span>
+                  <span>{money(efectivo.vuelto)}</span>
+                </div>
+              </>
             )}
           </div>
 

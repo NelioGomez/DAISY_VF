@@ -31,6 +31,7 @@ const EXPORT_MAX_ROWS = 50_000;
 const PRODUCT_SELECT = {
   id: true,
   sku: true,
+  barcode: true,
   name: true,
   description: true,
   categoryId: true,
@@ -51,6 +52,7 @@ const PRODUCT_SELECT = {
 interface ProductRow {
   id: string;
   sku: string;
+  barcode?: string | null;
   name: string;
   description: string | null;
   categoryId: string | null;
@@ -142,6 +144,7 @@ export class ProductsService {
 
   async create(dto: CreateProductDto, actor: AuthUser, ip?: string) {
     await this.assertSkuFree(dto.sku);
+    if (dto.barcode) await this.assertBarcodeFree(dto.barcode);
     await this.assertRelations(dto.categoryId, dto.brandId);
     this.assertStockLimits(dto.minStock ?? 0, dto.maxStock ?? null);
     if (dto.salePrice !== undefined && dto.salePrice > 0) this.assertCanPrice(actor);
@@ -154,6 +157,7 @@ export class ProductsService {
         return tx.product.create({
           data: {
             sku: dto.sku,
+            barcode: dto.barcode ?? null,
             name: dto.name,
             description: dto.description,
             categoryId: dto.categoryId ?? null,
@@ -169,7 +173,10 @@ export class ProductsService {
       await this.log(actor, 'CREATE', created.id, `Producto ${created.sku} creado`, ip);
       return this.toDto(created);
     } catch (error) {
-      if (isUniqueViolation(error)) await this.assertSkuFree(dto.sku);
+      if (isUniqueViolation(error)) {
+        await this.assertSkuFree(dto.sku);
+        if (dto.barcode) await this.assertBarcodeFree(dto.barcode);
+      }
       throw error;
     }
   }
@@ -177,6 +184,7 @@ export class ProductsService {
   async update(id: string, dto: UpdateProductDto, actor: AuthUser, ip?: string) {
     const existing = await this.findOne(id);
     if (dto.sku && dto.sku !== existing.sku) await this.assertSkuFree(dto.sku, id);
+    if (dto.barcode) await this.assertBarcodeFree(dto.barcode, id);
     await this.assertRelations(dto.categoryId, dto.brandId);
     if (dto.minStock !== undefined || dto.maxStock !== undefined) {
       this.assertStockLimits(dto.minStock ?? existing.minStock, dto.maxStock !== undefined ? dto.maxStock : existing.maxStock);
@@ -191,6 +199,7 @@ export class ProductsService {
         where: { id },
         data: {
           ...(dto.sku !== undefined && { sku: dto.sku }),
+          ...(dto.barcode !== undefined && { barcode: dto.barcode }),
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.description !== undefined && { description: dto.description }),
           ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
@@ -467,6 +476,7 @@ export class ProductsService {
       ...(f.search && {
         OR: [
           { sku: { contains: f.search, mode: 'insensitive' as const } },
+          { barcode: { equals: f.search } },
           { name: { contains: f.search, mode: 'insensitive' as const } },
           { description: { contains: f.search, mode: 'insensitive' as const } },
         ],
@@ -487,6 +497,19 @@ export class ProductsService {
         return { createdAt: dir };
       default:
         return { name: dir };
+    }
+  }
+
+  private async assertBarcodeFree(barcode: string, excludeId?: string) {
+    const clash = await this.prisma.product.findFirst({
+      where: { barcode, ...(excludeId && { NOT: { id: excludeId } }) },
+      select: { sku: true },
+    });
+    if (clash) {
+      throw new ConflictException({
+        message: 'No fue posible guardar el producto',
+        errors: [{ field: 'barcode', message: `Ese código de barras ya lo tiene el producto ${clash.sku}` }],
+      });
     }
   }
 
@@ -533,6 +556,7 @@ export class ProductsService {
     return {
       id: p.id,
       sku: p.sku,
+      barcode: p.barcode ?? null,
       name: p.name,
       description: p.description,
       categoryId: p.categoryId,

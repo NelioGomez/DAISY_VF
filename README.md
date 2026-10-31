@@ -172,8 +172,14 @@ sesión de los clientes). Los datos de contacto del sitio público se guardan co
 | `/clientes/cuenta/solicitudes` · `/cotizaciones` · `/perfil` | Portal del cliente |
 | `/login` · `/app/...` | Sistema interno (Compras en `/app/compras`, POS en `/app/ventas/nueva`; `?cliente=<id>` preselecciona el cliente) |
 
-En el sistema interno: **Ctrl + K** abre la búsqueda global, **Alt + V** una venta nueva, **Alt + C** una
+En el sistema interno: **Ctrl + K** abre la búsqueda global, **Alt + V** el punto de venta, **Alt + C** una
 cotización nueva y **Esc** cierra ventanas y paneles. Cotizaciones tiene vista de tabla y de pipeline.
+
+**Punto de venta** (menú Operación → Punto de venta): acepta lector de código de barras (el código se
+registra en el formulario del producto; el lector escribe el código y Enter), SKU exacto o búsqueda por nombre.
+Atajos: **F2** buscar producto, **F4** cliente, **F9** cobrar. Permite crear un cliente sin salir, calcula el
+vuelto en ventas de contado y la factura se puede imprimir. El efectivo recibido no se guarda en la base de
+datos: solo se usa para el vuelto y el comprobante de esa venta.
 
 ### Endpoints nuevos
 
@@ -189,6 +195,7 @@ cotización nueva y **Esc** cierra ventanas y paneles. Cotizaciones tiene vista 
 | `GET/POST /portal/inquiries`, `GET /portal/inquiries/:id` | Lista de cotización enviada y su seguimiento |
 | `GET /portal/quotations`, `GET /portal/quotations/:id` | Cotizaciones del cliente (sin borradores) |
 | `GET /public/products/:id` · `GET /public/categories` | Ficha pública con relacionados; categorías con cantidad y precio "desde" |
+| `POST/PATCH /products` (campo `barcode`) | Código de barras único por producto; la búsqueda de productos lo encuentra por coincidencia exacta |
 | `GET /search?q=` | Búsqueda global (Ctrl + K) en los módulos que el rol puede leer |
 | `GET /customers/:id/summary` | Perfil 360° del cliente: indicadores e historial de ventas, cotizaciones, solicitudes, pagos y OPI |
 | `GET /dashboard/summary` (ampliado) | Ventas de los 30 días anteriores, conversión de cotizaciones, antigüedad de CxC, compras por recibir y pendientes accionables (campana y "Pendientes para hoy") |

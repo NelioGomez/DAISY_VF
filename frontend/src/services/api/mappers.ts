@@ -109,6 +109,7 @@ export const mapCatalogo = (c: Json): Catalogo => ({ id: c.id, nombre: s(c.name)
 export const mapProducto = (p: Json): Producto => ({
   id: p.id,
   sku: s(p.sku),
+  codigoBarras: s(p.barcode),
   nombre: s(p.name),
   descripcion: s(p.description),
   marca: s(p.brand?.name),

@@ -6,9 +6,11 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  /** Clase extra, p. ej. "print-doc" para que la impresión muestre solo este documento. */
+  className?: string;
 }
 
-export function Modal({ title, children, footer, wide }: ModalProps) {
+export function Modal({ title, children, footer, wide, className = '' }: ModalProps) {
   const { close } = useModal();
   // Esc cierra la ventana (atajo de teclado, mejora n.° 31).
   useEffect(() => {
@@ -18,7 +20,7 @@ export function Modal({ title, children, footer, wide }: ModalProps) {
   }, [close]);
   return (
     <div className="modal-bg" onClick={(e) => e.target === e.currentTarget && close()}>
-      <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+      <div className={`modal ${wide ? 'wide' : ''} ${className}`} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-h">
           <h3>{title}</h3>
           <button className="x" onClick={close} aria-label="Cerrar">

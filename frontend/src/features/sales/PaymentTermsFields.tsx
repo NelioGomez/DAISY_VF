@@ -21,6 +21,10 @@ export function PaymentTermsFields({ value, onChange, total }: { value: TermsSta
   const dias = Math.round(Number(value.diasCredito));
   const vence = credito && dias >= 1 && dias <= 365 ? isoInDays(dias) : null;
 
+  const contado = value.metodo === 'Contado';
+  const recibido = Number(value.recibido);
+  const vuelto = value.recibido.trim() !== '' && Number.isFinite(recibido) ? Math.round((recibido - total) * 100) / 100 : null;
+
   return (
     <>
       <div className="pay-cards" role="radiogroup" aria-label="Forma de pago">
@@ -35,6 +39,26 @@ export function PaymentTermsFields({ value, onChange, total }: { value: TermsSta
           </label>
         ))}
       </div>
+      {contado && total > 0 && (
+        <div className="cash-row">
+          <InputField
+            id="pos-recibido"
+            label="Efectivo recibido (C$)"
+            type="number"
+            value={value.recibido}
+            onChange={(v) => set('recibido', v)}
+            placeholder={total.toFixed(2)}
+            help="Opcional: para calcular el vuelto"
+          />
+          <button type="button" className="b b-out b-sm" onClick={() => set('recibido', total.toFixed(2))}>
+            Monto exacto
+          </button>
+          <div className={`cash-change ${vuelto !== null && vuelto < 0 ? 'is-short' : ''}`} aria-live="polite">
+            <span>{vuelto !== null && vuelto < 0 ? 'Falta' : 'Vuelto'}</span>
+            <b>{vuelto === null ? '—' : money(Math.abs(vuelto))}</b>
+          </div>
+        </div>
+      )}
       {(credito || showRef) && (
         <div className="form-grid" style={{ marginTop: 12 }}>
           {credito && (

@@ -14,6 +14,8 @@ function build() {
     webInquiry: model([]),
     purchase: model([]),
     serviceOrder: model([{ id: 'o1', code: 'OPI-000001', description: 'Cambio de boquilla', status: 'ASSIGNED', customer: { name: 'X' } }]),
+    productionOrder: model([]),
+    productionLot: model([]),
   };
   return { prisma, service: new SearchService(prisma as never) };
 }
@@ -33,6 +35,22 @@ describe('Búsqueda global', () => {
     expect(r.results.map((x) => x.type)).toEqual(['PRODUCT']);
     expect(prisma.sale.findMany).not.toHaveBeenCalled();
     expect(prisma.customer.findMany).not.toHaveBeenCalled();
+  });
+
+  it('encuentra órdenes de producción y lotes por su código (solo con production:read)', async () => {
+    const { prisma, service } = build();
+    prisma.productionOrder.findMany.mockResolvedValue([{ id: 'op1', code: 'OP-000001', quantity: 5, status: 'COMPLETED', product: { sku: 'MNG-34-10P', name: 'Manguera 3/4"' } }]);
+    prisma.productionLot.findMany.mockResolvedValue([
+      { id: 'l1', code: 'LOT-000001', quantity: 5, releasedQuantity: 4, status: 'RELEASED', order: { code: 'OP-000001' }, product: { name: 'Manguera 3/4"' } },
+    ]);
+    const r = await service.search(user('INVENTORY_MANAGER', ['production:read']), 'op-0', 5);
+    expect(r.results).toEqual([
+      expect.objectContaining({ type: 'PRODUCTION_ORDER', code: 'OP-000001', subtitle: '5 u. · MNG-34-10P' }),
+      expect.objectContaining({ type: 'PRODUCTION_LOT', code: 'LOT-000001', subtitle: 'OP-000001 · 4 de 5 liberadas' }),
+    ]);
+    const vendedor = build();
+    await vendedor.service.search(user('SELLER', ['products:read']), 'op-0', 5);
+    expect(vendedor.prisma.productionOrder.findMany).not.toHaveBeenCalled();
   });
 
   it('un técnico solo encuentra sus propias órdenes', async () => {

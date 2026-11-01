@@ -40,6 +40,14 @@ export class SuppliersController {
     return this.suppliers.findOne(id);
   }
 
+  @Get(':id/summary')
+  @Permissions('suppliers:read')
+  @ApiOperation({ summary: 'Panel del proveedor: compras, productos que surte e indicadores (según permisos)' })
+  @ApiResponse({ status: 404, description: 'Proveedor no encontrado' })
+  summary(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.suppliers.summary(id, actor);
+  }
+
   @Post()
   @Permissions('suppliers:write')
   @ApiResponse({ status: 409, description: 'El identificador fiscal ya existe' })

@@ -2,8 +2,10 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { AuditService } from '../audit/audit.service';
 import { SortOrder } from '../common/dto/sort-order.enum';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
+import { decimalToNumber } from '../common/utils/decimal';
 import { buildPagination } from '../common/utils/pagination';
 import { isForeignKeyViolation, isUniqueViolation } from '../common/utils/prisma-errors';
+import { PurchaseStatus, UserRole } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateSupplierDto,
@@ -76,6 +78,85 @@ export class SuppliersService {
     const s = (await this.prisma.supplier.findUnique({ where: { id }, select: SUPPLIER_SELECT })) as SupplierRow | null;
     if (!s) throw new NotFoundException('Proveedor no encontrado');
     return s;
+  }
+
+  /**
+   * Panel lateral del proveedor (mejora n.° 33): indicadores de compra, productos que surte y
+   * compras recientes. Las compras solo se envían si el rol puede leerlas (si no, null).
+   */
+  async summary(id: string, actor: AuthUser) {
+    const supplier = await this.findOne(id);
+    const can = (perm: string) => actor.role === UserRole.ADMIN || actor.permissions.includes(perm);
+    const canPurchases = can('purchases:read');
+    const notCancelled = { supplierId: id, status: { not: PurchaseStatus.CANCELLED } };
+
+    const [products, totals, open, last, purchases] = await Promise.all([
+      this.prisma.productSupplier.findMany({
+        where: { supplierId: id },
+        orderBy: [{ isPreferred: 'desc' }, { product: { name: 'asc' } }],
+        take: 50,
+        select: {
+          supplierSku: true,
+          lastCost: true,
+          currency: true,
+          leadTimeDays: true,
+          isPreferred: true,
+          product: { select: { id: true, sku: true, name: true, imageUrl: true, stock: true, minStock: true, isActive: true } },
+        },
+      }),
+      canPurchases ? this.prisma.purchase.aggregate({ where: notCancelled, _count: { _all: true } }) : null,
+      canPurchases
+        ? this.prisma.purchase.count({ where: { supplierId: id, status: { in: [PurchaseStatus.ORDERED, PurchaseStatus.PARTIALLY_RECEIVED] } } })
+        : null,
+      canPurchases ? this.prisma.purchase.findFirst({ where: notCancelled, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }) : null,
+      canPurchases
+        ? this.prisma.purchase.findMany({
+            where: { supplierId: id },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+            select: { id: true, code: true, status: true, currency: true, exchangeRate: true, total: true, orderedAt: true, expectedAt: true, createdAt: true },
+          })
+        : null,
+    ]);
+
+    // Total comprado en córdobas (las compras en dólares se convierten con su tipo de cambio).
+    const purchasedNio = canPurchases
+      ? await this.prisma.purchase
+          .findMany({ where: notCancelled, select: { total: true, exchangeRate: true } })
+          .then((rows) => Math.round(rows.reduce((n, r) => n + decimalToNumber(r.total) * decimalToNumber(r.exchangeRate), 0) * 100) / 100)
+      : null;
+
+    return {
+      supplier,
+      stats: canPurchases
+        ? { purchases: totals!._count._all, purchasedNio, openOrders: open, lastPurchaseAt: last?.createdAt ?? null }
+        : null,
+      products: products.map((ps) => ({
+        id: ps.product.id,
+        sku: ps.product.sku,
+        name: ps.product.name,
+        imageUrl: ps.product.imageUrl ?? null,
+        stock: ps.product.stock,
+        lowStock: ps.product.stock <= ps.product.minStock,
+        isActive: ps.product.isActive,
+        supplierSku: ps.supplierSku,
+        lastCost: ps.lastCost === null ? null : decimalToNumber(ps.lastCost),
+        currency: ps.currency,
+        leadTimeDays: ps.leadTimeDays,
+        isPreferred: ps.isPreferred,
+      })),
+      purchases:
+        purchases?.map((p) => ({
+          id: p.id,
+          code: p.code,
+          status: p.status,
+          currency: p.currency,
+          total: decimalToNumber(p.total),
+          orderedAt: p.orderedAt,
+          expectedAt: p.expectedAt,
+          createdAt: p.createdAt,
+        })) ?? null,
+    };
   }
 
   async create(dto: CreateSupplierDto, actor: AuthUser, ip?: string) {

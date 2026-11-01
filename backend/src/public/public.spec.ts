@@ -4,7 +4,7 @@ import { validate } from 'class-validator';
 import { AuditService } from '../audit/audit.service';
 import { canMoveInquiry } from '../inquiries/inquiry-status';
 import { InquiriesService } from '../inquiries/inquiries.service';
-import { Availability, CreateInquiryDto, PublicProductFilterDto } from './dto/public.dto';
+import { Availability, CompareProductsDto, CreateInquiryDto, PublicProductFilterDto } from './dto/public.dto';
 import { availabilityOf, PublicCatalogService } from './public-catalog.service';
 
 const REF = Symbol('minStock');
@@ -90,6 +90,37 @@ describe('Catálogo público', () => {
   it('detalle de un producto no publicado → 404', async () => {
     const { service } = buildCatalog([]);
     await expect(service.product('x')).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe('Comparador de productos (mejora n.° 38)', () => {
+  const A = '0192f000-0000-7000-8000-00000000000a';
+  const B = '0192f000-0000-7000-8000-00000000000b';
+  const C = '0192f000-0000-7000-8000-00000000000c';
+
+  it('respeta el orden pedido, omite los no publicados y señala diferencias y el menor precio', async () => {
+    const { prisma, service } = buildCatalog([
+      row({ id: B, salePrice: dec('80.00'), stock: 1, minStock: 5, brand: { id: 'm1', name: 'OPW' } }),
+      row({ id: A, salePrice: dec('100.00'), brand: { id: 'm1', name: 'OPW' } }),
+    ]);
+    const r = await service.compare([A, B, C]);
+    expect(r.items.map((x) => x.id)).toEqual([A, B]);
+    expect(r.missing).toEqual([C]);
+    expect(r.differences).toEqual(expect.arrayContaining(['price', 'availability']));
+    expect(r.differences).not.toContain('brand');
+    expect(r.lowestPrice).toBe(80);
+    const where = prisma.product.findMany.mock.calls[0][0].where;
+    expect(where.isActive).toBe(true);
+    for (const item of r.items) for (const k of ['avgCost', 'stock', 'minStock']) expect(item).not.toHaveProperty(k);
+  });
+
+  it('valida de 2 a 4 ids únicos con formato UUID', async () => {
+    const dto = (ids: string) => plainToInstance(CompareProductsDto, { ids });
+    expect(await validate(dto(`${A},${B}`))).toHaveLength(0);
+    expect(dto(`${A}, ${A} ,${B}`).ids).toEqual([A, B]);
+    expect(await validate(dto(A))).not.toHaveLength(0);
+    expect(await validate(dto(`${A},${B},${C},${A.replace('a', 'd')},${A.replace('a', 'e')}`))).not.toHaveLength(0);
+    expect(await validate(dto(`${A},hola`))).not.toHaveLength(0);
   });
 });
 

@@ -37,6 +37,8 @@ coverage/
 # Archivos generados
 # =========================
 backend/src/generated/
+# Fotos de productos subidas desde el sistema (mejora n.° 4)
+backend/uploads/
 
 
 # =========================

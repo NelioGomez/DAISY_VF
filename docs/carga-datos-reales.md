@@ -59,6 +59,15 @@ Opcionalmente, si la API corre en otra dirección:
 $env:API_URL="http://localhost:3000/api/v1"
 ```
 
+## Ajustes al integrarlo con bodega y sucursal
+
+- Diez códigos del Excel traen espacios (`91-050 NPT`, `BTI SU RLS 3617`…). El SKU de SIVEN no admite
+  espacios, así que el script los guarda con guion (`91-050-NPT`, `BTI-SU-RLS-3617`).
+- La API acepta 100 peticiones por minuto. Si se alcanza el límite, el script espera y reintenta solo.
+- La entrada inicial de cada producto nuevo queda en la **Bodega principal**. Para surtir la sucursal
+  use Inventario → Trasladar.
+- Con `SEED_FORCE_STOCK=true` el ajuste respeta lo que haya en la sucursal y la bodega completa el total.
+
 ## Si ya existen productos
 
 Por defecto el script:

@@ -37,15 +37,25 @@ const UPDATE_EXISTING = String(process.env.SEED_UPDATE_EXISTING ?? 'true').toLow
 
 let token = '';
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function call(method, path, body, { allowConflict = false } = {}) {
-  const res = await fetch(API + path, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  // La API limita a 100 peticiones por minuto: ante un 429 se espera lo que indique y se reintenta.
+  for (let attempt = 1; ; attempt++) {
+    res = await fetch(API + path, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (res.status !== 429 || attempt > 10) break;
+    const wait = Math.max(1, Number(res.headers.get('retry-after')) || 15);
+    console.log(`  … límite de peticiones de la API: esperando ${wait} s`);
+    await sleep(wait * 1000);
+  }
   const json = await res.json().catch(() => ({}));
   if (res.status === 409 && allowConflict) return null;
   if (!res.ok) {
@@ -66,9 +76,15 @@ async function all(path, limit = 100) {
   return result;
 }
 
+/**
+ * El SKU de SIVEN solo admite letras, números, punto, guion, guion bajo y diagonal (sin espacios).
+ * Diez códigos del Excel traen espacios ("91-050 NPT"): se guardan con guion ("91-050-NPT").
+ */
+const skuOf = (p) => p.sku.trim().toUpperCase().replace(/\s+/g, '-');
+
 function productBody(p, brandIds, categoryIds) {
   return {
-    sku: p.sku,
+    sku: skuOf(p),
     name: p.name,
     description: p.description || undefined,
     unit: p.unit ?? 'UNIT',
@@ -123,10 +139,10 @@ async function main() {
     if (p.imageUrl) imageCount++;
     if (p.salePrice > 0) priceCount++;
 
-    let current = existing[p.sku];
+    let current = existing[body.sku];
     if (!current) {
       current = await call('POST', '/products', body);
-      existing[p.sku] = current;
+      existing[body.sku] = current;
       created++;
 
       if (p.stock > 0) {
@@ -160,13 +176,27 @@ async function main() {
     }
 
     if (FORCE_STOCK && Number(current.stock ?? 0) !== p.stock) {
-      await call('POST', '/inventory/movements', {
-        productId: current.id,
-        type: 'ADJUSTMENT',
-        newStock: p.stock,
-        reference: 'Ajuste de semilla NORCOR',
-        note: 'Stock sugerido generado desde la depuración de los Excel de NORCOR.',
-      });
+      // Con bodega y sucursal el ajuste fija lo contado en UNA ubicación. La sucursal se deja como
+      // está (si no supera el total sugerido) y la bodega completa la diferencia.
+      const here = (loc) => (current.stockByLocation ?? []).find((s) => s.locationId === loc)?.quantity ?? 0;
+      const adjust = async (locationId, newStock) => {
+        if (here(locationId) === newStock) return;
+        await call('POST', '/inventory/movements', {
+          productId: current.id,
+          type: 'ADJUSTMENT',
+          locationId,
+          newStock,
+          reference: 'Ajuste de semilla NORCOR',
+          note: 'Stock sugerido generado desde la depuración de los Excel de NORCOR.',
+        });
+      };
+      const branch = here(2);
+      if (branch > p.stock) {
+        await adjust(2, p.stock);
+        await adjust(1, 0);
+      } else {
+        await adjust(1, p.stock - branch);
+      }
       stockAdjusted++;
     }
   }

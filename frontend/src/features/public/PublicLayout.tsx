@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useCustomer, useQuoteList } from '../portal/useCustomer';
 import { whatsappUrl } from '../../services/public/publicService';
+import { CompareTray } from './CompareTray';
+import { QuickView } from './QuickView';
 import { QuoteListDrawer } from './QuoteListDrawer';
 import { usePublicInfo } from './usePublicInfo';
 import '@fontsource/barlow-semi-condensed/500.css';
@@ -169,6 +171,8 @@ export function PublicLayout() {
       </footer>
 
       <QuoteListDrawer />
+      <QuickView />
+      <CompareTray />
     </div>
   );
 }

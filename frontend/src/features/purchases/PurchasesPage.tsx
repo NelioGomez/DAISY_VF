@@ -8,6 +8,8 @@ import { ViewHead } from '../../components/common/ViewHead';
 import { Tabs } from '../../components/common/Tabs';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
+import { ColumnCells, ColumnHeads, ColumnsButton } from '../../components/tables/columns';
+import { useColumns, type Column } from '../../components/tables/useColumns';
 import { FilterBar } from '../../components/tables/FilterBar';
 import { Pagination } from '../../components/tables/Pagination';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
@@ -16,7 +18,7 @@ import { usePaged } from '../../hooks/usePaged';
 import { useAuth, useData } from '../../store/hooks';
 import type { Compra, EstadoCompra } from '../../types';
 import { fmtDate, money } from '../../utils/format';
-import { PurchaseDetailModal } from './PurchaseDetailModal';
+import { useRecords } from '../records/records';
 import { PurchaseFormModal } from './PurchaseFormModal';
 import { RestockPanel } from './RestockPanel';
 import { moneyIn } from './purchaseFormat';
@@ -62,7 +64,67 @@ export function PurchasesPage() {
   const pg = usePaged(rows, f.key, 'compras');
 
   const setTab = (t: Tab) => setParams(t === 'ordenes' ? {} : { tab: t }, { replace: true });
-  const abrir = (c: Compra) => modal.open(<PurchaseDetailModal compraId={c.id} />);
+  const { openRecord } = useRecords();
+  const abrir = (c: Compra) => openRecord('compra', c.id);
+  const columns: Column<Compra>[] = [
+    { id: 'codigo', label: 'Código', required: true, cellClass: 'mono', cell: (c) => c.codigo },
+    { id: 'fecha', label: 'Fecha', cellClass: 'mono', cell: (c) => fmtDate(c.ordenada ?? c.fecha) },
+    {
+      id: 'proveedor',
+      label: 'Proveedor',
+      cell: (c) => (
+        <>
+          {c.proveedor} {c.internacional && <Tag tone="t-blue">Int.</Tag>}
+        </>
+      ),
+    },
+    { id: 'estado', label: 'Estado', cell: (c) => <EstadoTag estado={c.estado} /> },
+    {
+      id: 'recibido',
+      label: 'Recibido',
+      cell: (c) => {
+        const pct = c.unidades ? Math.round((c.recibidas / c.unidades) * 100) : 0;
+        return (
+          <>
+            <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`Recibido ${pct}%`}>
+              <span style={{ width: `${pct}%` }} />
+            </div>
+            <span className="progress-txt">
+              {c.recibidas} / {c.unidades} u.
+            </span>
+          </>
+        );
+      },
+      tdProps: () => ({ style: { minWidth: 130 } }),
+    },
+    { id: 'moneda', label: 'Moneda', cell: (c) => (c.moneda === 'USD' ? 'Dólares' : 'Córdobas'), hidden: true },
+    {
+      id: 'total',
+      label: 'Total',
+      className: 'num',
+      cell: (c) => (
+        <>
+          {moneyIn(c.total, c.moneda)}
+          {c.moneda === 'USD' && <div className="sub-num">{money(c.totalNio)}</div>}
+        </>
+      ),
+    },
+    {
+      id: 'esperada',
+      label: 'Esperada',
+      cellClass: 'mono',
+      cell: (c) => (
+        <>
+          {fmtDate(c.esperada)}
+          {c.atrasada && ' ⚠'}
+        </>
+      ),
+      tdProps: (c) => (c.atrasada ? { style: { color: 'var(--red)', fontWeight: 700 } } : {}),
+    },
+    { id: 'notas', label: 'Notas', cell: (c) => c.notas || '—', hidden: true },
+  ];
+  const cols = useColumns('compras', columns);
+  const ncols = cols.visible.length + 1;
 
   return (
     <>
@@ -99,53 +161,25 @@ export function PurchasesPage() {
             <KpiCard lbl="Atrasadas" val={atrasadas} sub="pasaron la fecha esperada" ic="⚠" tone={atrasadas ? 'warn' : 'good'} />
           </div>
 
-          <FilterBar f={f} placeholder="Buscar por código, proveedor o notas…" />
+          <FilterBar f={f} placeholder="Buscar por código, proveedor o notas…">
+            <ColumnsButton cols={cols} />
+          </FilterBar>
 
           <div className="tablewrap">
             <table>
               <thead>
                 <tr>
-                  <th>Código</th>
-                  <th>Fecha</th>
-                  <th>Proveedor</th>
-                  <th>Estado</th>
-                  <th>Recibido</th>
-                  <th className="num">Total</th>
-                  <th>Esperada</th>
+                  <ColumnHeads cols={cols} />
                   <th />
                 </tr>
               </thead>
               <tbody>
-                {!db.compras.length && <EmptyRow cols={8} msg="Aún no hay compras. Use «Nueva compra» o la pestaña Reabastecimiento." ic="⇩" />}
-                {!!db.compras.length && !rows.length && <EmptyRow cols={8} msg="Ninguna compra coincide con los filtros" ic="🔍" />}
+                {!db.compras.length && <EmptyRow cols={ncols} msg="Aún no hay compras. Use «Nueva compra» o la pestaña Reabastecimiento." ic="⇩" />}
+                {!!db.compras.length && !rows.length && <EmptyRow cols={ncols} msg="Ninguna compra coincide con los filtros" ic="🔍" />}
                 {pg.pageRows.map((c) => {
-                  const pct = c.unidades ? Math.round((c.recibidas / c.unidades) * 100) : 0;
                   return (
                     <tr key={c.id} className="row-link" onClick={() => abrir(c)}>
-                      <td className="mono">{c.codigo}</td>
-                      <td className="mono">{fmtDate(c.ordenada ?? c.fecha)}</td>
-                      <td>
-                        {c.proveedor} {c.internacional && <Tag tone="t-blue">Int.</Tag>}
-                      </td>
-                      <td>
-                        <EstadoTag estado={c.estado} />
-                      </td>
-                      <td style={{ minWidth: 130 }}>
-                        <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`Recibido ${pct}%`}>
-                          <span style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="progress-txt">
-                          {c.recibidas} / {c.unidades} u.
-                        </span>
-                      </td>
-                      <td className="num">
-                        {moneyIn(c.total, c.moneda)}
-                        {c.moneda === 'USD' && <div className="sub-num">{money(c.totalNio)}</div>}
-                      </td>
-                      <td className="mono" style={c.atrasada ? { color: 'var(--red)', fontWeight: 700 } : undefined}>
-                        {fmtDate(c.esperada)}
-                        {c.atrasada && ' ⚠'}
-                      </td>
+                      <ColumnCells cols={cols} row={c} />
                       <td>
                         <button
                           className="b b-out b-sm"

@@ -9,14 +9,15 @@ import { EstadoTag } from '../../components/tables/Tag';
 import { useAuth } from '../../store/hooks';
 import { fmtDateTime, matches, money } from '../../utils/format';
 import { InspectLotModal } from './InspectLotModal';
-import { LotDetailModal } from './LotDetailModal';
 import { produccionApi, useProduccion, type EstadoLote, type Lote } from './productionApi';
+import { useRecords } from '../records/records';
 
 const FILTROS: Array<EstadoLote | 'Todos' | 'Pendientes'> = ['Todos', 'Pendientes', 'Por inspeccionar', 'En retrabajo', 'Liberado', 'Desechado'];
 
 export function LotsPanel() {
   const { can } = useAuth();
   const modal = useModal();
+  const { openRecord } = useRecords();
   const { data, error, reload } = useProduccion(produccionApi.lotes);
   const [q, setQ] = useState('');
   const [estado, setEstado] = useState<(typeof FILTROS)[number]>('Todos');
@@ -30,7 +31,7 @@ export function LotsPanel() {
       (estado === 'Todos' || (estado === 'Pendientes' ? pendiente(l) : l.estado === estado)) &&
       matches(q, l.codigo, l.orden?.codigo, l.producto?.nombre, l.producto?.sku, l.estado),
   );
-  const abrir = (l: Lote) => modal.open(<LotDetailModal loteId={l.id} />);
+  const abrir = (l: Lote) => openRecord('lote', l.id);
   const inspeccionar = (l: Lote) => modal.open(<InspectLotModal loteId={l.id} />);
 
   return (

@@ -17,9 +17,9 @@ import { PurchaseFormModal } from '../purchases/PurchaseFormModal';
 import { CancelOrderModal } from './CancelOrderModal';
 import { CompleteOrderModal } from './CompleteOrderModal';
 import { InspectLotModal } from './InspectLotModal';
-import { LotDetailModal } from './LotDetailModal';
 import { KEYS_STOCK, nombreDisposicion, produccionApi, useProduccion, type OrdenProduccion } from './productionApi';
 import { fmtHoras, fmtMinutos } from './productionFormat';
+import { useRecords } from '../records/records';
 
 const FLUJO = ['Borrador', 'Liberada', 'En proceso', 'Terminada'] as const;
 
@@ -31,6 +31,7 @@ export function OrderDetailModal({ ordenId }: { ordenId: string }) {
   const canQc = can('quality:write');
   const toast = useToast();
   const modal = useModal();
+  const { openRecord } = useRecords();
   const load = useCallback(() => produccionApi.orden(ordenId), [ordenId]);
   const { data: o, error, set, reload } = useProduccion(load);
   const [busy, setBusy] = useState<string | null>(null);
@@ -151,7 +152,7 @@ export function OrderDetailModal({ ordenId }: { ordenId: string }) {
                 id: l.id,
                 codigo: l.codigo,
                 detalle: l.estado,
-                onOpen: () => modal.open(<LotDetailModal loteId={l.id} />),
+                onOpen: () => openRecord('lote', l.id),
               })),
               ...(liberadas > 0 ? [{ tipo: 'MOVIMIENTO' as const, id: 'in', codigo: `+${liberadas} al inventario` }] : []),
             ]}

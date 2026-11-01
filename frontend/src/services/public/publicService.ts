@@ -139,3 +139,14 @@ export async function enviarContacto(d: { nombre: string; contacto: string; prod
   });
   return r.data?.code ?? null;
 }
+
+/** Comparador (mejora n.° 38): productos en el orden pedido y qué características cambian. */
+export async function comparar(ids: string[]): Promise<{ items: ProductoPublico[]; faltan: string[]; diferencias: string[]; menorPrecio: number | null }> {
+  const r = await request<Json>('GET', '/public/products/compare', { auth: false, query: { ids: ids.join(',') } });
+  return {
+    items: (r.data?.items ?? []).map(mapProductoPublico),
+    faltan: (r.data?.missing ?? []).map(String),
+    diferencias: (r.data?.differences ?? []).map(String),
+    menorPrecio: r.data?.lowestPrice ?? null,
+  };
+}

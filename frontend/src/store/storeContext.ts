@@ -106,7 +106,10 @@ export type RefreshKey =
 export interface DataActions {
   /** El servidor ya audita cada operación; se conserva por compatibilidad. */
   registrarAuditoria(modulo: string, detalle: string): void;
-  guardarProducto(id: string | null, data: ProductoInput): Promise<Result>;
+  /** Devuelve el id del producto (el nuevo, si se creó). */
+  guardarProducto(id: string | null, data: ProductoInput): Promise<Result<string>>;
+  /** Sube la foto del producto o la quita (null). */
+  fotoProducto(id: string, foto: Blob | null): Promise<Result>;
   cambiarEstadoProducto(id: string, activo: boolean): Promise<Result>;
   registrarMovimiento(data: MovimientoInput): Promise<Result<{ sku: string; stock: number }>>;
   /** Devuelve el id del cliente (nuevo o editado). */

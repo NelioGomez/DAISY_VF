@@ -5,6 +5,7 @@
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { useEffect, useState } from 'react';
 import { DocChip } from '../../components/common/DocChain';
+import { ProductImage } from '../../components/common/ProductImage';
 import { Tabs, type TabItem } from '../../components/common/Tabs';
 import { EmptyState } from '../../components/feedback/Empty';
 import { ViewLoader } from '../../components/feedback/FullScreenLoader';
@@ -120,16 +121,22 @@ export function ProductDrawer({ productoId }: { productoId: string }) {
         </>
       }
     >
-      <div className="tag-row">
-        <Tag tone={st.tone}>
-          <span aria-hidden="true">{st.ic}</span> {f.estadoStock}
-        </Tag>
-        {f.stats && (
-          <Tag tone={ROTACION[f.stats.rotacion].tone}>
-            <span aria-hidden="true">{ROTACION[f.stats.rotacion].ic}</span> {ROTACION[f.stats.rotacion].txt}
-          </Tag>
-        )}
-        {!p.activo && <Tag tone="t-gray">Inactivo</Tag>}
+      <div className="drawer-photo">
+        <ProductImage src={p.imagen} size={88} fallback={p.ic} alt={p.imagen ? `Foto de ${p.nombre}` : ''} />
+        <div>
+          <div className="tag-row">
+            <Tag tone={st.tone}>
+              <span aria-hidden="true">{st.ic}</span> {f.estadoStock}
+            </Tag>
+            {f.stats && (
+              <Tag tone={ROTACION[f.stats.rotacion].tone}>
+                <span aria-hidden="true">{ROTACION[f.stats.rotacion].ic}</span> {ROTACION[f.stats.rotacion].txt}
+              </Tag>
+            )}
+            {!p.activo && <Tag tone="t-gray">Inactivo</Tag>}
+          </div>
+          {p.descripcion && p.descripcion !== p.nombre && <p className="doc-meta">{p.descripcion}</p>}
+        </div>
       </div>
 
       <div className="mini-kpis">

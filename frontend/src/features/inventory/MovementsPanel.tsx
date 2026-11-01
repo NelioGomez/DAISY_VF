@@ -1,10 +1,12 @@
 /* Bitácora de movimientos (kardex) paginada y filtrada en el servidor (mejoras n.° 18-20):
-   tipo, ubicación, fechas y búsqueda; cada fila muestra dónde ocurrió y su documento de origen. */
+   tipo, ubicación, fechas y búsqueda; cada fila muestra dónde ocurrió y su documento de origen.
+   Columnas configurables (n.° 21) y vista previa del producto al pasar el cursor (n.° 34). */
 import { DocChip } from '../../components/common/DocChain';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { ErrorRow } from '../../components/feedback/ErrorState';
 import { SkeletonRows } from '../../components/feedback/Skeleton';
-import { useModal } from '../../components/modals/useModal';
+import { ColumnCells, ColumnHeads, ColumnsButton } from '../../components/tables/columns';
+import { useColumns, type Column } from '../../components/tables/useColumns';
 import { FilterBar } from '../../components/tables/FilterBar';
 import { Pagination } from '../../components/tables/Pagination';
 import { TipoMovTag } from '../../components/tables/Tag';
@@ -12,10 +14,12 @@ import { useDebounced } from '../../hooks/useDebounced';
 import { useFilterState, type SelectDef } from '../../hooks/useListFilters';
 import { useServerPage } from '../../hooks/useServerPage';
 import { mapMovimiento } from '../../services/api/mappers';
+import type { Movimiento } from '../../types';
 import { fmtDateTime, money } from '../../utils/format';
 import { UBICACIONES } from '../../utils/locations';
 import { useOpenDocument } from '../documents/useOpenDocument';
-import { ProductDrawer } from '../products/ProductDrawer';
+import { ProductRef } from '../products/ProductRef';
+import { useRecords } from '../records/records';
 
 const MODULES = ['inventory', 'purchases', 'sales', 'production'] as const;
 const SELECTS: SelectDef[] = [
@@ -32,8 +36,8 @@ const SELECTS: SelectDef[] = [
 ];
 
 export function MovementsPanel() {
-  const modal = useModal();
   const doc = useOpenDocument();
+  const { openRecord } = useRecords();
   const f = useFilterState(SELECTS, true);
   const search = useDebounced(f.q.trim(), 350);
   const query = {
@@ -44,62 +48,75 @@ export function MovementsPanel() {
     to: f.hasta || undefined,
   };
   const { rows, loading, error, reload, pager } = useServerPage('/inventory/movements', query, mapMovimiento, MODULES, 'inventario-movimientos');
+  const columns: Column<Movimiento>[] = [
+    { id: 'fecha', label: 'Fecha', required: true, cellClass: 'mono', cell: (m) => fmtDateTime(m.fecha), tdProps: () => ({ style: { fontSize: 12 } }) },
+    { id: 'tipo', label: 'Tipo', cell: (m) => <TipoMovTag tipo={m.tipo} /> },
+    {
+      id: 'producto',
+      label: 'Producto',
+      required: true,
+      cell: (m) => (
+        <>
+          <ProductRef id={m.prod}>
+            <button className="link-btn" onClick={() => openRecord('producto', m.prod)}>
+              {m.prodN}
+            </button>
+          </ProductRef>
+          <div className="sub-num mono">{m.sku}</div>
+        </>
+      ),
+    },
+    { id: 'ubicacion', label: 'Ubicación', cell: (m) => <span className={`loc-chip loc-${m.ubicacionId}`}>{m.ubicacion}</span> },
+    {
+      id: 'cantidad',
+      label: 'Cant.',
+      className: 'num',
+      cell: (m) => (
+        <>
+          {m.tipo === 'Ajuste' ? (m.stockDespues >= m.stockAntes ? '+' : '−') : m.tipo === 'Salida' ? '−' : '+'}
+          {m.cant}
+        </>
+      ),
+    },
+    { id: 'costo', label: 'Costo unit.', className: 'num', cell: (m) => (m.costo ? money(m.costo) : '—') },
+    { id: 'antes', label: 'Stock antes', className: 'num', cell: (m) => m.stockAntes, hidden: true },
+    { id: 'final', label: 'Stock final', header: <span title="Stock total después del movimiento">Stock final</span>, className: 'num', cell: (m) => m.stockDespues },
+    {
+      id: 'documento',
+      label: 'Documento / referencia',
+      cell: (m) =>
+        m.origen ? (
+          <DocChip tipo={m.origen.tipo} codigo={m.origen.codigo} detalle={m.origen.lote} onOpen={doc.canOpen(m.origen) ? () => doc.open(m.origen!) : undefined} />
+        ) : (
+          m.ref || m.nota || '—'
+        ),
+      tdProps: (m) => ({ title: m.nota }),
+    },
+    { id: 'nota', label: 'Nota', cell: (m) => m.nota || '—', hidden: true },
+    { id: 'responsable', label: 'Responsable', cellClass: 'mono', cell: (m) => `@${m.resp}` },
+  ];
+  const cols = useColumns('inventario-movimientos', columns);
+  const ncols = cols.visible.length;
 
   return (
     <>
-      <FilterBar f={f} placeholder="Buscar por SKU, producto, documento (FAC, OP, LOT, TR…) o nota…" dateLabel="Fecha" />
+      <FilterBar f={f} placeholder="Buscar por SKU, producto, documento (FAC, OP, LOT, TR…) o nota…" dateLabel="Fecha">
+        <ColumnsButton cols={cols} />
+      </FilterBar>
       <div className={`tablewrap ${loading && rows ? 'is-loading' : ''}`}>
         <table>
           <thead>
             <tr>
-              <th>Fecha</th>
-              <th>Tipo</th>
-              <th>Producto</th>
-              <th>Ubicación</th>
-              <th className="num">Cant.</th>
-              <th className="num">Costo unit.</th>
-              <th className="num" title="Stock total después del movimiento">
-                Stock final
-              </th>
-              <th>Documento / referencia</th>
-              <th>Responsable</th>
+              <ColumnHeads cols={cols} />
             </tr>
           </thead>
           <tbody>
-            {error && <ErrorRow cols={9} msg={error} onRetry={reload} />}
-            {!rows && !error && <SkeletonRows cols={9} />}
-            {rows && !rows.length && !error && <EmptyRow cols={9} msg={f.active.length ? 'Ningún movimiento coincide con los filtros' : 'Sin movimientos'} ic={f.active.length ? '🔍' : '📭'} />}
+            {error && <ErrorRow cols={ncols} msg={error} onRetry={reload} />}
+            {!rows && !error && <SkeletonRows cols={ncols} />}
+            {rows && !rows.length && !error && <EmptyRow cols={ncols} msg={f.active.length ? 'Ningún movimiento coincide con los filtros' : 'Sin movimientos'} ic={f.active.length ? '🔍' : '📭'} />}
             {rows?.map((m) => (
               <tr key={m.id}>
-                <td className="mono" style={{ fontSize: 12 }}>
-                  {fmtDateTime(m.fecha)}
-                </td>
-                <td>
-                  <TipoMovTag tipo={m.tipo} />
-                </td>
-                <td>
-                  <button className="link-btn" onClick={() => modal.open(<ProductDrawer productoId={m.prod} />)}>
-                    {m.prodN}
-                  </button>
-                  <div className="sub-num mono">{m.sku}</div>
-                </td>
-                <td>
-                  <span className={`loc-chip loc-${m.ubicacionId}`}>{m.ubicacion}</span>
-                </td>
-                <td className="num">
-                  {m.tipo === 'Ajuste' ? (m.stockDespues >= m.stockAntes ? '+' : '−') : m.tipo === 'Salida' ? '−' : '+'}
-                  {m.cant}
-                </td>
-                <td className="num">{m.costo ? money(m.costo) : '—'}</td>
-                <td className="num">{m.stockDespues}</td>
-                <td title={m.nota}>
-                  {m.origen ? (
-                    <DocChip tipo={m.origen.tipo} codigo={m.origen.codigo} detalle={m.origen.lote} onOpen={doc.canOpen(m.origen) ? () => doc.open(m.origen!) : undefined} />
-                  ) : (
-                    m.ref || m.nota || '—'
-                  )}
-                </td>
-                <td className="mono">@{m.resp}</td>
+                <ColumnCells cols={cols} row={m} />
               </tr>
             ))}
           </tbody>

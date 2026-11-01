@@ -2,19 +2,18 @@ import { useState } from 'react';
 import { Field } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
 import { Modal } from '../../components/modals/Modal';
-import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { Compra } from '../../types';
-import { PurchaseDetailModal } from './PurchaseDetailModal';
+import { useRecords } from '../records/records';
 
 export function CancelPurchaseModal({ compra }: { compra: Compra }) {
   const { cancelarCompra } = useData();
   const toast = useToast();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const [motivo, setMotivo] = useState('');
   const [saving, setSaving] = useState(false);
   const parcial = compra.estado === 'Parcial';
-  const back = () => modal.open(<PurchaseDetailModal compraId={compra.id} />);
+  const back = () => openRecord('compra', compra.id);
 
   const confirmar = async () => {
     if (motivo.trim().length < 5) return toast('Indique el motivo (mínimo 5 caracteres)', 'err');

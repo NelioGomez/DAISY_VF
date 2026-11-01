@@ -11,14 +11,15 @@ import { useData } from '../../store/hooks';
 import { money, todayISO } from '../../utils/format';
 import { cantidadCon } from '../../utils/units';
 import { BomFormModal } from './BomFormModal';
-import { OrderDetailModal } from './OrderDetailModal';
 import { produccionApi, useProduccion } from './productionApi';
 import { fmtMinutos } from './productionFormat';
+import { useRecords } from '../records/records';
 
 export function OrderFormModal() {
   const { db, ejecutar } = useData();
   const toast = useToast();
   const modal = useModal();
+  const { openRecord } = useRecords();
   const boms = useProduccion(produccionApi.boms);
   const rutas = useProduccion(produccionApi.rutas);
   const vigentes = (boms.data ?? []).filter((b) => b.vigente && b.producto.activo);
@@ -56,7 +57,7 @@ export function OrderFormModal() {
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
     toast(`Orden ${r.data.codigo} creada: libérela para que planta la inicie`, 'ok');
-    modal.open(<OrderDetailModal ordenId={r.data.id} />);
+    openRecord('produccion', r.data.id);
   };
 
   const cargando = boms.loading || rutas.loading;

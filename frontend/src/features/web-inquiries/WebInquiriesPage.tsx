@@ -5,7 +5,6 @@
 import { ViewHead } from '../../components/common/ViewHead';
 import { DocChip } from '../../components/common/DocChain';
 import { EmptyRow } from '../../components/feedback/Empty';
-import { useModal } from '../../components/modals/useModal';
 import { FilterBar } from '../../components/tables/FilterBar';
 import { Pagination } from '../../components/tables/Pagination';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
@@ -15,13 +14,13 @@ import { usePaged } from '../../hooks/usePaged';
 import type { ConsultaWeb, EstadoConsulta } from '../../types';
 import { ago, fmtDate } from '../../utils/format';
 import { useOpenDocument } from '../documents/useOpenDocument';
-import { InquiryDetailModal } from './InquiryDetailModal';
+import { useRecords } from '../records/records';
 
 const ESTADOS: Array<EstadoConsulta | 'Todas'> = ['Todas', 'Nueva', 'En revisión', 'Cotizada', 'Cerrada', 'Cancelada'];
 
 export function WebInquiriesPage() {
   const { db } = useData();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const doc = useOpenDocument();
   const selects: SelectFilter<ConsultaWeb>[] = [
     { key: 'estado', label: 'Estado', options: ESTADOS.filter((x) => x !== 'Todas').map((x) => ({ value: x, label: x })), test: (c, v) => c.estado === v },
@@ -63,7 +62,7 @@ export function WebInquiriesPage() {
             {!db.consultas.length && <EmptyRow cols={7} msg="Sin consultas" />}
             {!!db.consultas.length && !rows.length && <EmptyRow cols={7} msg="Ninguna solicitud coincide con el filtro" ic="🔍" />}
             {pg.pageRows.map((c) => (
-              <tr key={c.id} className="row-link" onClick={() => modal.open(<InquiryDetailModal consultaId={c.id} />)}>
+              <tr key={c.id} className="row-link" onClick={() => openRecord('solicitud', c.id)}>
                 <td className="mono">{c.codigo || '—'}</td>
                 <td className="mono">{fmtDate(c.fecha)}</td>
                 <td>

@@ -10,6 +10,8 @@ import { DocChip } from '../../components/common/DocChain';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useToast } from '../../components/feedback/useToast';
 import { useModal } from '../../components/modals/useModal';
+import { ColumnCells, ColumnHeads, ColumnsButton } from '../../components/tables/columns';
+import { useColumns, type Column } from '../../components/tables/useColumns';
 import { FilterBar } from '../../components/tables/FilterBar';
 import { Pagination } from '../../components/tables/Pagination';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
@@ -19,8 +21,9 @@ import { useAuth, useData } from '../../store/hooks';
 import type { Cotizacion, EstadoCotizacion } from '../../types';
 import { ago, daysSince, fmtDate, money } from '../../utils/format';
 import { useOpenDocument } from '../documents/useOpenDocument';
+import { CustomerRef } from '../customers/CustomerRef';
+import { useRecords } from '../records/records';
 import { SaleFormModal } from '../sales/SaleFormModal';
-import { QuotationDetailModal } from './QuotationDetailModal';
 import { QuotationFormModal } from './QuotationFormModal';
 import { RejectQuotationModal } from './RejectQuotationModal';
 
@@ -49,6 +52,7 @@ export function QuotationsPage() {
   const modal = useModal();
   const toast = useToast();
   const doc = useOpenDocument();
+  const { openRecord } = useRecords();
   const [busy, setBusy] = useState<string | null>(null);
   const [vista, setVista] = useState<Vista>(readVista);
   const cambiarVista = (v: Vista) => {
@@ -127,6 +131,44 @@ export function QuotationsPage() {
     );
   };
 
+  const columns: Column<Cotizacion>[] = [
+    { id: 'codigo', label: 'Código', required: true, cellClass: 'mono', cell: (c) => c.codigo },
+    { id: 'emision', label: 'Emisión', cellClass: 'mono', cell: (c) => fmtDate(c.fecha) },
+    { id: 'cliente', label: 'Cliente', cell: (c) => <CustomerRef id={c.cli}>{c.cliN}</CustomerRef> },
+    { id: 'vendedor', label: 'Vendedor', cell: (c) => c.vendedor || '—', hidden: true },
+    {
+      id: 'origen',
+      label: 'Origen',
+      cell: (c) =>
+        c.solicitud ? (
+          <DocChip tipo="SOLICITUD" codigo={c.solicitud.codigo} onOpen={doc.canOpen({ tipo: 'SOLICITUD' }) ? () => doc.open({ tipo: 'SOLICITUD', ...c.solicitud! }) : undefined} />
+        ) : (
+          <span className="muted-sm">Interna</span>
+        ),
+      tdProps: () => ({ onClick: (e) => e.stopPropagation() }),
+    },
+    { id: 'total', label: 'Total', className: 'num', cell: (c) => money(c.total) },
+    { id: 'valida', label: 'Válida hasta', cellClass: 'mono', cell: (c) => fmtDate(c.validaHasta) },
+    {
+      id: 'estado',
+      label: 'Estado',
+      cell: (c) => {
+        const seguimiento = c.estado === 'Pendiente' && daysSince(c.estadoDesde) >= SEGUIMIENTO_DIAS;
+        return (
+          <>
+            <EstadoTag estado={c.estado} />
+            <div className={`age ${seguimiento ? 'is-late' : ''}`} title={`Desde ${fmtDate(c.estadoDesde)}`}>
+              {ago(c.estadoDesde)}
+              {seguimiento && ' · dar seguimiento'}
+            </div>
+          </>
+        );
+      },
+    },
+  ];
+  const cols = useColumns('cotizaciones', columns);
+  const ncols = cols.visible.length + 1;
+
   return (
     <>
       <ViewHead
@@ -149,6 +191,7 @@ export function QuotationsPage() {
             Pipeline
           </button>
         </div>
+        {vista === 'tabla' && <ColumnsButton cols={cols} />}
       </FilterBar>
       {vista === 'pipeline' ? (
         <div className="kanban" aria-label="Cotizaciones por estado">
@@ -168,13 +211,13 @@ export function QuotationsPage() {
                   const dias = daysSince(c.estadoDesde);
                   const seguimiento = c.estado === 'Pendiente' && dias >= SEGUIMIENTO_DIAS;
                   return (
-                    <article key={c.id} className="kcard" onClick={() => modal.open(<QuotationDetailModal cotizacionId={c.id} />)}>
+                    <article key={c.id} className="kcard" onClick={() => openRecord('cotizacion', c.id)}>
                       <div className="kcard-top">
                         <button
                           className="mono link-btn"
                           onClick={(e) => {
                             e.stopPropagation();
-                            modal.open(<QuotationDetailModal cotizacionId={c.id} />);
+                            openRecord('cotizacion', c.id);
                           }}
                         >
                           {c.codigo}
@@ -205,47 +248,17 @@ export function QuotationsPage() {
         <table>
           <thead>
             <tr>
-              <th>Código</th>
-              <th>Emisión</th>
-              <th>Cliente</th>
-              <th>Origen</th>
-              <th className="num">Total</th>
-              <th>Válida hasta</th>
-              <th>Estado</th>
+              <ColumnHeads cols={cols} />
               <th />
             </tr>
           </thead>
           <tbody>
-            {!db.cotizaciones.length && <EmptyRow cols={8} msg="Sin cotizaciones" />}
-            {!!db.cotizaciones.length && !rows.length && <EmptyRow cols={8} msg="Ninguna cotización coincide con los filtros" ic="🔍" />}
+            {!db.cotizaciones.length && <EmptyRow cols={ncols} msg="Sin cotizaciones" />}
+            {!!db.cotizaciones.length && !rows.length && <EmptyRow cols={ncols} msg="Ninguna cotización coincide con los filtros" ic="🔍" />}
             {pg.pageRows.map((c) => {
-              const dias = daysSince(c.estadoDesde);
-              const seguimiento = c.estado === 'Pendiente' && dias >= SEGUIMIENTO_DIAS;
               return (
-                <tr key={c.id} className="row-link" onClick={() => modal.open(<QuotationDetailModal cotizacionId={c.id} />)}>
-                  <td className="mono">{c.codigo}</td>
-                  <td className="mono">{fmtDate(c.fecha)}</td>
-                  <td>{c.cliN}</td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    {c.solicitud ? (
-                      <DocChip
-                        tipo="SOLICITUD"
-                        codigo={c.solicitud.codigo}
-                        onOpen={doc.canOpen({ tipo: 'SOLICITUD' }) ? () => doc.open({ tipo: 'SOLICITUD', ...c.solicitud! }) : undefined}
-                      />
-                    ) : (
-                      <span className="muted-sm">Interna</span>
-                    )}
-                  </td>
-                  <td className="num">{money(c.total)}</td>
-                  <td className="mono">{fmtDate(c.validaHasta)}</td>
-                  <td>
-                    <EstadoTag estado={c.estado} />
-                    <div className={`age ${seguimiento ? 'is-late' : ''}`} title={`Desde ${fmtDate(c.estadoDesde)}`}>
-                      {ago(c.estadoDesde)}
-                      {seguimiento && ' · dar seguimiento'}
-                    </div>
-                  </td>
+                <tr key={c.id} className="row-link" onClick={() => openRecord('cotizacion', c.id)}>
+                  <ColumnCells cols={cols} row={c} />
                   <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                     {acciones(c)}
                   </td>

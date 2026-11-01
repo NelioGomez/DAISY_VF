@@ -15,6 +15,7 @@ const toItem = (p: Producto): CatalogItem => ({
   categoria: p.categoria,
   precio: p.precio,
   ic: p.ic,
+  imagen: p.imagen,
   disponibilidad: p.stock <= 0 ? 'Agotado' : p.stock <= p.stockMin ? 'Pocas unidades' : 'Disponible',
 });
 

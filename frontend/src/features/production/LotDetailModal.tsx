@@ -11,12 +11,13 @@ import { useAuth } from '../../store/hooks';
 import { fmtDateTime, money } from '../../utils/format';
 import { cantidadCon } from '../../utils/units';
 import { InspectLotModal } from './InspectLotModal';
-import { OrderDetailModal } from './OrderDetailModal';
 import { nombreDisposicion, produccionApi, useProduccion } from './productionApi';
+import { useRecords } from '../records/records';
 
 export function LotDetailModal({ loteId }: { loteId: string }) {
   const { can } = useAuth();
   const modal = useModal();
+  const { openRecord } = useRecords();
   const load = useCallback(() => produccionApi.lote(loteId), [loteId]);
   const { data: l, error, reload } = useProduccion(load);
   const porInspeccionar = !!l && (l.pendiente > 0 || l.retrabajo > 0);
@@ -57,7 +58,7 @@ export function LotDetailModal({ loteId }: { loteId: string }) {
 
           <DocChain
             items={[
-              ...(l.orden ? [{ tipo: 'PRODUCCION' as const, id: l.orden.id, codigo: l.orden.codigo, onOpen: () => modal.open(<OrderDetailModal ordenId={l.orden!.id} />) }] : []),
+              ...(l.orden ? [{ tipo: 'PRODUCCION' as const, id: l.orden.id, codigo: l.orden.codigo, onOpen: () => openRecord('produccion', l.orden!.id) }] : []),
               { tipo: 'LOTE', id: l.id, codigo: l.codigo, actual: true },
               ...(l.liberada > 0 ? [{ tipo: 'MOVIMIENTO' as const, id: 'in', codigo: `+${l.liberada} al inventario` }] : []),
             ]}

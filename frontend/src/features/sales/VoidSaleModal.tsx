@@ -4,16 +4,15 @@ import { useState } from 'react';
 import { Field } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
 import { CancelButton, Modal } from '../../components/modals/Modal';
-import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { Venta } from '../../types';
 import { money } from '../../utils/format';
-import { InvoiceModal } from './InvoiceModal';
+import { useRecords } from '../records/records';
 
 export function VoidSaleModal({ venta }: { venta: Venta }) {
   const { anularVenta } = useData();
   const toast = useToast();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const [motivo, setMotivo] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -24,7 +23,7 @@ export function VoidSaleModal({ venta }: { venta: Venta }) {
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
     toast(`Venta ${venta.factura} anulada`, 'ok');
-    modal.open(<InvoiceModal ventaId={venta.id} />);
+    openRecord('venta', venta.id);
   };
 
   return (

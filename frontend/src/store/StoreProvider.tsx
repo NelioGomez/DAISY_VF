@@ -364,10 +364,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             await api.patch(`/products/${id}`, body);
             // El precio tiene su propia sección (permiso prices:write) y queda en el historial.
             if (d.precio !== undefined) await api.patch(`/products/${id}/price`, { salePrice: d.precio, ...(d.motivoPrecio ? { reason: d.motivoPrecio } : {}) });
-          } else {
-            await api.post('/products', { ...body, ...(d.precio !== undefined && { salePrice: d.precio }) });
+            return id;
           }
+          const creado = await api.post<{ id: string }>('/products', { ...body, ...(d.precio !== undefined && { salePrice: d.precio }) });
+          return creado.id;
         }, ['productos', 'catalogos', 'dashboard', 'auditoria']),
+
+      // Foto del producto (mejora n.° 4): sube una nueva (ya reducida en el navegador) o la quita.
+      fotoProducto: (id, foto) =>
+        run(async () => {
+          if (!foto) {
+            await api.del(`/products/${id}/image`);
+            return;
+          }
+          const form = new FormData();
+          form.append('file', foto, foto instanceof File ? foto.name : 'foto');
+          await api.post(`/products/${id}/image`, form);
+        }, ['productos', 'auditoria']),
 
       cambiarEstadoProducto: (id, activo) =>
         run(() => api.patch(`/products/${id}/status`, { isActive: activo }).then(() => undefined), ['productos', 'dashboard', 'auditoria']),

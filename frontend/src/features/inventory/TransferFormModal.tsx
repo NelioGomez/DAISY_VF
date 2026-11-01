@@ -4,12 +4,11 @@ import { useState } from 'react';
 import { Field } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
 import { CancelButton, Modal } from '../../components/modals/Modal';
-import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { Producto } from '../../types';
 import { BODEGA, otraUbicacion, UBICACIONES, type UbicacionId } from '../../utils/locations';
-import { TransferDetailModal } from './TransferDetailModal';
 import { trasladosApi } from './transfersApi';
+import { useRecords } from '../records/records';
 
 interface Linea {
   prodId: string;
@@ -21,7 +20,7 @@ const enUbicacion = (p: Producto | undefined, loc: UbicacionId) => (p ? (loc ===
 export function TransferFormModal({ productoId, origen: origenInicial = BODEGA }: { productoId?: string; origen?: UbicacionId }) {
   const { db, ejecutar } = useData();
   const toast = useToast();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const [origen, setOrigen] = useState<UbicacionId>(origenInicial);
   const destino = otraUbicacion(origen);
   const [lineas, setLineas] = useState<Linea[]>([{ prodId: productoId ?? '', cant: '1' }]);
@@ -53,7 +52,7 @@ export function TransferFormModal({ productoId, origen: origenInicial = BODEGA }
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
     toast(`Traslado ${r.data.codigo}: ${r.data.unidades} u. de ${r.data.origen} a ${r.data.destino}`, 'ok');
-    modal.open(<TransferDetailModal trasladoId={r.data.id} />);
+    openRecord('traslado', r.data.id);
   };
 
   return (

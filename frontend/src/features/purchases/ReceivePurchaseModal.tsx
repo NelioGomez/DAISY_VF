@@ -5,18 +5,17 @@ import { useState } from 'react';
 import { Field } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
 import { CancelButton, Modal } from '../../components/modals/Modal';
-import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { Compra } from '../../types';
 import { money } from '../../utils/format';
 import { BODEGA, UBICACIONES, type UbicacionId } from '../../utils/locations';
-import { PurchaseDetailModal } from './PurchaseDetailModal';
 import { nextAverageCost } from './purchaseFormat';
+import { useRecords } from '../records/records';
 
 export function ReceivePurchaseModal({ compra }: { compra: Compra }) {
   const { db, recibirCompra } = useData();
   const toast = useToast();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const pendientes = (compra.items ?? []).filter((i) => i.pendiente > 0);
   const [cant, setCant] = useState<Record<string, string>>(() => Object.fromEntries(pendientes.map((i) => [i.id, String(i.pendiente)])));
   const [notas, setNotas] = useState('');
@@ -49,7 +48,7 @@ export function ReceivePurchaseModal({ compra }: { compra: Compra }) {
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
     toast(`Recepción ${r.data.recepcion} registrada · ${unidades} u. ingresaron a ${lugar.corto.toLowerCase()}`, 'ok');
-    modal.open(<PurchaseDetailModal compraId={compra.id} />);
+    openRecord('compra', compra.id);
   };
 
   return (
@@ -58,7 +57,7 @@ export function ReceivePurchaseModal({ compra }: { compra: Compra }) {
       wide
       footer={
         <>
-          <button className="b b-out" style={{ marginRight: 'auto' }} onClick={() => modal.open(<PurchaseDetailModal compraId={compra.id} />)}>
+          <button className="b b-out" style={{ marginRight: 'auto' }} onClick={() => openRecord('compra', compra.id)}>
             ← Volver
           </button>
           <CancelButton />

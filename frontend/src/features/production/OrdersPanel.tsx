@@ -3,21 +3,20 @@ import { ErrorState } from '../../components/feedback/ErrorState';
 import { useState } from 'react';
 import { SkeletonTable } from '../../components/feedback/Skeleton';
 import { EmptyRow } from '../../components/feedback/Empty';
-import { useModal } from '../../components/modals/useModal';
 import { SearchToolbar } from '../../components/tables/SearchToolbar';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
 import { useAuth } from '../../store/hooks';
 import { fmtDate, isOverdue, matches } from '../../utils/format';
 import { nombreUnidad } from '../../utils/units';
-import { OrderDetailModal } from './OrderDetailModal';
 import { produccionApi, useProduccion, type EstadoOP, type OrdenFila } from './productionApi';
+import { useRecords } from '../records/records';
 
 const FILTROS: Array<EstadoOP | 'Todas' | 'Abiertas'> = ['Abiertas', 'Todas', 'Borrador', 'Liberada', 'En proceso', 'Terminada', 'Cancelada'];
 const ABIERTAS: EstadoOP[] = ['Borrador', 'Liberada', 'En proceso'];
 
 export function OrdersPanel() {
   const { can } = useAuth();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const { data, error, reload } = useProduccion(produccionApi.ordenes);
   const [q, setQ] = useState('');
   const [estado, setEstado] = useState<(typeof FILTROS)[number]>('Todas');
@@ -30,7 +29,7 @@ export function OrdersPanel() {
       (estado === 'Todas' || (estado === 'Abiertas' ? ABIERTAS.includes(o.estado) : o.estado === estado)) &&
       matches(q, o.codigo, o.producto.nombre, o.producto.sku, o.estado, ...o.lotes.map((l) => l.codigo)),
   );
-  const abrir = (o: OrdenFila) => modal.open(<OrderDetailModal ordenId={o.id} />);
+  const abrir = (o: OrdenFila) => openRecord('produccion', o.id);
   const atrasada = (o: OrdenFila) => ABIERTAS.includes(o.estado) && isOverdue(o.entrega);
 
   return (

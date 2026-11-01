@@ -1,3 +1,4 @@
+import { ProductImage } from '../../components/common/ProductImage';
 import { Tag, type TagTone } from '../../components/tables/Tag';
 import { money } from '../../utils/format';
 
@@ -11,6 +12,8 @@ export interface CatalogItem {
   categoria: string;
   precio: number;
   ic: string;
+  /** Foto del producto (mejora n.° 4); '' = ícono de la categoría. */
+  imagen: string;
   disponibilidad: Disponibilidad;
 }
 
@@ -26,7 +29,7 @@ export function ProductCard({ item }: ProductCardProps) {
   return (
     <div className="prod-card">
       <div className="img">
-        {item.ic}
+        {item.imagen ? <ProductImage src={item.imagen} size={120} fallback={item.ic} alt={item.nombre} className="prod-card-photo" /> : item.ic}
         <span className="cat">{item.categoria || 'Sin categoría'}</span>
       </div>
       <div className="bd">

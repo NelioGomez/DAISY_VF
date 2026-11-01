@@ -14,12 +14,14 @@ import { StockTag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
 import { calcTotales } from '../../utils/documents';
 import { matches, money } from '../../utils/format';
-import { ProductDrawer } from '../products/ProductDrawer';
 import { CustomerFormModal } from '../customers/CustomerFormModal';
 import { buildTerms, efectivoDe, initialTerms, type TermsState } from './paymentTerms';
 import { PaymentTermsFields } from './PaymentTermsFields';
 import { SaleConfirmModal } from './SaleConfirmModal';
 import { stockWarnings, type SummaryLine } from './stockWarnings';
+import { useRecords } from '../records/records';
+import { ProductImage } from '../../components/common/ProductImage';
+import { ProductRef } from '../products/ProductRef';
 
 interface CartItem {
   prod: string;
@@ -48,6 +50,7 @@ export function PosPage() {
   const { can, user } = useAuth();
   const toast = useToast();
   const modal = useModal();
+  const { openRecord } = useRecords();
   const canSell = can('sales:write') && can('customers:read') && can('products:read');
   const storageKey = `siven.pos.${user?.id ?? ''}`;
   const [saved] = useState(() => readCart(storageKey));
@@ -248,7 +251,7 @@ export function PosPage() {
                     onMouseEnter={() => setActive(i)}
                   >
                     <span className="pos-ic" aria-hidden="true">
-                      {p.ic}
+                      <ProductImage src={p.imagen} size={36} fallback={p.ic} />
                     </span>
                     <span className="pos-name">
                       <b>{p.nombre}</b>
@@ -304,9 +307,11 @@ export function PosPage() {
                 return (
                   <div className={`pos-line ${w?.tipo === 'falta' ? 'is-error' : w ? 'is-warn' : ''}`} key={l.prod}>
                     <div className="pos-line-main">
-                      <button className="link-btn" onClick={() => modal.open(<ProductDrawer productoId={l.prod} />)}>
-                        {l.nombre}
-                      </button>
+                      <ProductRef id={l.prod}>
+                        <button className="link-btn" onClick={() => openRecord('producto', l.prod)}>
+                          {l.nombre}
+                        </button>
+                      </ProductRef>
                       <div className="muted-sm">
                         <span className="mono">{l.sku}</span> · {money(l.precio)} c/u · disponible {l.stock} (sucursal {l.suc ?? 0})
                       </div>

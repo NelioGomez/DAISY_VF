@@ -1,11 +1,13 @@
 /* Piezas compartidas del catálogo público: disponibilidad, precio, imagen y
    el control para agregar a la lista de cotización. */
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { money } from '../../utils/format';
+import { imageSrc } from '../../utils/images';
 import type { Disponibilidad, ProductoPublico } from '../../types';
 import { useQuoteList } from '../portal/useCustomer';
 import { CategoryIcon } from './CategoryIcon';
+import { MAX_COMPARE, quickView, useCompare } from './compareStore';
 
 const AVAIL: Record<Disponibilidad, { cls: string; icon: ReactNode; help: string }> = {
   Disponible: { cls: 'is-ok', icon: <path d="M3.5 8.5l3 3 6-7" />, help: 'Hay existencias para entrega inmediata.' },
@@ -56,8 +58,11 @@ export function Price({ value, unidad }: { value: number | null; unidad?: string
 }
 
 export function ProductMedia({ p, size = 56 }: { p: Pick<ProductoPublico, 'imagen' | 'nombre' | 'categoria'>; size?: number }) {
-  return p.imagen ? (
-    <img src={p.imagen} alt={p.nombre} loading="lazy" />
+  // Foto real (mejora n.° 4); si no hay o no carga, el ícono de la categoría.
+  const src = imageSrc(p.imagen);
+  const [failed, setFailed] = useState<string | null>(null);
+  return src && failed !== src ? (
+    <img src={src} alt={p.nombre} loading="lazy" decoding="async" onError={() => setFailed(src)} />
   ) : (
     <span className="pub-media-ph">
       <CategoryIcon categoria={p.categoria} size={size} />
@@ -111,12 +116,44 @@ export function Stepper({ value, onChange, label }: { value: number; onChange(n:
   );
 }
 
+/** Marca el producto para el comparador (mejora n.° 38); hasta 4 a la vez. */
+export function CompareToggle({ p }: { p: ProductoPublico }) {
+  const cmp = useCompare();
+  const on = cmp.has(p.id);
+  const blocked = !on && cmp.full;
+  return (
+    <button
+      type="button"
+      className={`pub-compare ${on ? 'is-on' : ''}`}
+      aria-pressed={on}
+      disabled={blocked}
+      title={blocked ? `Ya eligió ${MAX_COMPARE} productos para comparar` : undefined}
+      onClick={() => cmp.toggle(p)}
+    >
+      <span className="pub-compare-box" aria-hidden="true">
+        {on ? '✓' : ''}
+      </span>
+      {on ? 'En la comparación' : 'Comparar'}
+    </button>
+  );
+}
+
 export function ProductCard({ p }: { p: ProductoPublico }) {
   return (
     <article className="pub-card">
-      <Link to={`/catalogo/${p.id}`} className="pub-card-media" tabIndex={-1} aria-hidden="true">
-        <ProductMedia p={p} />
-      </Link>
+      <div className="pub-card-top">
+        <Link to={`/catalogo/${p.id}`} className="pub-card-media" tabIndex={-1} aria-hidden="true">
+          <ProductMedia p={p} />
+        </Link>
+        {/* Vista rápida (mejora n.° 34): lo esencial sin salir de la lista. */}
+        <button type="button" className="pub-quick" onClick={() => quickView.open(p)} aria-label={`Vista rápida de ${p.nombre}`} aria-haspopup="dialog">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          <span>Vista rápida</span>
+        </button>
+      </div>
       <div className="pub-card-body">
         <div className="pub-card-meta">
           {p.marca && <span>{p.marca}</span>}
@@ -128,6 +165,7 @@ export function ProductCard({ p }: { p: ProductoPublico }) {
         <Price value={p.precio} unidad={p.unidad} />
         <Availability value={p.disponibilidad} />
         <AddToList p={p} />
+        <CompareToggle p={p} />
       </div>
     </article>
   );

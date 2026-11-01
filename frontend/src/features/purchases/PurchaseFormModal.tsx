@@ -4,12 +4,11 @@ import { useMemo, useState } from 'react';
 import { Field, InputField } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
 import { CancelButton, Modal } from '../../components/modals/Modal';
-import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { Compra, Moneda } from '../../types';
 import { money } from '../../utils/format';
-import { PurchaseDetailModal } from './PurchaseDetailModal';
 import { moneyIn } from './purchaseFormat';
+import { useRecords } from '../records/records';
 
 interface LineState {
   prod: string;
@@ -29,7 +28,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export function PurchaseFormModal({ compra, preset }: { compra?: Compra; preset?: PurchasePreset }) {
   const { db, guardarCompra } = useData();
   const toast = useToast();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const proveedores = db.proveedores.filter((p) => p.activo || p.id === (compra?.proveedorId ?? preset?.proveedorId));
   const productos = db.productos.filter((p) => p.activo);
   const lastRate = db.compras.find((c) => c.moneda === 'USD')?.tipoCambio;
@@ -93,7 +92,7 @@ export function PurchaseFormModal({ compra, preset }: { compra?: Compra; preset?
     setSaving(null);
     if (!r.ok) return toast(r.error, 'err');
     toast(`Compra ${r.data.codigo} ${ordenar ? 'ordenada: queda pendiente de recibir' : 'guardada como borrador'}`, 'ok');
-    modal.open(<PurchaseDetailModal compraId={r.data.id} />);
+    openRecord('compra', r.data.id);
   };
 
   return (

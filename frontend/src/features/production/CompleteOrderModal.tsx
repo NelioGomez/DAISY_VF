@@ -4,21 +4,20 @@ import { useState } from 'react';
 import { Field } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
 import { Modal } from '../../components/modals/Modal';
-import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import { money } from '../../utils/format';
 import { cantidadCon } from '../../utils/units';
-import { OrderDetailModal } from './OrderDetailModal';
 import { produccionApi, type OrdenProduccion } from './productionApi';
+import { useRecords } from '../records/records';
 
 export function CompleteOrderModal({ orden }: { orden: OrdenProduccion }) {
   const { ejecutar } = useData();
   const toast = useToast();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const [cant, setCant] = useState(String(orden.cantidad));
   const [notas, setNotas] = useState('');
   const [saving, setSaving] = useState(false);
-  const back = () => modal.open(<OrderDetailModal ordenId={orden.id} />);
+  const back = () => openRecord('produccion', orden.id);
 
   const n = Number(cant);
   const valido = cant !== '' && Number.isInteger(n) && n >= 0 && n <= orden.cantidad;

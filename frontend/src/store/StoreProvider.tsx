@@ -357,7 +357,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       guardarProducto: (id, d) =>
         run(async () => {
           const body = {
-            sku: d.sku, barcode: d.codigoBarras.trim() || null, name: d.nombre, description: d.descripcion || undefined, unit: d.unidad,
+            sku: d.sku, barcode: d.codigoBarras.trim() || null, name: d.nombre, description: d.descripcion || undefined, imageUrl: d.imagen.trim() || null, unit: d.unidad,
             categoryId: d.categoriaId, brandId: d.marcaId, minStock: d.stockMin, maxStock: d.stockMax,
           };
           if (id) {

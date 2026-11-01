@@ -27,6 +27,8 @@ export interface ProductoInput {
   codigoBarras: string;
   nombre: string;
   descripcion: string;
+  /** URL/ruta pública de imagen; '' = sin imagen. */
+  imagen: string;
   /** Unidad de control del stock (UNIT, FOOT…). */
   unidad: Unidad;
   categoriaId: string | null;

@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: 5173,
+      // Salida temporal del frontend a otra URL de Cloudflare Pages (para evitar problemas de CORS en desarrollo).
+      allowedHosts: [
+        '.trycloudflare.com',
+      ],
       // Las llamadas a /api se reenvían al backend NestJS: sin problemas de CORS en desarrollo.
       proxy: {
         '/api': {

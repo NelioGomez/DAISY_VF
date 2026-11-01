@@ -25,6 +25,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
     codigoBarras: p?.codigoBarras ?? '',
     nombre: p?.nombre ?? '',
     descripcion: p?.descripcion ?? '',
+    imagen: p?.imagen ?? '',
     unidad: (p?.unidad ?? 'UNIT') as Unidad,
     categoriaId: p?.categoriaId ?? '',
     marcaId: p?.marcaId ?? '',
@@ -50,6 +51,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
       codigoBarras: f.codigoBarras.trim(),
       nombre: f.nombre.trim(),
       descripcion: f.descripcion.trim(),
+      imagen: f.imagen.trim(),
       unidad: f.unidad,
       categoriaId: f.categoriaId || null,
       marcaId: f.marcaId || null,
@@ -148,6 +150,14 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
             </select>
           </Field>
         )}
+        <InputField
+          label="Imagen del producto"
+          value={f.imagen}
+          onChange={set('imagen')}
+          placeholder="/product-images/catalogo/image2.png o https://..."
+          help="Use una ruta pública del frontend o una URL http(s)."
+          full
+        />
         <Field label="Descripción" full>
           <textarea rows={2} value={f.descripcion} onChange={(e) => set('descripcion')(e.target.value)} />
         </Field>

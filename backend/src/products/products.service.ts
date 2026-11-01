@@ -36,6 +36,7 @@ const PRODUCT_SELECT = {
   barcode: true,
   name: true,
   description: true,
+  imageUrl: true,
   unit: true,
   categoryId: true,
   brandId: true,
@@ -60,6 +61,7 @@ interface ProductRow {
   barcode?: string | null;
   name: string;
   description: string | null;
+  imageUrl?: string | null;
   unit?: string;
   categoryId: string | null;
   brandId: string | null;
@@ -167,6 +169,7 @@ export class ProductsService {
             barcode: dto.barcode ?? null,
             name: dto.name,
             description: dto.description,
+            imageUrl: dto.imageUrl ?? null,
             ...(dto.unit && { unit: dto.unit }),
             categoryId: dto.categoryId ?? null,
             brandId: dto.brandId ?? null,
@@ -210,6 +213,7 @@ export class ProductsService {
           ...(dto.barcode !== undefined && { barcode: dto.barcode }),
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
           ...(dto.unit !== undefined && { unit: dto.unit }),
           ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
           ...(dto.brandId !== undefined && { brandId: dto.brandId }),
@@ -580,6 +584,7 @@ export class ProductsService {
       barcode: p.barcode ?? null,
       name: p.name,
       description: p.description,
+      imageUrl: p.imageUrl ?? null,
       unit: p.unit ?? 'UNIT',
       categoryId: p.categoryId,
       category: p.category,

@@ -121,6 +121,7 @@ export const mapProducto = (p: Json): Producto => ({
   codigoBarras: s(p.barcode),
   nombre: s(p.name),
   descripcion: s(p.description),
+  imagen: s(p.imageUrl),
   unidad: isUnidad(p.unit) ? p.unit : 'UNIT',
   marca: s(p.brand?.name),
   marcaId: p.brandId ?? p.brand?.id ?? null,

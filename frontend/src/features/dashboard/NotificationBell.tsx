@@ -3,6 +3,7 @@
    (el resumen del dashboard se vuelve a pedir cuando cambian ventas, compras, etc.). */
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Icon } from '../../components/common/Icon';
 import { useAuth, useData } from '../../store/hooks';
 import { agenda } from './agenda';
 
@@ -39,10 +40,7 @@ export function NotificationBell() {
         aria-label={items.length ? `Pendientes: ${items.length}` : 'Sin pendientes'}
         title="Pendientes"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-        </svg>
+        <Icon name="bell" />
         {items.length > 0 && <span className={`bell-count ${tone}`}>{items.length}</span>}
       </button>
       {open && (

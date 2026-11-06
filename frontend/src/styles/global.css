@@ -810,3 +810,27 @@ kbd{font-family:var(--mono);font-size:10.5px;background:var(--panel);border:1px 
   .date-range label{flex-direction:column;align-items:stretch;gap:3px}
   .date-range input{width:100%;min-width:0}
 }
+
+/* ===== Pipeline de cotizaciones: arrastrar y soltar (n.° 58) ===== */
+.kanban-tip{font-size:12px;color:var(--muted);margin:-4px 0 10px}
+.kcard{position:relative}
+.kcard-top{flex-wrap:wrap;row-gap:2px}
+.kcard-top>.link-btn,.kcard-top b{white-space:nowrap}
+.kcard-right{display:inline-flex;align-items:center;margin-left:auto}
+.kcard.is-draggable .kcard-top{padding-right:16px}
+.kcard.is-draggable{cursor:grab;user-select:none;-webkit-user-select:none}
+.kcard-grip{position:absolute;top:7px;right:5px;color:#9aa9b5;font-size:15px;line-height:1;padding:3px 4px;border-radius:6px;cursor:grab;touch-action:none}
+.kcard-grip:hover{background:#eef2f5;color:var(--ink)}
+.kcard.is-dragging{opacity:.35;border-style:dashed;box-shadow:none}
+.kcard.is-moving{opacity:.6;pointer-events:none}
+.kanban.is-dragging .kanban-col{transition:background .12s,box-shadow .12s,opacity .12s}
+.kanban-col.is-drop-ok{background:#eef8f2;box-shadow:inset 0 0 0 2px rgba(31,157,90,.35)}
+.kanban-col.is-drop-ok.is-over{background:#dcf2e5;box-shadow:inset 0 0 0 2px var(--green)}
+.kanban-col.is-drop-no{opacity:.5}
+.kanban-col.is-drop-no.is-over{box-shadow:inset 0 0 0 2px rgba(223,67,56,.55)}
+.kanban-drop{border:1.5px dashed rgba(31,157,90,.6);border-radius:9px;padding:10px 8px;margin-bottom:8px;text-align:center;font-size:12px;font-weight:600;color:#1d6b3f;background:rgba(255,255,255,.65)}
+.kanban-ghost{position:fixed;left:0;top:0;z-index:90;pointer-events:none;will-change:transform}
+.kanban-ghost .kcard{margin:0;border-color:var(--amber);box-shadow:0 18px 40px rgba(8,16,24,.25);cursor:grabbing}
+body.is-board-dragging,body.is-board-dragging *{cursor:grabbing!important;user-select:none;-webkit-user-select:none}
+@media(hover:none){.kcard-grip{top:2px;right:1px;padding:8px 9px;font-size:18px}.kcard.is-draggable .kcard-top{padding-right:26px}}
+@media(max-width:600px){.kanban{grid-template-columns:repeat(6,minmax(80vw,1fr));scroll-snap-type:x proximity}.kanban-col{scroll-snap-align:start}.kanban.is-dragging{scroll-snap-type:none}}

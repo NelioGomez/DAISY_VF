@@ -105,7 +105,7 @@ export function InvoiceModal({ ventaId, efectivo }: { ventaId: string; efectivo?
           />
 
           {v.estado === 'Anulada' && (
-            <div className="note" style={{ marginBottom: 14, background: 'var(--red-soft)', borderColor: '#f5c2bd', color: '#9c241b' }}>
+            <div className="note" style={{ marginBottom: 14, background: 'var(--red-soft)', borderColor: 'var(--red-line)', color: 'var(--red-ink)' }}>
               <span className="ic">⛔</span>
               <div>
                 Venta anulada. Motivo: {v.motivoAnulacion || '—'}
@@ -187,7 +187,7 @@ export function InvoiceModal({ ventaId, efectivo }: { ventaId: string; efectivo?
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 6 }}>Pagos</div>
               {v.pagos.map((p) => (
-                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: '1px solid #eef2f5' }}>
+                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--line-soft)' }}>
                   <span>
                     {fmtDate(p.fecha)} · {p.metodo}
                     {p.ref && <span className="mono" style={{ color: 'var(--soft)' }}> · {p.ref}</span>}

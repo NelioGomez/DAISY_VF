@@ -17,13 +17,8 @@ import {
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { UnitOfMeasure } from '../../generated/prisma/client';
 import { SortOrder } from '../../common/dto/sort-order.enum';
-import { emptyToNull } from '../../common/transformers/text.transformers';
+import { emptyToNull, trim, trimUpper } from '../../common/transformers/text.transformers';
 import { toBoolean } from '../../common/transformers/to-boolean.transformer';
-
-const trim = ({ value }: { value: unknown }): unknown =>
-  typeof value === 'string' ? value.trim() : value;
-const trimUpper = ({ value }: { value: unknown }): unknown =>
-  typeof value === 'string' ? value.trim().toUpperCase() : value;
 
 const MAX_MONEY = 999_999_999_999.99;
 

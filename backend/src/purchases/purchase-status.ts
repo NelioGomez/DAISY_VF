@@ -21,6 +21,3 @@ export const canMovePurchase = (from: PurchaseStatus, to: PurchaseStatus): boole
 /** Se puede registrar mercadería solo en compras ordenadas o con saldo por recibir. */
 export const canReceive = (s: PurchaseStatus): boolean =>
   s === PurchaseStatus.ORDERED || s === PurchaseStatus.PARTIALLY_RECEIVED;
-
-/** Estados con mercadería en camino (cuentan como "en tránsito" para reabastecer). */
-export const OPEN_PURCHASE_STATUSES: PurchaseStatus[] = [PurchaseStatus.ORDERED, PurchaseStatus.PARTIALLY_RECEIVED];

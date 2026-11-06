@@ -134,7 +134,7 @@ src/
     business.ts     Reglas configurables (IVA, categorías, flujo OPI…)
     navigation.ts   Roles, permisos visuales, menú y títulos
   features/         Un folder por módulo de negocio (página + modales)
-  layouts/          DashboardLayout (sidebar + topbar)
+  layouts/          DashboardLayout (topbar) y Sidebar (menú por módulos desplegables)
   services/
     api/client.ts   Cliente HTTP (token, errores, paginación)
     api/mappers.ts  Traduce la respuesta de la API a los tipos del frontend

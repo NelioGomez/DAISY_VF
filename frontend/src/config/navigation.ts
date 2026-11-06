@@ -25,55 +25,98 @@ export const ACCESS: Record<RoleKey, ModuleId[]> = {
   tecnico: ['dashboard', 'ordenes'],
 };
 
+/** Contadores (avisos) que puede mostrar una entrada del menú. */
+export type MenuBadge = 'criticos' | 'comprasPorRecibir' | 'cotizacionesPendientes' | 'cxc' | 'consultasNuevas';
+
 export interface MenuItem {
+  /** Módulo de la pantalla: define el permiso y la ruta (/app/<id>). */
   id: ModuleId;
   t: string;
   ic: string;
+  /** Nombre cuando es la única pantalla visible de su módulo (se muestra como enlace directo). */
+  solo?: string;
   /** Ruta propia dentro del módulo (p. ej. el punto de venta dentro de Ventas). */
   to?: string;
+  /** Pestaña del módulo (?tab=…) que abre la entrada. */
+  tab?: string;
+  /** Es la pestaña por defecto: se marca también cuando la dirección no trae ?tab. */
+  tabDefault?: boolean;
   /** Permiso adicional para mostrar la entrada. */
   perm?: string;
   /** Activo solo con la ruta exacta (para no marcarse junto a sus subpantallas). */
   end?: boolean;
+  /** Aviso que se muestra junto al nombre. */
+  badge?: MenuBadge;
 }
 
-export interface MenuGroup {
-  grp: string;
+/** Módulo desplegable del menú: agrupa sus pantallas. */
+export interface MenuSection {
+  key: string;
+  t: string;
+  ic: string;
   items: MenuItem[];
 }
 
-export const MENU: MenuGroup[] = [
+export type MenuEntry = MenuItem | MenuSection;
+
+export const isSection = (e: MenuEntry): e is MenuSection => 'items' in e;
+
+/**
+ * Menú por módulos desplegables (mejora n.° 55), con la distribución acordada en clase:
+ * 1. Compras (productos, pedidos, proveedores e inventario) · 2. Ventas (clientes, cotizaciones,
+ * ventas y facturación, órdenes de servicio y canal web) · 3. Pagos y CxC · 4. Dashboard (panel,
+ * reportes y KPI). Producción y Auditoría van aparte. Si un rol ve una sola pantalla de un módulo,
+ * esa pantalla se muestra como enlace directo.
+ */
+export const MENU: MenuEntry[] = [
   {
-    grp: 'Operación',
+    key: 'dashboard',
+    t: 'Dashboard',
+    ic: '▦',
     items: [
-      { id: 'dashboard', t: 'Dashboard', ic: '▦' },
-      { id: 'ventas', t: 'Punto de venta', ic: '⊞', to: '/app/ventas/nueva', perm: 'sales:write' },
-      { id: 'productos', t: 'Productos', ic: '▣' },
-      { id: 'inventario', t: 'Inventario', ic: '▤' },
-      { id: 'compras', t: 'Compras', ic: '⇩' },
-      { id: 'produccion', t: 'Producción', ic: '⚙' },
-      { id: 'cotizaciones', t: 'Cotizaciones', ic: '▥' },
-      { id: 'ventas', t: 'Ventas y Facturación', ic: '▧', end: true },
-      { id: 'pagos', t: 'Pagos y CxC', ic: '▨' },
-      { id: 'ordenes', t: 'Órdenes OPI', ic: '▩' },
+      { id: 'dashboard', t: 'Panel e indicadores', solo: 'Dashboard', ic: '▦' },
+      { id: 'reportes', t: 'Reportes y KPIs', ic: '◩' },
     ],
   },
   {
-    grp: 'Catálogos',
+    key: 'compras',
+    t: 'Compras',
+    ic: '⇩',
+    items: [
+      { id: 'productos', t: 'Productos', ic: '▣' },
+      { id: 'compras', t: 'Pedidos de compra', ic: '⇩', tab: 'ordenes', tabDefault: true, badge: 'comprasPorRecibir' },
+      { id: 'compras', t: 'Reabastecimiento', ic: '↻', tab: 'reabastecimiento' },
+      { id: 'proveedores', t: 'Proveedores', ic: '◨' },
+      { id: 'inventario', t: 'Inventario', ic: '▤', badge: 'criticos' },
+    ],
+  },
+  {
+    key: 'ventas',
+    t: 'Ventas',
+    ic: '▧',
     items: [
       { id: 'clientes', t: 'Clientes', ic: '◧' },
-      { id: 'proveedores', t: 'Proveedores', ic: '◨' },
-      { id: 'consultas', t: 'Consultas web', ic: '◫' },
-    ],
-  },
-  {
-    grp: 'Análisis y Control',
-    items: [
-      { id: 'reportes', t: 'Reportes y KPIs', ic: '◩' },
+      { id: 'cotizaciones', t: 'Cotizaciones', ic: '▥', badge: 'cotizacionesPendientes' },
+      { id: 'ventas', t: 'Punto de venta', ic: '⊞', to: '/app/ventas/nueva', perm: 'sales:write' },
+      { id: 'ventas', t: 'Ventas y facturación', ic: '▧', end: true },
+      { id: 'ordenes', t: 'Órdenes de servicio (OPI)', ic: '▩' },
+      { id: 'consultas', t: 'Consultas web', ic: '◫', badge: 'consultasNuevas' },
       { id: 'catalogo', t: 'Catálogo web', ic: '◪' },
-      { id: 'auditoria', t: 'Auditoría', ic: '◎' },
     ],
   },
+  { id: 'pagos', t: 'Pagos y CxC', ic: '▨', badge: 'cxc' },
+  {
+    key: 'produccion',
+    t: 'Producción',
+    ic: '⚙',
+    items: [
+      { id: 'produccion', t: 'Órdenes de producción', ic: '⚙', tab: 'ordenes', tabDefault: true },
+      { id: 'produccion', t: 'Lotes y calidad', ic: '✓', tab: 'lotes' },
+      { id: 'produccion', t: 'Listas de materiales', ic: '☰', tab: 'bom' },
+      { id: 'produccion', t: 'Rutas de producción', ic: '⤳', tab: 'rutas' },
+    ],
+  },
+  { id: 'auditoria', t: 'Auditoría', ic: '◎' },
 ];
 
 export const TITLES: Record<ModuleId, [string, string]> = {
@@ -95,7 +138,8 @@ export const TITLES: Record<ModuleId, [string, string]> = {
 };
 
 export const ROLE_KEYS = Object.keys(ROLES) as RoleKey[];
-export const MODULE_COUNT = MENU.reduce((n, g) => n + g.items.length, 0);
+/** Cantidad de módulos del sistema interno. */
+export const MODULE_COUNT = Object.keys(TITLES).length;
 
 export const isModuleId = (v: string | undefined): v is ModuleId => !!v && v in TITLES;
 

@@ -14,10 +14,11 @@ import { ProductDrawer } from '../products/ProductDrawer';
 import { PurchaseDetailModal } from '../purchases/PurchaseDetailModal';
 import { QuotationDetailModal } from '../quotations/QuotationDetailModal';
 import { InvoiceModal } from '../sales/InvoiceModal';
+import { ServiceOrderDetailModal } from '../service-orders/ServiceOrderDetailModal';
 import { SupplierDrawer } from '../suppliers/SupplierDrawer';
 import { InquiryDetailModal } from '../web-inquiries/InquiryDetailModal';
 
-export type RecordTipo = 'venta' | 'cotizacion' | 'solicitud' | 'compra' | 'produccion' | 'lote' | 'traslado' | 'producto' | 'cliente' | 'proveedor';
+export type RecordTipo = 'venta' | 'cotizacion' | 'solicitud' | 'compra' | 'produccion' | 'lote' | 'traslado' | 'servicio' | 'producto' | 'cliente' | 'proveedor';
 
 const DEFS: Record<RecordTipo, { perm: string; render: (id: string) => ReactNode }> = {
   venta: { perm: 'sales:read', render: (id) => <InvoiceModal ventaId={id} /> },
@@ -27,6 +28,7 @@ const DEFS: Record<RecordTipo, { perm: string; render: (id: string) => ReactNode
   produccion: { perm: 'production:read', render: (id) => <OrderDetailModal ordenId={id} /> },
   lote: { perm: 'production:read', render: (id) => <LotDetailModal loteId={id} /> },
   traslado: { perm: 'inventory:read', render: (id) => <TransferDetailModal trasladoId={id} /> },
+  servicio: { perm: 'service-orders:read', render: (id) => <ServiceOrderDetailModal ordenId={id} /> },
   producto: { perm: 'products:read', render: (id) => <ProductDrawer productoId={id} /> },
   cliente: { perm: 'customers:read', render: (id) => <CustomerDrawer clienteId={id} /> },
   proveedor: { perm: 'suppliers:read', render: (id) => <SupplierDrawer proveedorId={id} /> },

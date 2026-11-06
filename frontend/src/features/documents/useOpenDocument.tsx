@@ -1,5 +1,5 @@
 /* Abre el documento relacionado (factura, cotización, solicitud, compra, orden de producción,
-   lote o traslado) en el panel lateral de registro (mejoras n.° 32 y 33), siempre que el
+   lote, traslado u orden de servicio) en el panel lateral de registro (mejoras n.° 32 y 33), siempre que el
    usuario pueda leer ese módulo. Lo usan las cadenas de trazabilidad, la bitácora y la búsqueda. */
 import { useCallback } from 'react';
 import type { DocumentoRef } from '../../types';
@@ -16,6 +16,7 @@ const RECORD: Record<DocumentoRef['tipo'], RecordTipo | null> = {
   PRODUCCION: 'produccion',
   LOTE: 'lote',
   TRASLADO: 'traslado',
+  SERVICIO: 'servicio',
 };
 
 export function useOpenDocument() {

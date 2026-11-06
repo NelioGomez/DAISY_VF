@@ -10,7 +10,7 @@ import { isUniqueViolation } from '../common/utils/prisma-errors';
 import { DocumentLinesService, lineToData } from '../documents/document-lines.service';
 import { DocumentSequenceService } from '../documents/document-sequence.service';
 import { calculateTotals, TaxService } from '../documents/tax.service';
-import { InquiryStatus, QuotationStatus } from '../generated/prisma/client';
+import { InquiryStatus, InquiryType, QuotationStatus } from '../generated/prisma/client';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuotationDto, CreateQuotationFromInquiryDto, FilterQuotationDto, UpdateQuotationDto } from './dto/quotation.dto';
@@ -160,6 +160,7 @@ export class QuotationsService {
           select: {
             code: true,
             status: true,
+            type: true,
             customerId: true,
             items: { select: { productId: true, quantity: true }, orderBy: { id: 'asc' } },
             quotation: { select: { code: true } },
@@ -170,6 +171,10 @@ export class QuotationsService {
         if (inquiry.quotation) throw new ConflictException(`La solicitud ya tiene la cotización ${inquiry.quotation.code}`);
         if (inquiry.status !== InquiryStatus.NEW && inquiry.status !== InquiryStatus.IN_REVIEW) {
           throw new ConflictException(`Una solicitud ${inquiry.status} ya no se puede cotizar`);
+        }
+        // Mejora n.° 59: un mensaje de cuenta, reclamo o servicio no se cotiza.
+        if (inquiry.type !== InquiryType.QUOTE) {
+          throw new ConflictException(`La solicitud ${inquiry.code} no es un pedido de cotización; cambie su motivo si el cliente pide precios`);
         }
 
         const customerId = dto.customerId ?? inquiry.customerId;

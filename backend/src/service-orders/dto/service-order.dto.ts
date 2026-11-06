@@ -1,17 +1,22 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { trim } from '../../common/transformers/text.transformers';
+import { toBoolean } from '../../common/transformers/to-boolean.transformer';
 import { ServiceOrderStatus } from '../../generated/prisma/client';
 
 export class CreateServiceOrderDto {
@@ -37,6 +42,37 @@ export class CreateServiceOrderDto {
   @IsString()
   @MaxLength(4000)
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'En garantía: no se cobra. Indique la compra (venta + producto) o el servicio anterior que la cubre' })
+  @IsOptional()
+  @IsBoolean()
+  underWarranty?: boolean;
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Venta en la que el cliente compró el producto en garantía' })
+  @IsOptional()
+  @IsUUID()
+  warrantySaleId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Producto en garantía (debe estar en esa venta)' })
+  @IsOptional()
+  @IsUUID()
+  warrantyProductId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Servicio anterior cuya garantía de trabajo sigue vigente' })
+  @IsOptional()
+  @IsUUID()
+  warrantyOrderId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Solicitud web (servicio técnico o reclamo) que origina la orden; queda atendida' })
+  @IsOptional()
+  @IsUUID()
+  inquiryId?: string;
+}
+
+export class WarrantyOptionsDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  customerId!: string;
 }
 
 export class UpdateServiceOrderDto {
@@ -69,6 +105,13 @@ export class CompleteServiceOrderDto {
   @IsString()
   @MaxLength(2000)
   summary?: string;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 365, default: 90, description: 'Garantía del trabajo realizado (0 = sin garantía)' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(365)
+  warrantyDays?: number;
 }
 
 export class InvoiceServiceOrderDto {
@@ -98,6 +141,12 @@ export class FilterServiceOrderDto extends PaginationDto {
   @IsOptional()
   @IsEnum(ServiceOrderStatus)
   status?: ServiceOrderStatus;
+
+  @ApiPropertyOptional({ description: 'true = solo en garantía; false = solo facturables' })
+  @Transform(toBoolean)
+  @IsOptional()
+  @IsBoolean()
+  warranty?: boolean;
 
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()

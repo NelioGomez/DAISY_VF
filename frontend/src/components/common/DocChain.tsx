@@ -1,5 +1,6 @@
 /* Trazabilidad documental (mejora n.° 50): muestra la cadena de documentos relacionados
-   —SOL › COT › FAC › Pago, OC › REC › Entradas, u OP › Lote › Entrada— y permite abrir cada uno. */
+   —SOL › COT › FAC › Pago, SOL › OPI › FAC, OC › REC › Entradas, u OP › Lote › Entrada— y
+   permite abrir cada uno. */
 import type { TipoDocumento } from '../../types';
 
 const DOC_LABEL: Record<TipoDocumento, string> = {
@@ -13,6 +14,7 @@ const DOC_LABEL: Record<TipoDocumento, string> = {
   PRODUCCION: 'Orden de producción',
   LOTE: 'Lote',
   TRASLADO: 'Traslado',
+  SERVICIO: 'Orden de servicio',
 };
 
 const DOC_ICON: Record<TipoDocumento, string> = {
@@ -26,6 +28,7 @@ const DOC_ICON: Record<TipoDocumento, string> = {
   PRODUCCION: '⚙',
   LOTE: '▦',
   TRASLADO: '⇄',
+  SERVICIO: '⚒',
 };
 
 interface DocChipProps {

@@ -3,7 +3,7 @@ import { Transform } from 'class-transformer';
 import { IsDateString, IsEnum, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { trim } from '../../common/transformers/text.transformers';
-import { InquiryStatus } from '../../generated/prisma/client';
+import { InquiryStatus, InquiryType } from '../../generated/prisma/client';
 import { MANUAL_INQUIRY_STATUSES } from '../inquiry-status';
 
 export class FilterInquiryDto extends PaginationDto {
@@ -11,6 +11,11 @@ export class FilterInquiryDto extends PaginationDto {
   @IsOptional()
   @IsEnum(InquiryStatus)
   status?: InquiryStatus;
+
+  @ApiPropertyOptional({ enum: InquiryType })
+  @IsOptional()
+  @IsEnum(InquiryType)
+  type?: InquiryType;
 
   @ApiPropertyOptional({ description: 'Busca en nombre, contacto, producto de interés y mensaje' })
   @Transform(trim)
@@ -28,6 +33,12 @@ export class FilterInquiryDto extends PaginationDto {
   @IsOptional()
   @IsDateString()
   to?: string;
+}
+
+export class SetInquiryTypeDto {
+  @ApiProperty({ enum: InquiryType })
+  @IsEnum(InquiryType, { message: 'Motivo inválido' })
+  type!: InquiryType;
 }
 
 export class SetInquiryStatusDto {

@@ -6,7 +6,7 @@ import { Permissions } from '../common/decorators/permissions.decorator';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { CreateQuotationFromInquiryDto } from '../quotations/dto/quotation.dto';
 import { QuotationsService } from '../quotations/quotations.service';
-import { FilterInquiryDto, SetInquiryStatusDto } from './dto/inquiry.dto';
+import { FilterInquiryDto, SetInquiryStatusDto, SetInquiryTypeDto } from './dto/inquiry.dto';
 import { InquiriesService } from './inquiries.service';
 
 @ApiTags('Inquiries')
@@ -58,5 +58,18 @@ export class InquiriesController {
     @ClientIp() ip?: string,
   ) {
     return this.inquiries.setStatus(id, dto.status, actor, ip);
+  }
+
+  @Patch(':id/type')
+  @Permissions('inquiries:write')
+  @ApiOperation({ summary: 'Corrige el motivo de la solicitud (cotización, servicio, cuenta, reclamo u otra)' })
+  @ApiResponse({ status: 409, description: 'Ya fue atendida o es una lista de productos' })
+  setType(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetInquiryTypeDto,
+    @CurrentUser() actor: AuthUser,
+    @ClientIp() ip?: string,
+  ) {
+    return this.inquiries.setType(id, dto.type, actor, ip);
   }
 }

@@ -12,6 +12,7 @@ import {
   FilterServiceOrderDto,
   InvoiceServiceOrderDto,
   UpdateServiceOrderDto,
+  WarrantyOptionsDto,
 } from './dto/service-order.dto';
 import { ServiceOrdersService } from './service-orders.service';
 
@@ -34,6 +35,14 @@ export class ServiceOrdersController {
   @ApiOperation({ summary: 'Técnicos activos disponibles para asignar' })
   technicians() {
     return this.orders.technicians();
+  }
+
+  // Antes de ':id'
+  @Get('warranty-options')
+  @Permissions('service-orders:write')
+  @ApiOperation({ summary: 'Compras con garantía y servicios con garantía de trabajo de un cliente (vigentes y vencidas)' })
+  warrantyOptions(@Query() q: WarrantyOptionsDto) {
+    return this.orders.warrantyOptions(q.customerId);
   }
 
   @Get(':id')

@@ -43,7 +43,7 @@ interface Ficha {
   cotizaciones: Array<{ id: string; codigo: string; fecha: string; validaHasta: string; total: number; estado: string }> | null;
   solicitudes: Array<{ id: string; codigo: string; fecha: string; items: number; estado: string }> | null;
   pagos: Array<{ id: string; fecha: string; monto: number; metodo: string; referencia: string; venta: { id: string; codigo: string } }> | null;
-  ordenes: Array<{ id: string; codigo: string; fecha: string; estado: string; descripcion: string }> | null;
+  ordenes: Array<{ id: string; codigo: string; fecha: string; estado: string; descripcion: string; enGarantia: boolean }> | null;
 }
 
 const s = (v: unknown) => (v === null || v === undefined ? '' : String(v));
@@ -106,6 +106,7 @@ const toFicha = (d: Json): Ficha => ({
       fecha: s(x.registeredAt),
       estado: ORDER_STATUS[x.status as ApiServiceOrderStatus] ?? s(x.status),
       descripcion: s(x.description),
+      enGarantia: !!x.underWarranty,
     })) ?? null,
 });
 
@@ -346,9 +347,14 @@ export function CustomerDrawer({ clienteId }: { clienteId: string }) {
         <Lista vacio="Sin órdenes de servicio" ic="▩">
           {f.ordenes.map((o) => (
             <tr key={o.id}>
-              <td className="mono">{o.codigo}</td>
+              <td>
+                <DocChip tipo="SERVICIO" codigo={o.codigo} onOpen={doc.canOpen({ tipo: 'SERVICIO' }) ? () => doc.open({ tipo: 'SERVICIO', id: o.id, codigo: o.codigo }) : undefined} />
+              </td>
               <td>{fmtDate(o.fecha)}</td>
-              <td>{o.descripcion}</td>
+              <td>
+                {o.descripcion}
+                {o.enGarantia && <div className="sub-num">En garantía · sin costo</div>}
+              </td>
               <td>
                 <EstadoTag estado={o.estado} />
               </td>

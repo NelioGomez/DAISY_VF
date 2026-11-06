@@ -1,12 +1,32 @@
-/* Mis solicitudes: lo que el cliente pidió, su avance y la cotización que generó. */
+/* Mis solicitudes: lo que el cliente pidió, su avance y la cotización que generó. También los
+   mensajes de Contacto enviados con la sesión (servicio, cuenta, reclamos…, mejora n.° 59) y la
+   orden de servicio con que se atendió un servicio técnico o una garantía (mejora n.° 60). */
 import { Link } from 'react-router-dom';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import * as portal from '../../services/portal/portalService';
+import type { EstadoOrden, TipoConsulta } from '../../types';
 import { fmtDate, money } from '../../utils/format';
 import { Availability } from '../public/ProductBits';
 import { InquiryProgress, PortalState } from './PortalStatus';
 import { useQuoteList } from './useCustomer';
 import { usePortalData } from './usePortalData';
+
+const MOTIVO: Record<TipoConsulta, string> = {
+  Cotización: 'Pedido de precios',
+  'Servicio técnico': 'Servicio técnico o garantía',
+  Cuenta: 'Mi cuenta',
+  Reclamo: 'Reclamo o sugerencia',
+  Otra: 'Consulta',
+};
+
+const AVANCE_SERVICIO: Record<EstadoOrden, string> = {
+  Registrada: 'registrada',
+  Asignada: 'asignada a un técnico',
+  'En proceso': 'en proceso',
+  Completada: 'trabajo terminado',
+  Facturada: 'trabajo terminado',
+  Cancelada: 'cancelada',
+};
 
 export function MyInquiriesPage() {
   usePageTitle('Mis solicitudes');
@@ -55,12 +75,18 @@ export function MyInquiriesPage() {
                 <div>
                   <h3>{s.codigo}</h3>
                   <p className="pub-muted">
-                    Enviada el {fmtDate(s.fecha)}, {s.items.length} {s.items.length === 1 ? 'producto' : 'productos'}
+                    Enviada el {fmtDate(s.fecha)},{' '}
+                    {s.items.length ? `${s.items.length} ${s.items.length === 1 ? 'producto' : 'productos'}` : MOTIVO[s.tipo].toLowerCase()}
                   </p>
                 </div>
-                <PortalState estado={s.estado} />
+                <PortalState estado={s.estado === 'Cerrada' && s.tipo !== 'Cotización' ? 'Atendida' : s.estado} />
               </div>
-              <InquiryProgress estado={s.estado} />
+              <InquiryProgress estado={s.estado} cotizacion={s.tipo === 'Cotización'} />
+              {!s.items.length && s.mensaje && (
+                <p className="pub-req-msg">
+                  <strong>Su mensaje:</strong> {s.mensaje}
+                </p>
+              )}
 
               {s.items.length > 0 && (
                 <details className="pub-req-items">
@@ -109,10 +135,20 @@ export function MyInquiriesPage() {
                   </>
                 ) : s.enPreparacion ? (
                   <div>Un vendedor está preparando su cotización.</div>
+                ) : s.ordenServicio ? (
+                  <div>
+                    Orden de servicio <strong>{s.ordenServicio.codigo}</strong>: {AVANCE_SERVICIO[s.ordenServicio.estado]}
+                    {s.ordenServicio.enGarantia && ' · en garantía, sin costo'}
+                    {s.ordenServicio.garantiaHasta && (s.ordenServicio.estado === 'Completada' || s.ordenServicio.estado === 'Facturada')
+                      ? `. El trabajo tiene garantía hasta el ${fmtDate(s.ordenServicio.garantiaHasta)}.`
+                      : '.'}
+                  </div>
                 ) : s.estado === 'Cancelada' ? (
                   <div>Esta solicitud se canceló. Si aún necesita los productos, envíe una nueva lista.</div>
                 ) : s.estado === 'Cerrada' ? (
-                  <div>Solicitud cerrada.</div>
+                  <div>{s.tipo === 'Cotización' ? 'Solicitud cerrada.' : 'Atendida. Si necesita algo más, escríbanos de nuevo.'}</div>
+                ) : s.tipo !== 'Cotización' ? (
+                  <div>Recibimos su mensaje. Le responderemos por su correo o teléfono.</div>
                 ) : (
                   <div>Recibimos su solicitud. Un vendedor la revisará y le enviará la cotización.</div>
                 )}

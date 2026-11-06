@@ -1,5 +1,5 @@
-/* Ficha pública de producto (mejora n.° 36): imagen, nombre, SKU, marca, categoría,
-   precio vigente, disponibilidad, botón para cotizar y productos relacionados.
+/* Ficha pública de producto (mejora n.° 36): imagen, nombre, SKU, marca, categoría, garantía
+   (mejora n.° 60), precio vigente, disponibilidad, botón para cotizar y productos relacionados.
    Nunca muestra costos, proveedores, stock exacto ni movimientos. */
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { usePageTitle } from '../../hooks/usePageTitle';
 import { ApiError, errorMessage } from '../../services/api/client';
 import { producto, whatsappUrl } from '../../services/public/publicService';
 import type { ProductoPublico } from '../../types';
+import { plazoGarantia } from '../../utils/warranty';
 import { useQuoteList } from '../portal/useCustomer';
 import { AddToList, Availability, Price, ProductCard, ProductMedia } from './ProductBits';
 import { usePublicInfo } from './usePublicInfo';
@@ -104,7 +105,18 @@ export function ProductPage() {
               <dt>Unidad de venta</dt>
               <dd>{p.unidad.charAt(0).toUpperCase() + p.unidad.slice(1)}</dd>
             </div>
+            {p.garantiaDias && (
+              <div>
+                <dt>Garantía</dt>
+                <dd>{plazoGarantia(p.garantiaDias)} desde la compra</dd>
+              </div>
+            )}
           </dl>
+          {p.garantiaDias && (
+            <p className="pub-muted is-small">
+              ¿Necesita hacer válida la garantía? <Link to="/contacto?motivo=servicio">Escríbanos</Link> con el número de su factura.
+            </p>
+          )}
 
           <div className="pub-buybox">
             <Price value={p.precio} unidad={p.unidad} />

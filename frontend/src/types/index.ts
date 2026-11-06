@@ -71,6 +71,8 @@ export interface Producto {
   stockMin: number;
   /** Tope de reposición (null = sin definir). */
   stockMax: number | null;
+  /** Garantía en días desde la venta (null = sin garantía; mejora n.° 60). */
+  garantiaDias: number | null;
   ic: string;
   activo: boolean;
 }
@@ -257,7 +259,7 @@ export interface FichaProducto {
 
 /* ---------- Trazabilidad documental ---------- */
 
-export type TipoDocumento = 'SOLICITUD' | 'COTIZACION' | 'VENTA' | 'PAGO' | 'COMPRA' | 'RECEPCION' | 'MOVIMIENTO' | 'PRODUCCION' | 'LOTE' | 'TRASLADO';
+export type TipoDocumento = 'SOLICITUD' | 'COTIZACION' | 'VENTA' | 'PAGO' | 'COMPRA' | 'RECEPCION' | 'MOVIMIENTO' | 'PRODUCCION' | 'LOTE' | 'TRASLADO' | 'SERVICIO';
 
 /** Referencia navegable a un documento relacionado. */
 export interface DocumentoRef {
@@ -371,17 +373,44 @@ export interface CuentaPorCobrar {
 
 export type EstadoOrden = 'Registrada' | 'Asignada' | 'En proceso' | 'Completada' | 'Facturada' | 'Cancelada';
 
+/** Qué cubre una orden en garantía (mejora n.° 60): un producto comprado o un servicio anterior. */
+export type CoberturaOrden =
+  | { origen: 'Compra'; ventaId: string; factura: string; fechaVenta: string; productoId: string; producto: string; sku: string; dias: number | null; hasta: string | null }
+  | { origen: 'Servicio'; ordenId: string; codigo: string; hasta: string | null };
+
 export interface OrdenServicio {
   id: string;
   codigo: string;
   fecha: string;
   cliId: string;
   cli: string;
+  cliTel: string;
   desc: string;
   tecnicoId: string | null;
   tecnico: string;
   estado: EstadoOrden;
   factura: string | null;
+  ventaId: string | null;
+  inicio: string | null;
+  fin: string | null;
+  canceladaEl: string | null;
+  motivoCancelacion: string;
+  notas: string;
+  /** En garantía: no se cobra y termina en Completada, sin factura. */
+  enGarantia: boolean;
+  cobertura: CoberturaOrden | null;
+  /** Garantía del trabajo realizado, fijada al completar (días 0 = sin garantía). */
+  garantiaTrabajo: { dias: number; hasta: string | null } | null;
+  /** Solicitud web (Contacto o portal) que originó la orden. */
+  solicitud: { id: string; codigo: string } | null;
+  /** Solo en el detalle: órdenes posteriores atendidas con la garantía de este trabajo. */
+  reclamos: Array<{ id: string; codigo: string; estado: EstadoOrden }>;
+}
+
+/** Lo que puede cubrir una garantía de un cliente (GET /service-orders/warranty-options). */
+export interface OpcionesGarantia {
+  compras: Array<{ ventaId: string; factura: string; fecha: string; productoId: string; sku: string; producto: string; cantidad: number; dias: number; hasta: string; vigente: boolean }>;
+  servicios: Array<{ ordenId: string; codigo: string; desc: string; fin: string | null; hasta: string; vigente: boolean }>;
 }
 
 export interface Tecnico {
@@ -393,6 +422,9 @@ export interface Tecnico {
 /** Solicitud web: se conserva como evidencia aunque se convierta en cotización. */
 export type EstadoConsulta = 'Nueva' | 'En revisión' | 'Cotizada' | 'Cerrada' | 'Cancelada';
 
+/** Motivo de una solicitud web (mejora n.° 59): solo las de cotización se cotizan. */
+export type TipoConsulta = 'Cotización' | 'Servicio técnico' | 'Cuenta' | 'Reclamo' | 'Otra';
+
 export interface ConsultaWeb {
   id: string;
   /** SOL-000001 */
@@ -402,14 +434,17 @@ export interface ConsultaWeb {
   contacto: string;
   producto: string;
   msg: string;
+  tipo: TipoConsulta;
   estado: EstadoConsulta;
   estadoDesde: string;
-  /** PORTAL = lista de solicitud de un cliente con cuenta; WEB = formulario de contacto. */
+  /** PORTAL = enviada con la cuenta de un cliente; WEB = formulario de contacto sin sesión. */
   origen: 'PORTAL' | 'WEB';
   cliente: { id: string; nombre: string } | null;
   asignado: string;
   items: Array<{ prod: string; sku: string; prodN: string; cant: number; nota: string; precio: number; stock: number; minimo: number; activo: boolean }>;
   cotizacion: { id: string; codigo: string; estado: EstadoCotizacion; total: number; factura: { id: string; codigo: string } | null } | null;
+  /** Servicio técnico o reclamo atendido con una orden de servicio (mejora n.° 60). */
+  ordenServicio: { id: string; codigo: string; estado: EstadoOrden; enGarantia: boolean } | null;
 }
 
 export interface RegistroAuditoria {
@@ -540,6 +575,7 @@ export interface CuentaCliente {
 export interface SolicitudPortal {
   id: string;
   codigo: string;
+  tipo: TipoConsulta;
   estado: EstadoConsulta;
   estadoDesde: string;
   fecha: string;
@@ -548,6 +584,8 @@ export interface SolicitudPortal {
   cotizacion: { id: string; codigo: string; estado: EstadoCotizacion; total: number; validaHasta: string } | null;
   /** La cotización existe pero el vendedor todavía no la envía (borrador). */
   enPreparacion: boolean;
+  /** Orden de servicio con que se atendió (servicio técnico, garantía o reclamo). */
+  ordenServicio: { codigo: string; estado: EstadoOrden; enGarantia: boolean; garantiaHasta: string | null } | null;
 }
 
 export interface CotizacionPortal {
@@ -579,6 +617,8 @@ export interface ProductoPublico {
   unidad: string;
   imagen: string | null;
   disponibilidad: Disponibilidad;
+  /** Garantía en días desde la compra (null = sin garantía publicada). */
+  garantiaDias: number | null;
   ic: string;
 }
 

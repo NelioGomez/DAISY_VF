@@ -1,22 +1,25 @@
-/* Acciones de una orden que necesitan un dato: asignar técnico,
-   facturar contra una venta del cliente o cancelar con motivo. */
+/* Acciones de una orden que necesitan un dato: asignar técnico, facturar contra una venta del
+   cliente o cancelar con motivo. Abiertas desde el detalle, vuelven al detalle al terminar. */
 import { useState } from 'react';
 import { Field } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
-import { CancelButton, Modal } from '../../components/modals/Modal';
+import { Modal } from '../../components/modals/Modal';
 import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { OrdenServicio } from '../../types';
 import { fmtDate, money } from '../../utils/format';
+import { useRecords } from '../records/records';
 
 type Mode = 'assign' | 'invoice' | 'cancel';
 
 const TITLES: Record<Mode, string> = { assign: 'Asignar técnico', invoice: 'Facturar orden', cancel: 'Cancelar orden' };
 
-export function OrderActionModal({ orden, mode }: { orden: OrdenServicio; mode: Mode }) {
+export function OrderActionModal({ orden, mode, desdeDetalle = false }: { orden: OrdenServicio; mode: Mode; desdeDetalle?: boolean }) {
   const { db, asignarOrden, facturarOrden, cancelarOrden } = useData();
   const toast = useToast();
   const { close } = useModal();
+  const { openRecord } = useRecords();
+  const back = () => (desdeDetalle ? openRecord('servicio', orden.id) : close());
   const ventasCliente = db.ventas.filter((v) => v.cli === orden.cliId && v.estado !== 'Anulada');
   const [value, setValue] = useState(mode === 'assign' ? (orden.tecnicoId ?? db.tecnicos[0]?.id ?? '') : mode === 'invoice' ? (ventasCliente[0]?.id ?? '') : '');
   const [saving, setSaving] = useState(false);
@@ -29,7 +32,7 @@ export function OrderActionModal({ orden, mode }: { orden: OrdenServicio; mode: 
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
     toast(`${orden.codigo}: ${mode === 'assign' ? 'técnico asignado' : mode === 'invoice' ? 'facturada' : 'cancelada'}`, 'ok');
-    close();
+    back();
   };
 
   return (
@@ -37,7 +40,9 @@ export function OrderActionModal({ orden, mode }: { orden: OrdenServicio; mode: 
       title={`${TITLES[mode]} — ${orden.codigo}`}
       footer={
         <>
-          <CancelButton label="Volver" />
+          <button className="b b-out" onClick={back}>
+            Volver
+          </button>
           <button className={`b ${mode === 'cancel' ? 'b-red' : 'b-amber'}`} onClick={submit} disabled={saving || (mode === 'invoice' && !ventasCliente.length)}>
             {saving ? 'Guardando…' : TITLES[mode]}
           </button>

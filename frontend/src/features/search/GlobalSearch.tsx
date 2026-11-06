@@ -1,8 +1,7 @@
 /* Búsqueda global (mejora n.° 7): Ctrl + K desde cualquier pantalla del sistema interno.
-   Busca en los módulos que el rol puede leer y abre el registro sin cambiar de pantalla
-   (documentos y productos) o lleva a su módulo (clientes, proveedores, OPI). */
+   Busca en los módulos que el rol puede leer y abre el registro en el panel lateral sin cambiar
+   de pantalla (documentos, órdenes de servicio, productos, clientes y proveedores). */
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { EstadoTag } from '../../components/tables/Tag';
 import { useModal } from '../../components/modals/useModal';
 import { ProductImage } from '../../components/common/ProductImage';
@@ -81,7 +80,6 @@ type State = { q: string; hits: Hit[] } | { q: string; error: string };
 export function GlobalSearch() {
   const modal = useModal();
   const { openRecord } = useRecords();
-  const navigate = useNavigate();
   const { open: openDoc } = useOpenDocument();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
@@ -127,8 +125,7 @@ export function GlobalSearch() {
       case 'SUPPLIER':
         return openRecord('proveedor', h.id);
       case 'SERVICE_ORDER':
-        modal.close();
-        return navigate('/app/ordenes');
+        return openDoc({ tipo: 'SERVICIO', id: h.id, codigo: h.codigo });
       case 'PRODUCTION_ORDER':
         return openDoc({ tipo: 'PRODUCCION', id: h.id, codigo: h.codigo });
       case 'PRODUCTION_LOT':

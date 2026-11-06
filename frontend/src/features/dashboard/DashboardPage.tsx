@@ -12,7 +12,6 @@ import { EstadoTag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
 import type { DashboardResumen, ResumenProduccion } from '../../types';
 import { money } from '../../utils/format';
-import { MovementFormModal } from '../inventory/MovementFormModal';
 import { OrderFormModal } from '../production/OrderFormModal';
 import { fmtHoras, pct } from '../production/productionFormat';
 import { PurchaseFormModal } from '../purchases/PurchaseFormModal';
@@ -271,7 +270,6 @@ function QuickActions() {
         modal.open(<QuotationFormModal />);
       },
     },
-    { key: 'entrada', show: can('inventory:write'), label: 'Registrar entrada', run: () => modal.open(<MovementFormModal tipo="Entrada" />) },
     {
       key: 'compra',
       show: can('purchases:write'),

@@ -387,6 +387,54 @@ pasará al soltar; soltar en una no permitida explica por qué y Esc cancela. Co
 en celular, desde la manija ⠿ (el tablero se desplaza solo cerca de los bordes). Los botones de cada tarjeta
 siguen funcionando igual.
 
+## Contacto por motivo, garantías en OPI, catálogo web, íconos y modo oscuro (mejoras 59-63)
+
+Hay dos migraciones nuevas (`20261106000000_consultas_por_tipo` y `20261106010000_garantias`). Desde
+`backend`, con `start:dev` detenido:
+
+```powershell
+npx prisma migrate deploy
+npx prisma generate
+npm run start:dev
+```
+
+**Contacto por motivo (n.° 59).** El formulario de Contacto pide el motivo: precios o cotización, servicio
+técnico o garantía, mi cuenta, reclamo o sugerencia, u otra consulta (`web_inquiries.type`: `QUOTE`,
+`SERVICE`, `ACCOUNT`, `COMPLAINT`, `OTHER`). Solo un pedido de precios se convierte en cotización: el servidor
+responde 409 a los demás y el personal puede corregir el motivo mientras la solicitud está abierta
+(`PATCH /inquiries/:id/type`, `inquiries:write`). Con la sesión del portal iniciada el mensaje se envía con
+`POST /portal/contact` y queda enlazado a la cuenta; el cliente cambia su correo de acceso en *Mi perfil*
+(`PATCH /portal/me/email`, pide la contraseña actual).
+
+**Órdenes de servicio con garantía (n.° 60).** Cada producto puede registrar su garantía en días
+(`products.warranty_days`, en la ficha y en el catálogo público). Una OPI *en garantía* no se cobra: la cubre
+un producto que el cliente compró con garantía vigente (venta + producto) o la garantía del trabajo de un
+servicio anterior, y termina en *Completada* sin factura. Al completar una orden se fija la garantía del
+trabajo (90 días por omisión; 0 = sin garantía). Una solicitud de servicio técnico o un reclamo se atiende
+con *Crear orden de servicio*: la solicitud queda *Cerrada* y enlazada (SOL › OPI) y el cliente ve la orden
+en *Mis solicitudes*. La lista de OPI tiene tarjetas de resumen que filtran (en curso, sin técnico, en
+garantía, por facturar) y cada orden abre su detalle en el panel lateral (`/app/ordenes?servicio=<id>`).
+
+| Método | Ruta | Permiso |
+|---|---|---|
+| GET | `/service-orders/warranty-options?customerId=` (compras y servicios con garantía del cliente) | `service-orders:write` |
+| POST | `/service-orders` con `underWarranty` + `warrantySaleId`/`warrantyProductId` o `warrantyOrderId`, e `inquiryId` | `service-orders:write` |
+| POST | `/service-orders/:id/complete` con `warrantyDays` (0-365) | `service-orders:write` |
+| GET | `/service-orders?warranty=true` | `service-orders:read` |
+
+**Catálogo web interno (n.° 61).** Aplica la misma regla del sitio público (activo, con precio y con su
+categoría y marca activas) y marca cada producto como *Publicado* o *No publicado* con el motivo, además de lo
+que le falta a su ficha (foto, descripción). Tarjetas de resumen, filtros, vista en tarjetas o en lista y
+paginación; desde cada producto se abre su ficha, su página pública, se fija el precio o se completa la ficha.
+
+**Íconos del menú (n.° 62).** Íconos de línea (Lucide, licencia ISC) en `components/common/Icon.tsx`, sin
+dependencia nueva: carrito para Compras, recibo para Ventas y facturación, llave para las OPI…
+
+**Modo oscuro (n.° 63).** Selector claro / oscuro / como el sistema en la barra superior, en el sitio
+público y en el login. La preferencia se guarda en el navegador (`siven.tema`) y `index.html` la aplica antes
+de pintar. Los colores de las hojas de estilo son tokens (`--card`, `--line`, `--amber-tint`, `--green-ink`…):
+el modo oscuro solo redefine sus valores en `:root[data-theme="dark"]`. Al imprimir se usan los colores claros.
+
 ## Inventario (Fase 9)
 
 | Método | Ruta | Permiso |

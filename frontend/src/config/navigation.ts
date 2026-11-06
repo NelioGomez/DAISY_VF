@@ -7,12 +7,12 @@ import type { RefreshKey } from '../store/storeContext';
 import type { ModuleId, RoleInfo, RoleKey } from '../types';
 
 export const ROLES: Record<RoleKey, RoleInfo> = {
-  admin: { name: 'Administrador', user: 'admin', desc: 'Acceso total', color: '#6b54c4' },
-  gerencia: { name: 'Gerencia', user: 'gerencia', desc: 'Dashboard y reportes', color: '#2f6fb0' },
-  vendedor: { name: 'Vendedor', user: 'jflores', desc: 'Ventas y clientes', color: '#1f9d5a' },
-  inventario: { name: 'Enc. Inventario', user: 'ngomez', desc: 'Productos e inventario', color: '#c97f00' },
-  contabilidad: { name: 'Contabilidad', user: 'eurcuyo', desc: 'Pagos y facturación', color: '#b32a20' },
-  tecnico: { name: 'Técnico / OPI', user: 'tecnico', desc: 'Órdenes de servicio', color: '#205283' },
+  admin: { name: 'Administrador', color: '#6b54c4' },
+  gerencia: { name: 'Gerencia', color: '#2f6fb0' },
+  vendedor: { name: 'Vendedor', color: '#1f9d5a' },
+  inventario: { name: 'Enc. Inventario', color: '#c97f00' },
+  contabilidad: { name: 'Contabilidad', color: '#b32a20' },
+  tecnico: { name: 'Técnico / OPI', color: '#205283' },
 };
 
 /** Módulos visibles por rol. El primero es la vista inicial al iniciar sesión. */
@@ -137,9 +137,6 @@ export const TITLES: Record<ModuleId, [string, string]> = {
   consultas: ['Consultas Web', 'Solicitudes de clientes desde el sitio'],
 };
 
-export const ROLE_KEYS = Object.keys(ROLES) as RoleKey[];
-/** Cantidad de módulos del sistema interno. */
-export const MODULE_COUNT = Object.keys(TITLES).length;
 
 export const isModuleId = (v: string | undefined): v is ModuleId => !!v && v in TITLES;
 

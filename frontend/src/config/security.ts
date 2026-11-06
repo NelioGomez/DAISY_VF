@@ -5,12 +5,6 @@
    control que solo vive en el navegador se puede saltar.
    ===================================================================== */
 
-/** Intentos fallidos consecutivos antes de bloquear temporalmente la cuenta. */
-export const MAX_LOGIN_ATTEMPTS = 5;
-
-/** Duración del bloqueo temporal tras superar los intentos, en segundos. */
-export const LOCKOUT_SECONDS = 60;
-
 /** Minutos sin actividad antes de cerrar la sesión automáticamente. */
 export const SESSION_IDLE_MINUTES = 15;
 
@@ -37,17 +31,8 @@ export const RESET_CODE_LENGTH = 6;
 /** Minutos de vigencia del código. */
 export const RESET_CODE_TTL_MINUTES = 10;
 
-/** Intentos para escribir el código antes de invalidarlo. */
-export const RESET_CODE_MAX_ATTEMPTS = 5;
-
 /** Segundos de espera para reenviar un código. */
 export const RESET_RESEND_SECONDS = 60;
-
-/** Códigos que se pueden pedir por correo en una ventana de 15 minutos. */
-export const RESET_MAX_REQUESTS = 3;
-
-/** Minutos de vigencia del permiso para fijar la nueva contraseña tras validar el código. */
-export const RESET_TOKEN_TTL_MINUTES = 10;
 
 /** Longitud mínima de una contraseña nueva. */
 export const PASSWORD_MIN = 10;

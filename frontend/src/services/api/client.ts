@@ -52,10 +52,6 @@ export function setAuthToken(token: string | null): void {
   authToken = token;
 }
 
-export function getAuthToken(): string | null {
-  return authToken;
-}
-
 /** La sesión registra aquí qué hacer si el servidor responde 401 a una petición autenticada. */
 export function setUnauthorizedHandler(fn: (() => void) | null): void {
   onUnauthorized = fn;

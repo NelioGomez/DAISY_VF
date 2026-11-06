@@ -446,41 +446,6 @@
 }
 .auth-otp-meta strong { color: var(--ink); font-variant-numeric: tabular-nums; }
 
-/* Aviso de modo prueba */
-.auth-devbox {
-  margin-top: 24px;
-  padding: 14px 16px;
-  border: 1.5px dashed #c9d5df;
-  border-radius: 12px;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--muted);
-}
-.auth-devbox b { color: var(--ink); }
-.auth-devbox-code {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 10px;
-}
-.auth-devbox-code span {
-  font-family: var(--auth-display);
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: .18em;
-  color: var(--ink);
-}
-.auth-devbox-code button {
-  font-size: 13px;
-  font-weight: 600;
-  padding: 7px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: #fff;
-}
-.auth-devbox-code button:hover { border-color: var(--amber); background: #fffaf0; }
-
 /* Fuerza y requisitos de contraseña */
 .auth-strength {
   display: grid;

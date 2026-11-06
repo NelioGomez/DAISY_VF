@@ -18,7 +18,7 @@ type Motivo = (typeof MOTIVOS)[number];
 const enUbicacion = (p: Producto, loc: UbicacionId) => (loc === BODEGA ? p.stockBodega : p.stockSucursal);
 
 export function AdjustmentFormModal({ productoId }: { productoId?: string }) {
-  const { db, registrarMovimiento } = useData();
+  const { db, registrarAjuste } = useData();
   const toast = useToast();
   const { close } = useModal();
   const activos = db.productos.filter((p) => p.activo);
@@ -43,7 +43,7 @@ export function AdjustmentFormModal({ productoId }: { productoId?: string }) {
     const nota = motivo === 'Otro' ? detalle.trim() : [motivo, detalle.trim()].filter(Boolean).join(': ');
     if (nota.length < 5) return toast('Describa el motivo del ajuste (mínimo 5 caracteres)', 'err');
     setSaving(true);
-    const r = await registrarMovimiento({ tipo: 'Ajuste', prodId, nuevoStock: qty, ubicacionId: ubicacion, ref, nota });
+    const r = await registrarAjuste({ prodId, nuevoStock: qty, ubicacionId: ubicacion, ref, nota });
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
     toast(`Ajuste registrado en ${lugar.corto.toLowerCase()} · stock total ${r.data.sku || prod.sku}: ${r.data.stock}`, 'ok');

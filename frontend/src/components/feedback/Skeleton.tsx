@@ -40,17 +40,6 @@ export function SkeletonCards({ count = 4 }: { count?: number }) {
   );
 }
 
-/** Bloque de contenido genérico (detalle de un documento, panel). */
-export function SkeletonBlock({ lines = 6 }: { lines?: number }) {
-  return (
-    <div className="sk-block" role="status" aria-label="Cargando…">
-      {Array.from({ length: lines }, (_, i) => (
-        <span key={i} className="sk" style={{ width: width(i, 1) }} />
-      ))}
-    </div>
-  );
-}
-
 /** Tabla completa en gris (paneles que cargan sus propios datos). */
 export function SkeletonTable({ cols, rows = 6 }: { cols: number; rows?: number }) {
   return (

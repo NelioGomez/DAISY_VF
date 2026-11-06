@@ -6,7 +6,7 @@ import { useToast } from '../../components/feedback/useToast';
 import { CancelButton, Modal } from '../../components/modals/Modal';
 import { useData } from '../../store/hooks';
 import type { Compra, Moneda } from '../../types';
-import { money } from '../../utils/format';
+import { money, round2 } from '../../utils/format';
 import { moneyIn } from './purchaseFormat';
 import { useRecords } from '../records/records';
 
@@ -22,8 +22,6 @@ export interface PurchasePreset {
   notas?: string;
   lineas: Array<{ prod: string; cant: number; costo?: number }>;
 }
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function PurchaseFormModal({ compra, preset }: { compra?: Compra; preset?: PurchasePreset }) {
   const { db, guardarCompra } = useData();

@@ -27,8 +27,6 @@ export type ModuleId =
 
 export interface RoleInfo {
   name: string;
-  user: string;
-  desc: string;
   color: string;
 }
 

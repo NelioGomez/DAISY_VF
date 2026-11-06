@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, api, errorMessage, getAll, request, setAuthToken, setUnauthorizedHandler } from '../services/api/client';
 import {
-  DEFAULT_CONFIG, INQUIRY_TO_API, METHOD_TO_API, MOVEMENT_TO_API, PURCHASE_STATUS, mapAuditoria, mapCatalogo, mapCliente, mapCompra,
+  DEFAULT_CONFIG, INQUIRY_TO_API, METHOD_TO_API, PURCHASE_STATUS, mapAuditoria, mapCatalogo, mapCliente, mapCompra,
   mapConsulta, mapCotizacion, mapConfig, mapCxc, mapDashboard, mapFichaProducto, mapMovimiento, mapOrden, mapPago, mapProducto, mapProveedor,
   mapResumenCompras, mapResumenReposicion, mapSugerencia, mapTecnico, mapVenta, type ApiPurchaseStatus,
 } from '../services/api/mappers';
@@ -385,17 +385,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       cambiarEstadoProducto: (id, activo) =>
         run(() => api.patch(`/products/${id}/status`, { isActive: activo }).then(() => undefined), ['productos', 'dashboard', 'auditoria']),
 
-      registrarMovimiento: (d) =>
+      registrarAjuste: (d) =>
         run(async () => {
-          const body: Record<string, unknown> = { productId: d.prodId, type: MOVEMENT_TO_API[d.tipo], locationId: d.ubicacionId };
-          if (d.tipo === 'Ajuste') body.newStock = d.nuevoStock;
-          else body.quantity = d.cantidad;
-          if (d.tipo === 'Entrada') {
-            body.unitCost = d.costo;
-            if (d.proveedorId) body.supplierId = d.proveedorId;
-          }
+          const body: Record<string, unknown> = { productId: d.prodId, type: 'ADJUSTMENT', locationId: d.ubicacionId, newStock: d.nuevoStock, note: d.nota.trim() };
           if (d.ref.trim()) body.reference = d.ref.trim();
-          if (d.nota.trim()) body.note = d.nota.trim();
           const m = await api.post<Json>('/inventory/movements', body);
           return { sku: String(m?.product?.sku ?? ''), stock: Number(m?.product?.stock ?? m?.movement?.stockAfter ?? 0) };
         }, ['productos', 'movimientos', 'dashboard', 'auditoria']),

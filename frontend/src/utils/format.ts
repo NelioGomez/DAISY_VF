@@ -5,12 +5,6 @@ export const money = (n?: number | null): string =>
 
 export const num = (n?: number | null): string => (n || 0).toLocaleString('es-NI');
 
-export function daysAgo(d: number): Date {
-  const x = new Date();
-  x.setDate(x.getDate() - d);
-  return x;
-}
-
 /** Fecha local AAAA-MM-DD (no UTC: en Nicaragua, después de las 6 p. m. el UTC ya es "mañana"). */
 export const iso = (dt: Date): string => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 
@@ -30,8 +24,6 @@ export const localDay = (s: string): string => {
   const d = toDate(s);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
-
-export const nowStamp = (): string => new Date().toLocaleString('es-NI');
 
 export const isOverdue = (date: string | null): boolean => !!date && new Date(date) < new Date();
 

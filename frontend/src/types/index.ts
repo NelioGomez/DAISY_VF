@@ -23,7 +23,8 @@ export type ModuleId =
   | 'reportes'
   | 'catalogo'
   | 'consultas'
-  | 'auditoria';
+  | 'auditoria'
+  | 'documentacion';
 
 export interface RoleInfo {
   name: string;

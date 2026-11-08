@@ -225,6 +225,16 @@ export function DashboardLayout() {
           <NotificationBell />
           <div className="clock">{clock}</div>
           <ThemeToggle />
+          {moduleId !== 'documentacion' && (
+            <Link
+              className="icon-btn tb-help"
+              to={`/app/documentacion?cap=${location.pathname.startsWith('/app/ventas/nueva') ? 'pos' : moduleId}`}
+              title="Manual de esta pantalla"
+              aria-label="Manual de usuario de esta pantalla"
+            >
+              <Icon name="circle-help" />
+            </Link>
+          )}
           <a className="icon-btn tb-site" href="/catalogo" target="_blank" rel="noreferrer" title="Sitio público (se abre en otra pestaña)" aria-label="Sitio público, se abre en otra pestaña">
             <Icon name="globe" />
           </a>

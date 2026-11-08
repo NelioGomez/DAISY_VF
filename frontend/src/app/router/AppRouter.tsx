@@ -49,6 +49,7 @@ const ReportsPage = page(() => import('../../features/reports/ReportsPage'), 'Re
 const CatalogInternalPage = page(() => import('../../features/catalog/CatalogInternalPage'), 'CatalogInternalPage');
 const WebInquiriesPage = page(() => import('../../features/web-inquiries/WebInquiriesPage'), 'WebInquiriesPage');
 const AuditPage = page(() => import('../../features/audit/AuditPage'), 'AuditPage');
+const DocsPage = page(() => import('../../features/docs/DocsPage'), 'DocsPage');
 
 const staff = (el: ReactElement) => <Suspense fallback={<FullScreenLoader text="Cargando SIVEN…" />}>{el}</Suspense>;
 
@@ -69,6 +70,7 @@ const MODULE_PAGES: Record<ModuleId, ReactElement> = {
   catalogo: <CatalogInternalPage />,
   consultas: <WebInquiriesPage />,
   auditoria: <AuditPage />,
+  documentacion: <DocsPage />,
 };
 
 export function AppRouter() {

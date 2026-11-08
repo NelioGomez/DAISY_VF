@@ -58,7 +58,7 @@ Use los botones **⬇ Exportar CSV** (Productos, Ventas, Auditoría), **⬇ CSV*
 
 ### ¿Cómo imprimo o guardo en PDF?
 
-Las facturas, las cotizaciones del portal y los capítulos de este manual tienen un botón **Imprimir**. En la ventana de impresión elija su impresora o **Guardar como PDF**.
+Las facturas, las cotizaciones del portal y los capítulos de este manual tienen un botón **Imprimir**. El manual también se puede imprimir completo con **Imprimir todo el manual**. En la ventana de impresión elija su impresora o **Guardar como PDF**.
 
 ## Ventas y cotizaciones
 

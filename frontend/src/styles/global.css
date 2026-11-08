@@ -1023,4 +1023,15 @@ a.b{text-decoration:none;display:inline-flex;align-items:center;gap:6px}
   .docs-body{border:0;padding:0;max-width:none}
   .md-fig{break-inside:avoid}
   .md-fig-btn{box-shadow:none}
+  /* Imprimir todo el manual: portada, contenido y cada capítulo en página nueva. */
+  .docs.is-print-all{display:none!important}
+  .docs-all{display:block!important}
+  .docs-all-cap{break-before:page}
+  .docs-all-cover h1{font-size:30px;margin:8px 0 10px}
+  .docs-all-tocs{columns:2;column-gap:36px}
+  .docs-all-toc{break-inside:avoid}
+  .docs-all-toc h3{margin:14px 0 4px;font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+  .docs-all-toc ol{margin:0;padding-left:24px}
+  h2,h3{break-after:avoid}
 }
+.docs-all{display:none}

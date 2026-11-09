@@ -1,4 +1,4 @@
-# Prepara SIVEN para subirlo a SmarterASP.NET (o a cualquier IIS con HttpPlatformHandler).
+﻿# Prepara SIVEN para subirlo a SmarterASP.NET (o a cualquier IIS con HttpPlatformHandler).
 # Uso, desde la RAÍZ del repositorio en PowerShell:
 #   powershell -ExecutionPolicy Bypass -File deploy\preparar-despliegue.ps1
 # Resultado: deploy\salida (carpeta del sitio) y deploy\siven-sitio.zip (para subir y descomprimir).
@@ -24,6 +24,8 @@ Pop-Location
 Write-Host '3/5 Armando la carpeta del sitio...' -ForegroundColor Cyan
 if (Test-Path $salida) { Remove-Item $salida -Recurse -Force }
 New-Item -ItemType Directory -Path $salida, (Join-Path $salida 'logs'), (Join-Path $salida 'uploads') | Out-Null
+# Compress-Archive no guarda carpetas vacías: un archivo vacío hace que logs y uploads lleguen al servidor.
+'logs', 'uploads' | ForEach-Object { New-Item -ItemType File -Path (Join-Path $salida "$_\.mantener") -Force | Out-Null }
 Copy-Item (Join-Path $raiz 'backend\dist') (Join-Path $salida 'dist') -Recurse
 Copy-Item (Join-Path $raiz 'backend\package.json'), (Join-Path $raiz 'backend\package-lock.json') $salida
 Copy-Item (Join-Path $raiz 'frontend\dist') (Join-Path $salida 'public') -Recurse
@@ -49,7 +51,12 @@ Write-Host '5/5 Comprimiendo...' -ForegroundColor Cyan
 $zip = Join-Path $PSScriptRoot 'siven-sitio.zip'
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path (Join-Path $salida '*') -DestinationPath $zip
-if (Select-String -Path (Join-Path $salida 'web.config') -Pattern 'CAMBIAR' -Quiet) {
+$wc = Join-Path $salida 'web.config'
+if (Select-String -Path $wc -Pattern 'value="[^"]*CAMBIAR' -Quiet) {
   Write-Host 'ATENCIÓN: web.config todavía tiene valores CAMBIAR.' -ForegroundColor Red
+}
+# Un web.config con dos declaraciones <?xml ...?> (p. ej. al pegar uno encima de otro) hace fallar IIS.
+if ((Select-String -Path $wc -Pattern '<\?xml' -AllMatches).Matches.Count -gt 1) {
+  Write-Host 'ATENCIÓN: web.config tiene más de una línea <?xml ...?>; deje solo la primera.' -ForegroundColor Red
 }
 Write-Host "Listo: $zip" -ForegroundColor Green

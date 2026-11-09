@@ -42,6 +42,11 @@ export class EnvironmentVariables {
   @IsString()
   UPLOADS_DIR?: string;
 
+  /** Carpeta del frontend compilado que sirve la API en un despliegue de un solo sitio (por omisión ./public). */
+  @IsOptional()
+  @IsString()
+  FRONTEND_DIR?: string;
+
   /** Qué peticiones HTTP se muestran en la terminal: off | changes | all. */
   @IsIn(['off', 'changes', 'all'])
   LOG_HTTP: 'off' | 'changes' | 'all' = 'changes';

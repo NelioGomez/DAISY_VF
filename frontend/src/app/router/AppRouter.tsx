@@ -2,7 +2,8 @@
    /                    → sitio público: Inicio, /catalogo, /catalogo/:id, /catalogo/comparar, /nosotros, /contacto
    /clientes/...        → acceso y portal de clientes (sesión propia, separada del personal)
    /login, /recuperar   → acceso interno del personal
-   /app/:módulo         → panel interno protegido por sesión y rol */
+   /app/:módulo         → panel interno protegido por sesión y rol
+   /admin/...           → panel de administración, aparte de SIVEN (solo administrador) */
 import { lazy, Suspense, type ComponentType, type ReactElement } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { FullScreenLoader } from '../../components/feedback/FullScreenLoader';
@@ -50,6 +51,12 @@ const CatalogInternalPage = page(() => import('../../features/catalog/CatalogInt
 const WebInquiriesPage = page(() => import('../../features/web-inquiries/WebInquiriesPage'), 'WebInquiriesPage');
 const AuditPage = page(() => import('../../features/audit/AuditPage'), 'AuditPage');
 const DocsPage = page(() => import('../../features/docs/DocsPage'), 'DocsPage');
+const AdminLayout = page(() => import('../../features/admin/AdminLayout'), 'AdminLayout');
+const AdminUsers = page(() => import('../../features/admin/UsersPage'), 'UsersPage');
+const AdminRoles = page(() => import('../../features/admin/RolesPage'), 'RolesPage');
+const AdminCatalogs = page(() => import('../../features/admin/CatalogsPage'), 'CatalogsPage');
+const AdminPartners = page(() => import('../../features/admin/PartnersPage'), 'PartnersPage');
+const AdminCompany = page(() => import('../../features/admin/CompanyPage'), 'CompanyPage');
 
 const staff = (el: ReactElement) => <Suspense fallback={<FullScreenLoader text="Cargando SIVEN…" />}>{el}</Suspense>;
 
@@ -103,6 +110,15 @@ export function AppRouter() {
       </Route>
       <Route path="/login" element={staff(<LoginPage />)} />
       <Route path="/recuperar" element={staff(<RecoverPage />)} />
+      <Route path="/admin" element={staff(<AdminLayout />)}>
+        <Route index element={<Navigate to="usuarios" replace />} />
+        <Route path="usuarios" element={staff(<AdminUsers />)} />
+        <Route path="roles" element={staff(<AdminRoles />)} />
+        <Route path="catalogos" element={staff(<AdminCatalogs />)} />
+        <Route path="socios" element={staff(<AdminPartners />)} />
+        <Route path="empresa" element={staff(<AdminCompany />)} />
+        <Route path="*" element={<Navigate to="usuarios" replace />} />
+      </Route>
       <Route path="/app" element={staff(<RequireAuth>{<DashboardLayout />}</RequireAuth>)}>
         <Route index element={<HomeRedirect />} />
         {(Object.keys(MODULE_PAGES) as ModuleId[]).map((id) => (

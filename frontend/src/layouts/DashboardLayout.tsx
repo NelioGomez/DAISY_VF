@@ -235,6 +235,11 @@ export function DashboardLayout() {
               <Icon name="circle-help" />
             </Link>
           )}
+          {user.permissions.includes('users:write') && (
+            <Link className="icon-btn tb-admin" to="/admin" title="Panel de administración: usuarios, categorías, marcas y empresa" aria-label="Panel de administración">
+              <Icon name="user-cog" />
+            </Link>
+          )}
           <a className="icon-btn tb-site" href="/catalogo" target="_blank" rel="noreferrer" title="Sitio público (se abre en otra pestaña)" aria-label="Sitio público, se abre en otra pestaña">
             <Icon name="globe" />
           </a>

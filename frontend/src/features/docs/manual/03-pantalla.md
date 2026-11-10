@@ -19,10 +19,11 @@ Todas las pantallas del sistema interno tienen la misma forma: el **menú** a la
 5. **Pendientes**: la campana con el número de tareas que esperan atención.
 6. **Tema**: claro, oscuro o como el sistema de su computadora.
 7. **Ayuda** :ic-circle-help:: abre en este manual el capítulo de la pantalla en que está.
-8. **Sitio público** :ic-globe:: abre en otra pestaña el sitio web que ven los clientes.
-9. **Usuario**: su nombre y su rol.
-10. **Cerrar sesión** :ic-log-out:.
-11. **Contraer menú**: deja el menú solo con íconos para ganar espacio.
+8. **Panel de administración** :ic-user-cog:: solo lo ve el administrador. Abre el [panel aparte](?cap=administracion) donde se manejan los usuarios, las categorías y marcas, y los datos de la empresa.
+9. **Sitio público** :ic-globe:: abre en otra pestaña el sitio web que ven los clientes.
+10. **Usuario**: su nombre y su rol.
+11. **Cerrar sesión** :ic-log-out:.
+12. **Contraer menú**: deja el menú solo con íconos para ganar espacio.
 
 Junto a la campana también se ven la **fecha y la hora** de Nicaragua.
 
@@ -33,7 +34,7 @@ Junto a la campana también se ven la **fecha y la hora** de Nicaragua.
 - El menú está dividido en grupos: **Dashboard**, **Compras**, **Ventas** y **Producción** se despliegan para mostrar sus pantallas; **Pagos y CxC**, **Auditoría** y **Documentación** son enlaces directos.
 - Haga clic en el nombre de un grupo para abrirlo o cerrarlo. Se abre un grupo a la vez, y el grupo de la pantalla en que está se abre solo.
 - La opción en la que está se ve resaltada.
-- Solo aparecen los módulos de su rol. Si necesita otro, pídalo al administrador (vea [Roles y permisos](?cap=roles)).
+- Solo aparecen los módulos de su rol. Si necesita otro, pídalo al administrador, que cambia los roles en el [Panel de administración](?cap=administracion) (vea [Roles y permisos](?cap=roles)).
 - Los **números rojos** avisan de trabajo pendiente:
 
 | Número junto a… | Qué cuenta |

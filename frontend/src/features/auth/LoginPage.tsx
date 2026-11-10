@@ -42,6 +42,8 @@ function storeRememberedUser(username: string | null): void {
 /** Ruta a la que se vuelve tras iniciar sesión, si el usuario tiene acceso a ella. */
 function destinationFor(user: SessionUser, from?: string): string {
   const allowed = visibleModules(user);
+  // Panel de administración (mejora n.° 66): vuelve a él si de ahí venía y puede administrar.
+  if (from?.startsWith('/admin') && user.permissions.includes('users:write')) return from;
   const mod = from?.match(/^\/app\/([^/]+)/)?.[1];
   if (isModuleId(mod) && allowed.includes(mod)) return `/app/${mod}`;
   return allowed[0] ? `/app/${allowed[0]}` : '/app';

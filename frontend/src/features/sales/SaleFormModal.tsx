@@ -17,12 +17,12 @@ import { stockWarnings, type SummaryLine } from './stockWarnings';
 import { useRecords } from '../records/records';
 
 export function SaleFormModal({ cotizacion }: { cotizacion: Cotizacion }) {
-  const { convertirCotizacion, cambiarEstadoCotizacion } = useData();
+  const { db, convertirCotizacion, cambiarEstadoCotizacion } = useData();
   // Pendiente → se aprueba una sola vez, aunque la conversión falle y se reintente.
   const [aprobarAntes, setAprobarAntes] = useState(cotizacion.estado === 'Pendiente');
   const toast = useToast();
   const { openRecord } = useRecords();
-  const [terms, setTerms] = useState(initialTerms);
+  const [terms, setTerms] = useState(() => initialTerms(db.config.creditTermDays));
   const [resumen, setResumen] = useState<CondicionesPago | null>(null);
   const [saving, setSaving] = useState(false);
 

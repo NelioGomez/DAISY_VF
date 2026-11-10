@@ -58,7 +58,7 @@ export function PosPage() {
   const [params] = useSearchParams();
   const [cliId, setCliId] = useState(params.get('cliente') ?? saved?.cliId ?? '');
   const [cart, setCart] = useState<CartItem[]>(saved?.cart ?? []);
-  const [terms, setTerms] = useState<TermsState>(initialTerms);
+  const [terms, setTerms] = useState<TermsState>(() => initialTerms(db.config.creditTermDays));
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('');
   const [active, setActive] = useState(0);
@@ -146,7 +146,7 @@ export function PosPage() {
 
   const vaciar = () => {
     setCart([]);
-    setTerms(initialTerms());
+    setTerms(initialTerms(db.config.creditTermDays));
   };
 
   const revisar = () => {

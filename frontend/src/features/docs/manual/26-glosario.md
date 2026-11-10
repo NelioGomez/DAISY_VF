@@ -58,6 +58,7 @@ resumen: Qué significa cada palabra, sigla y código que se usa en el sistema, 
 | **Mínimo / máximo** | Existencia mínima (en ella o por debajo, el producto está *crítico*) y máxima (hasta donde sugiere comprar el reabastecimiento). |
 | **Movimiento** | Cada entrada, salida o ajuste de inventario, con su documento de origen. |
 | **OPI** | Orden de servicio técnico (instalación, mantenimiento, reparación). |
+| **Panel de administración** | Área aparte de SIVEN, solo para el administrador, donde se manejan usuarios, roles, categorías, marcas, clientes y proveedores inactivos, y los datos de la empresa. |
 | **Pipeline** | Vista de cotizaciones en columnas por estado, con tarjetas que se pueden arrastrar. |
 | **Portal de clientes** | Área privada del sitio web para los clientes con cuenta. |
 | **Precio de referencia** | Precio publicado en el sitio; la cotización confirma el precio final. |

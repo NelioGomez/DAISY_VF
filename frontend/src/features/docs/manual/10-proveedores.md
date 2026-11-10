@@ -48,4 +48,4 @@ No hace falta asociar los productos a mano: **al recibir una compra**, el sistem
 - El reabastecimiento agrupa las sugerencias por proveedor preferente, para que cada pedido salga a quien normalmente surte esos productos.
 - El **último costo** se actualiza en cada recepción y se propone al crear la siguiente compra.
 
-> **Consejo:** Los proveedores no se borran, para que sus compras se conserven en el historial. Si uno ya no surte a NORCOR, pida al administrador del sistema que lo marque como **inactivo**: dejará de ofrecerse para compras nuevas.
+> **Consejo:** Los proveedores no se borran, para que sus compras se conserven en el historial. Si uno ya no surte a NORCOR, el administrador lo marca como **inactivo** en **Panel de administración › Clientes y proveedores**: dejará de ofrecerse para compras nuevas.

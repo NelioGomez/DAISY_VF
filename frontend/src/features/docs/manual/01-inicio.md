@@ -81,6 +81,6 @@ Si es su primera vez en el sistema, lea en este orden: [Entrar y salir del siste
 | **Contabilidad** | [Ventas y facturación](?cap=ventas), [Pagos y cuentas por cobrar](?cap=pagos), [Pedidos de compra](?cap=compras) y [Reportes](?cap=reportes) |
 | **Técnico** | [Órdenes de servicio](?cap=ordenes) |
 | **Gerencia** | [Dashboard](?cap=dashboard), [Reportes](?cap=reportes), [Inventario](?cap=inventario) (existencias y precios), [Pedidos de compra](?cap=compras), [Producción](?cap=produccion) y [Auditoría](?cap=auditoria) |
-| **Administrador** | Todo el manual, en especial [Roles y permisos](?cap=roles) y [Auditoría](?cap=auditoria) |
+| **Administrador** | Todo el manual, en especial [Panel de administración](?cap=administracion), [Roles y permisos](?cap=roles) y [Auditoría](?cap=auditoria) |
 
 Si algo no funciona como espera, revise [Preguntas frecuentes](?cap=preguntas). Las palabras propias del sistema (CxC, OPI, BOM, lote…) se explican en el [Glosario](?cap=glosario).

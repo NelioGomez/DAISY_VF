@@ -10,13 +10,17 @@ const RULES: Record<string, (v: string) => string | null> = {
   TAX_REGIME: (v) => (['CUOTA_FIJA', 'IVA'].includes(v) ? null : 'Régimen CUOTA_FIJA o IVA'),
   CREDIT_TERM_DAYS: (v) => (/^\d{1,3}$/.test(v) && +v >= 1 && +v <= 365 ? null : 'Días entre 1 y 365'),
   COMPANY_NAME: (v) => (v.trim() ? null : 'El nombre es obligatorio'),
+  COMPANY_RUC: (v) => (!v.trim() || /^[A-Za-z0-9][A-Za-z0-9-]{3,29}$/.test(v.trim()) ? null : 'RUC: solo letras, números y guiones'),
   COMPANY_PHONE: () => null,
   COMPANY_EMAIL: (v) => (!v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? null : 'Correo inválido'),
   COMPANY_WHATSAPP: () => null,
   COMPANY_ADDRESS: () => null,
   COMPANY_HOURS: () => null,
 };
-const PUBLIC_KEYS = ['COMPANY_NAME', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_WHATSAPP', 'COMPANY_ADDRESS', 'COMPANY_HOURS'];
+const PUBLIC_KEYS = ['COMPANY_NAME', 'COMPANY_RUC', 'COMPANY_PHONE', 'COMPANY_EMAIL', 'COMPANY_WHATSAPP', 'COMPANY_ADDRESS', 'COMPANY_HOURS'];
+
+/** El RUC se guarda en mayúsculas; lo demás, tal cual (sin espacios a los lados). */
+const clean = (key: string, value: unknown) => (key === 'COMPANY_RUC' ? String(value).trim().toUpperCase() : String(value).trim());
 
 const toCamel = (key: string) => key.toLowerCase().replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
 
@@ -58,8 +62,8 @@ export class SettingsService {
       entries.map(([key, value]) =>
         this.prisma.systemConfig.upsert({
           where: { key },
-          update: { value: String(value).trim(), updatedById: actor.id },
-          create: { key, value: String(value).trim(), updatedById: actor.id },
+          update: { value: clean(key, value), updatedById: actor.id },
+          create: { key, value: clean(key, value), updatedById: actor.id },
         }),
       ),
     );

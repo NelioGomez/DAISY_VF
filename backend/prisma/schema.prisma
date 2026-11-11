@@ -172,7 +172,8 @@ model User {
   isActive          Boolean   @default(true) @map("is_active")
   roleId            String    @map("role_id") @db.Uuid
   lastLoginAt       DateTime? @map("last_login_at") @db.Timestamptz(3)
-  /// Los JWT emitidos antes de esta fecha dejan de valer (cambio o recuperación de contraseña).
+  /// Los JWT emitidos antes de esta fecha dejan de valer (cambio o recuperación de contraseña, o
+  /// «Cerrar sesiones» del panel de administración).
   passwordChangedAt DateTime? @map("password_changed_at") @db.Timestamptz(3)
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)

@@ -17,7 +17,8 @@ import { VoidSaleModal } from './VoidSaleModal';
 
 /** `efectivo` llega solo al terminar una venta de contado en el punto de venta (para el comprobante). */
 export function InvoiceModal({ ventaId, efectivo }: { ventaId: string; efectivo?: Efectivo | null }) {
-  const { obtenerVenta } = useData();
+  const { obtenerVenta, db } = useData();
+  const empresa = db.config.empresa;
   const { can } = useAuth();
   const modal = useModal();
   const doc = useOpenDocument();
@@ -80,6 +81,12 @@ export function InvoiceModal({ ventaId, efectivo }: { ventaId: string; efectivo?
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
             <div>
               <Logo variant="invoice" />
+              {/* Datos de Administración › Empresa (mejora n.° 72): salen en la factura impresa. */}
+              <div className="inv-company">
+                {empresa.ruc && <span className="mono">RUC {empresa.ruc}</span>}
+                {empresa.address && <span>{empresa.address}</span>}
+                {(empresa.phone || empresa.email) && <span>{[empresa.phone, empresa.email].filter(Boolean).join(' · ')}</span>}
+              </div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div className="mono" style={{ fontSize: 18, fontWeight: 700 }}>

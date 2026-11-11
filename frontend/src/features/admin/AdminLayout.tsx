@@ -1,8 +1,9 @@
-/* PANEL DE ADMINISTRACIÓN (mejora n.° 66)
+/* PANEL DE ADMINISTRACIÓN (mejoras n.° 66 y 69 a 72)
    Área aparte de SIVEN, como el sitio público y el portal: su propia barra y su propio menú, en
-   /admin. Solo la abre quien puede administrar usuarios (el rol Administrador). Aquí se crean
-   usuarios y se les asigna rol, se restablecen contraseñas, se mantienen las categorías y marcas,
-   se activan o desactivan clientes y proveedores, y se configuran los datos de la empresa. */
+   /admin. Solo la abre quien puede administrar usuarios (el rol Administrador). Aquí se manejan
+   los usuarios (todo: usuario, correo, rol, contraseña, sesiones y estado), las cuentas del portal
+   de clientes, las categorías y marcas, la activación de clientes y proveedores, los datos de la
+   empresa y la actividad (accesos y cambios). */
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import type { LoginRedirectState } from '../../app/router/guards';
 import { Icon, type IconName } from '../../components/common/Icon';
@@ -14,10 +15,12 @@ import './admin.css';
 
 const SECCIONES: Array<{ to: string; label: string; ic: IconName }> = [
   { to: 'usuarios', label: 'Usuarios', ic: 'users' },
+  { to: 'portal', label: 'Cuentas del portal', ic: 'globe' },
   { to: 'roles', label: 'Roles y permisos', ic: 'lock' },
   { to: 'catalogos', label: 'Categorías y marcas', ic: 'layers' },
   { to: 'socios', label: 'Clientes y proveedores', ic: 'truck' },
   { to: 'empresa', label: 'Empresa', ic: 'cog' },
+  { to: 'actividad', label: 'Actividad', ic: 'history' },
 ];
 
 /** Quién puede entrar al panel. */

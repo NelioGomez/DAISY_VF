@@ -68,4 +68,18 @@ describe('AuditQueryService', () => {
     const methods = Object.getOwnPropertyNames(AuditQueryService.prototype);
     expect(methods.filter((m) => /create|update|delete|remove/i.test(m))).toEqual([]);
   });
+
+  it('scope agrupa accesos (SIVEN y portal) o cambios de administración (mejora n.° 71)', async () => {
+    const { prisma, service } = build();
+    await service.findAll(filter({ scope: 'access', username: 'ana' }));
+    const w1 = prisma.auditLog.findMany.mock.calls[0][0].where;
+    expect(w1.AND[0].module).toEqual({ in: ['auth', 'portal'] });
+    expect(w1.AND[0].action.in).toContain('LOGIN_FAILED');
+    expect(w1.username).toBeDefined();
+    await service.findAll(filter({ scope: 'admin' }));
+    const w2 = prisma.auditLog.findMany.mock.calls[1][0].where;
+    expect(w2.AND[0].OR[0].module.in).toContain('customer-accounts');
+    expect(w2.AND[0].OR[1]).toEqual({ module: { in: ['customers', 'suppliers'] }, action: { in: ['ACTIVATE', 'DEACTIVATE'] } });
+  });
 });
+

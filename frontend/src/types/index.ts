@@ -532,7 +532,7 @@ export interface Configuracion {
   taxRate: number;
   taxRegime: 'CUOTA_FIJA' | 'IVA' | string;
   creditTermDays: number;
-  empresa: { name: string; phone: string; email: string; whatsapp: string; address: string };
+  empresa: { name: string; ruc: string; phone: string; email: string; whatsapp: string; address: string };
 }
 
 /** Estado completo cargado desde la API para la sesión actual. */

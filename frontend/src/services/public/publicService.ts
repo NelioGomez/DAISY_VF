@@ -13,6 +13,8 @@ type Json = any;
 
 export interface Empresa {
   nombre: string;
+  /** RUC de la empresa (Administración › Empresa); puede estar vacío. */
+  ruc: string;
   telefono: string;
   correo: string;
   whatsapp: string;
@@ -99,6 +101,7 @@ export function infoPublica(): Promise<InfoPublica> {
     .then(([s, c, b]) => ({
       empresa: {
         nombre: String(s.data?.name || 'NORCOR Fueling System'),
+        ruc: String(s.data?.ruc ?? ''),
         telefono: String(s.data?.phone ?? ''),
         correo: String(s.data?.email ?? ''),
         whatsapp: String(s.data?.whatsapp ?? ''),

@@ -85,7 +85,8 @@ Los usuarios los maneja el **administrador del sistema** desde el [Panel de admi
 - cree un usuario para una persona nueva (le entregará una contraseña temporal);
 - cambie el rol de alguien (por ejemplo, de vendedor a gerencia);
 - desactive el usuario de una persona que ya no trabaja en la empresa;
-- corrija el correo registrado, si no le llegan los códigos de recuperación;
+- corrija su usuario o el correo registrado, si no le llegan los códigos de recuperación;
+- cierre sus sesiones abiertas, si perdió el celular o dejó la sesión abierta en otro equipo;
 - le restablezca la contraseña, si no puede recuperarla por correo.
 
 Lo que cada rol puede ver y hacer se explica en [Roles y permisos](?cap=roles).

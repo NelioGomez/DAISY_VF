@@ -31,16 +31,16 @@ Este capítulo explica el portal para que el personal pueda guiar a los clientes
 
 La cuenta queda lista de inmediato y la empresa aparece en [Clientes](?cap=clientes) del sistema interno, con su cuenta del portal. Si el cliente venía de armar su lista, el sitio lo regresa a la lista para enviarla.
 
-> **Importante:** Si el cliente escribe un **RUC que ya está registrado** en NORCOR (porque ya es cliente), la cuenta no se crea y el sitio le pide comunicarse con NORCOR para vincularla. En ese caso, pase el caso al administrador del sistema.
+> **Importante:** Si el cliente escribe un **RUC que ya está registrado** en NORCOR (porque ya es cliente), la cuenta no se crea y el sitio le pide comunicarse con NORCOR para vincularla. En ese caso, el administrador le crea la cuenta unida a ese cliente en **Panel de administración › Cuentas del portal** (vea [Crear la cuenta de un cliente que ya existe](?cap=administracion#crear-la-cuenta-de-un-cliente-que-ya-existe-vincular)).
 
 ## Iniciar sesión
 
 ![Inicio de sesión del portal.](/manual/portal-ingresar.webp)
 
-El cliente escribe su **Correo electrónico** y su **Contraseña** y hace clic en **Iniciar sesión**. Desde ahí también puede ir a **Crear una cuenta de cliente**, y el enlace **Ingrese al sistema interno** lleva al personal a su propio inicio de sesión.
+El cliente escribe su **Correo electrónico** y su **Contraseña** y hace clic en **Iniciar sesión**. Desde ahí también puede ir a **Crear una cuenta de cliente**. El inicio de sesión del portal es solo para clientes: el personal de NORCOR entra por el suyo (el sitio y el sistema interno tienen direcciones distintas).
 
 - Por seguridad, la sesión del portal dura unas **2 horas**; después hay que volver a entrar.
-- **¿Olvidó su contraseña?** El cliente debe escribir a NORCOR desde **Contacto** (motivo *Mi cuenta*) o por WhatsApp, con el correo de su cuenta. La solicitud llega a [Consultas web](?cap=consultas): pásela al administrador del sistema para que le restablezca el acceso.
+- **¿Olvidó su contraseña?** El cliente debe escribir a NORCOR desde **Contacto** (motivo *Mi cuenta*) o por WhatsApp, con el correo de su cuenta. La solicitud llega a [Consultas web](?cap=consultas): pásela al administrador del sistema, que le pone una contraseña temporal en **Panel de administración › Cuentas del portal** (vea [Recuperar el acceso de un cliente](?cap=administracion#recuperar-el-acceso-de-un-cliente)).
 
 ## Mi cuenta
 

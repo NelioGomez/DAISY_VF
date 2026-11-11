@@ -19,7 +19,7 @@ Todas las pantallas del sistema interno tienen la misma forma: el **menú** a la
 5. **Pendientes**: la campana con el número de tareas que esperan atención.
 6. **Tema**: claro, oscuro o como el sistema de su computadora.
 7. **Ayuda** :ic-circle-help:: abre en este manual el capítulo de la pantalla en que está.
-8. **Panel de administración** :ic-user-cog:: solo lo ve el administrador. Abre el [panel aparte](?cap=administracion) donde se manejan los usuarios, las categorías y marcas, y los datos de la empresa.
+8. **Panel de administración** :ic-user-cog:: solo lo ve el administrador. Abre el [panel aparte](?cap=administracion) donde se manejan los usuarios, las cuentas del portal, las categorías y marcas, los datos de la empresa y la actividad.
 9. **Sitio público** :ic-globe:: abre en otra pestaña el sitio web que ven los clientes.
 10. **Usuario**: su nombre y su rol.
 11. **Cerrar sesión** :ic-log-out:.

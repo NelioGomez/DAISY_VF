@@ -10,7 +10,8 @@
     { "source": "/:page(nosotros|contacto)", "has": [{ "type": "host", "value": "siven.vercel.app" }], "destination": "https://norcor-catalogo.vercel.app/:page", "permanent": false },
     { "source": "/clientes/:path*", "has": [{ "type": "host", "value": "siven.vercel.app" }], "destination": "https://norcor-catalogo.vercel.app/clientes/:path*", "permanent": false },
     { "source": "/:page(login|recuperar)", "has": [{ "type": "host", "value": "norcor-catalogo.vercel.app" }], "destination": "https://siven.vercel.app/:page", "permanent": false },
-    { "source": "/app/:path*", "has": [{ "type": "host", "value": "norcor-catalogo.vercel.app" }], "destination": "https://siven.vercel.app/app/:path*", "permanent": false }
+    { "source": "/app/:path*", "has": [{ "type": "host", "value": "norcor-catalogo.vercel.app" }], "destination": "https://siven.vercel.app/app/:path*", "permanent": false },
+    { "source": "/admin/:path*", "has": [{ "type": "host", "value": "norcor-catalogo.vercel.app" }], "destination": "https://siven.vercel.app/admin/:path*", "permanent": false }
   ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }

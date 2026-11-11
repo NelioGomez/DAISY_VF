@@ -431,8 +431,7 @@ body.pub-noscroll { overflow: hidden; }
 .pub-authalt { margin-top: 18px; text-align: center; font-size: 14.5px; }
 .pub-authalt a { font-weight: 700; color: var(--blue); }
 .pub-authhelp { margin-top: 8px; text-align: center; font-size: 13px; color: var(--muted); }
-.pub-authhelp a, .pub-authstaff a { color: var(--blue); font-weight: 600; }
-.pub-authstaff { margin-top: 22px; font-size: 13.5px; color: var(--muted); }
+.pub-authhelp a { color: var(--blue); font-weight: 600; }
 
 /* ---------- Portal del cliente ---------- */
 .pub-portal { max-width: var(--pub-max); margin: 0 auto; padding: 36px 20px 0; }

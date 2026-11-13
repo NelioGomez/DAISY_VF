@@ -17,7 +17,8 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed:real": "node scripts/seed-real-products.mjs"
+    "seed:real": "node scripts/seed-real-products.mjs",
+    "seed:produccion": "node scripts/seed-produccion.mjs"
   },
   "keywords": [],
   "author": "",

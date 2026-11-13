@@ -1,0 +1,31 @@
+# Dependencias y compilados: se generan dentro de la imagen
+node_modules
+dist
+dist-ssr
+*.tsbuildinfo
+
+# Variables de entorno locales: en Railway las VITE_* van en Variables (build args)
+.env
+.env.*
+!.env.example
+*.local
+
+# Configuración de otros hostings (no se usa en Railway)
+vercel.json
+.vercel
+
+# Logs
+*.log
+npm-debug.log*
+
+# Git, editores y sistema
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Archivos de Docker (nginx.conf.template SÍ se necesita)
+Dockerfile
+.dockerignore

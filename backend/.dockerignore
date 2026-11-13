@@ -1,0 +1,32 @@
+# Dependencias y compilados: se generan dentro de la imagen
+node_modules
+dist
+src/generated
+*.tsbuildinfo
+
+# Variables de entorno: NUNCA dentro de la imagen (en Railway van en Variables)
+.env
+.env.*
+!.env.example
+
+# Fotos subidas en local (en Railway viven en el Volume)
+uploads
+
+# Pruebas, cobertura y logs
+coverage
+test
+**/*.spec.ts
+*.log
+npm-debug.log*
+
+# Git, editores y sistema
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Archivos de Docker
+Dockerfile
+.dockerignore

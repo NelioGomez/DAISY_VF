@@ -1,0 +1,3 @@
+# Los scripts de shell corren en Linux (Docker/Railway): siempre con fin de línea LF,
+# aunque se editen en Windows. Con CRLF, "sh" falla con errores como "set: -e\r".
+*.sh text eol=lf

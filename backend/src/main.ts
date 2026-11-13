@@ -52,7 +52,8 @@ async function bootstrap(): Promise<void> {
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swagger));
 
   const port = config.get<number>('PORT', 3000);
-  await app.listen(port);
+  // 0.0.0.0: acepta conexiones de fuera del contenedor (Docker / Railway).
+  await app.listen(port, '0.0.0.0');
   new Logger('Bootstrap').log(`API en http://localhost:${port}/api/v1 — Swagger en /api/docs — WebSocket en /socket.io`);
 }
 

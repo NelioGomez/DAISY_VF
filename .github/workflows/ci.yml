@@ -1,0 +1,76 @@
+# =====================================================================
+# SIVEN · NORCOR — Integración continua
+# Corre en cada push a main / mejoras-ux y en cada pull request.
+# Railway ("Wait for CI") solo despliega un commit de main si TODOS estos jobs pasan.
+# =====================================================================
+name: CI
+
+on:
+  push:
+    branches: [main, mejoras-ux]
+  pull_request:
+
+# Si llega otro push a la misma rama, se cancela la corrida anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend · lint, pruebas y compilación
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # prisma.config.ts exige DATABASE_URL aunque "generate" no se conecta a nada.
+      # Las pruebas usan mocks: no hace falta una base de datos real.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      CHECKPOINT_DISABLE: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Lint (ESLint)
+        run: npm run lint
+      - name: Pruebas (Jest)
+        run: npm test
+      - name: Compilación (Nest)
+        run: npm run build
+
+  frontend:
+    name: Frontend · lint y compilación
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Lint (Oxlint)
+        run: npm run lint
+      - name: Compilación (TypeScript + Vite)
+        run: npm run build
+
+  docker:
+    name: Docker · las dos imágenes compilan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Imagen del backend
+        run: docker build -t siven-backend ./backend
+      - name: Imagen del frontend
+        run: >
+          docker build -t siven-frontend
+          --build-arg VITE_API_URL=https://api.ejemplo.com/api/v1
+          ./frontend

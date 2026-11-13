@@ -1,11 +1,11 @@
 # =====================================================================
-# SIVEN · NORCOR — Cargar datos por la API (se ejecuta a mano)
-# GitHub → Actions → "Cargar datos" → Run workflow.
+# SIVEN · NORCOR — Cargar datos de demostración por la API (se ejecuta a mano)
+# GitHub → Actions → "Cargar datos de demostración" → Run workflow.
 # Requiere el secreto SEED_ADMIN_PASSWORD (Settings → Secrets and variables → Actions).
-# Los scripts entran con el usuario admin y crean todo por la API, respetando las
+# El script entra con el usuario admin y crea todo por la API, respetando las
 # reglas del sistema (movimientos de inventario, numeración y auditoría).
 # =====================================================================
-name: Cargar datos
+name: Cargar datos de demostración
 
 on:
   workflow_dispatch:
@@ -14,18 +14,10 @@ on:
         description: URL de la API (termina en /api/v1)
         required: true
         default: https://backend-production-8e096a94.up.railway.app/api/v1
-      datos:
-        description: Qué cargar
-        type: choice
-        default: productos-reales
-        options:
-          - productos-reales
-          - demo
-          - ambos
 
 jobs:
   seed:
-    name: Cargar ${{ inputs.datos }}
+    name: Datos de demostración
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -50,15 +42,10 @@ jobs:
           fi
           curl -fsS "$API_URL/health" || { echo "::error::La API no responde en $API_URL"; exit 1; }
 
-      # Los scripts solo necesitan dotenv; --ignore-scripts evita descargar motores de Prisma.
+      # El script solo necesita dotenv; --ignore-scripts evita descargar motores de Prisma.
       - run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
-      - name: Productos reales de NORCOR (173)
-        if: inputs.datos != 'demo'
-        run: npm run seed:real
-
-      - name: Datos de demostración (usuarios, clientes, ventas…)
-        if: inputs.datos != 'productos-reales'
+      - name: Usuarios, clientes, productos y ventas de prueba
         run: |
           echo "::warning::Los usuarios de demo tienen una contraseña conocida (Siven2026demo!). Desactívelos en producción real."
           node scripts/seed-demo.mjs

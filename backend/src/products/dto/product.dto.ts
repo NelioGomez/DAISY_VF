@@ -64,11 +64,16 @@ export class CreateProductDto {
   @IsUUID()
   brandId?: string | null;
 
-  @ApiProperty({ example: 125.5, minimum: 0 })
+  @ApiPropertyOptional({
+    example: 125.5,
+    minimum: 0,
+    description: 'Precio comercial. Requiere el permiso prices:write (Administración / Gerencia); sin él el producto nace sin precio.',
+  })
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio debe ser un número con máximo 2 decimales' })
   @Min(0, { message: 'El precio no puede ser negativo' })
   @Max(MAX_MONEY)
-  salePrice!: number;
+  salePrice?: number;
 
   @ApiPropertyOptional({ default: 0, minimum: 0 })
   @IsOptional()
@@ -84,7 +89,13 @@ export class CreateProductDto {
 }
 
 /** El estado se cambia con PATCH /products/:id/status. */
-export class UpdateProductDto extends PartialType(OmitType(CreateProductDto, ['isActive'] as const)) {}
+export class UpdateProductDto extends PartialType(OmitType(CreateProductDto, ['isActive'] as const)) {
+  @ApiPropertyOptional({ description: 'Motivo del cambio de precio (queda en el historial)', maxLength: 255 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  priceReason?: string;
+}
 
 export enum ProductSortField {
   NAME = 'name',
@@ -132,4 +143,19 @@ export class FilterProductDto extends PaginationDto {
   @IsOptional()
   @IsEnum(SortOrder)
   sortOrder?: SortOrder;
+}
+
+/** Cambio del precio comercial (sección de Precios: Administración y Gerencia). */
+export class SetProductPriceDto {
+  @ApiProperty({ example: 145.5, minimum: 0 })
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio debe ser un número con máximo 2 decimales' })
+  @Min(0, { message: 'El precio no puede ser negativo' })
+  @Max(MAX_MONEY)
+  salePrice!: number;
+
+  @ApiPropertyOptional({ description: 'Motivo del cambio (queda en el historial)', maxLength: 255 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  reason?: string;
 }

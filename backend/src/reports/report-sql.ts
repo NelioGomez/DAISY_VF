@@ -1,18 +1,14 @@
 import { Prisma } from '../generated/prisma/client';
 
-/** Zona horaria del negocio: los cortes por día/mes se hacen en hora de Nicaragua. */
+/** Zona horaria del negocio: los cortes por día/mes se hacen en hora de Nicaragua, obviamente. */
 export const BUSINESS_TZ = 'America/Managua';
 
-/**
- * Las columnas `timestamp` se guardan en UTC sin zona. Esto convierte un instante ISO en ese
- * mismo formato, de modo que la comparación no dependa de la zona del servidor ni del driver.
- */
-export const ts = (d: Date): Prisma.Sql =>
-  Prisma.sql`(${d.toISOString()}::timestamptz AT TIME ZONE 'UTC')`;
+/** Instante absoluto para comparar con columnas TIMESTAMPTZ (no depende de la zona del servidor). */
+export const ts = (d: Date): Prisma.Sql => Prisma.sql`${d.toISOString()}::timestamptz`;
 
-/** Columna UTC → hora local de Nicaragua (para agrupar por día/semana/mes). Solo recibe constantes. */
+/** Columna TIMESTAMPTZ → hora local de Nicaragua (para agrupar por día/semana/mes). Solo recibe constantes. */
 export const local = (column: string): Prisma.Sql =>
-  Prisma.sql`((${Prisma.raw(column)} AT TIME ZONE 'UTC') AT TIME ZONE ${Prisma.raw(`'${BUSINESS_TZ}'`)})`;
+  Prisma.sql`(${Prisma.raw(column)} AT TIME ZONE ${Prisma.raw(`'${BUSINESS_TZ}'`)})`;
 
 export interface Range {
   from?: Date;
@@ -37,4 +33,4 @@ export function where(conds: Prisma.Sql[]): Prisma.Sql {
 
 /** numeric (llegado como texto) → número con 2 decimales. */
 export const money = (v: unknown): number => Math.round(Number(v ?? 0) * 100) / 100;
-export const int = (v: unknown): number => Number(v ?? 0);
+export const int = (v: unknown): number => Number(v ?? 0); // Bueno, aquí termina esto, exportante el int.

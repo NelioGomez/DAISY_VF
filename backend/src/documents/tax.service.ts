@@ -9,7 +9,10 @@ export interface Totals {
   total: Decimal;
 }
 
-/** Calcula el IVA (exclusivo: se suma al subtotal). La tasa vive en system_config (TAX_RATE). */
+/**
+ * Calcula el impuesto (exclusivo: se suma al subtotal). La tasa vive en system_config (TAX_RATE);
+ * NORCOR está en cuota fija, por eso la tasa por defecto es 0. Cada documento guarda la tasa aplicada.
+ */
 export function calculateTotals(lineSubtotals: Decimal.Value[], rate: Decimal.Value): Totals {
   const subtotal = money(lineSubtotals.reduce<Decimal>((acc, v) => acc.plus(v), new Decimal(0)));
   const tax = money(subtotal.times(rate));
@@ -18,7 +21,7 @@ export function calculateTotals(lineSubtotals: Decimal.Value[], rate: Decimal.Va
 
 @Injectable()
 export class TaxService {
-  private static readonly DEFAULT_RATE = '0.15';
+  private static readonly DEFAULT_RATE = '0';
 
   constructor(private readonly prisma: PrismaService) {}
 

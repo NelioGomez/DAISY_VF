@@ -28,8 +28,9 @@ interface MovementRow {
   stockAfter: number;
   reference: string | null;
   note: string | null;
-  sourceEntity: string | null;
-  sourceId: string | null;
+  saleId: string | null;
+  purchaseReceiptItemId: string | null;
+  locationId: number;
   createdAt: Date;
   product?: { id: string; sku: string; name: string };
   user?: { id: string; username: string };
@@ -217,8 +218,9 @@ export class InventoryService {
       note: m.note ?? null,
       supplier: m.supplier ?? null,
       user: m.user,
-      sourceEntity: m.sourceEntity ?? null,
-      sourceId: m.sourceId ?? null,
+      saleId: m.saleId ?? null,
+      purchaseReceiptItemId: m.purchaseReceiptItemId ?? null,
+      locationId: m.locationId,
       createdAt: m.createdAt,
     };
   }

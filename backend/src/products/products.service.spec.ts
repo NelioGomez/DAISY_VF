@@ -4,7 +4,9 @@ import { validate } from 'class-validator';
 import { CreateProductDto, FilterProductDto, UpdateProductDto } from './dto/product.dto';
 import { ProductsService } from './products.service';
 
-const actor = { id: 'u1', username: 'admin', role: 'ADMIN', permissions: [] } as never;
+const actor = { id: 'u1', username: 'admin', role: 'ADMIN', permissions: ['prices:write'] } as never;
+/** Encargado de inventario: da de alta productos pero no fija precios. */
+const inventario = { id: 'u2', username: 'ngomez', role: 'INVENTORY_MANAGER', permissions: ['products:write'] } as never;
 const MIN_STOCK_REF = Symbol('product.minStock');
 
 function buildPrisma() {
@@ -39,7 +41,10 @@ function buildPrisma() {
     },
     category: { findUnique: jest.fn().mockResolvedValue({ isActive: true }) },
     brand: { findUnique: jest.fn().mockResolvedValue({ isActive: true }) },
-    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    $transaction: jest.fn((arg: unknown): unknown =>
+      typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(prisma) : Promise.all(arg as Promise<unknown>[]),
+    ),
   };
   return { prisma, row };
 }
@@ -55,6 +60,21 @@ describe('ProductsService', () => {
     service = new ProductsService(ctx.prisma as never, audit as never);
   });
 
+  describe('setPrice (sección de precios)', () => {
+    it('cambia el precio indicando al trigger quién y por qué; audita PRICE_CHANGE', async () => {
+      ctx.prisma.product.findUnique.mockResolvedValue(ctx.row({ salePrice: { toString: () => '100.00' } }));
+      await service.setPrice('p1', { salePrice: 120, reason: 'Ajuste de proveedor' }, actor);
+      expect(ctx.prisma.$queryRaw.mock.calls[0].slice(1)).toEqual(['u1', 'Ajuste de proveedor']);
+      expect(ctx.prisma.product.update.mock.calls[0][0].data).toEqual({ salePrice: 120 });
+      expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'PRICE_CHANGE' }));
+    });
+
+    it('mismo precio → 400 (no ensucia el historial)', async () => {
+      ctx.prisma.product.findUnique.mockResolvedValue(ctx.row({ salePrice: { toString: () => '100.00' } }));
+      await expect(service.setPrice('p1', { salePrice: 100 }, actor)).rejects.toThrow('no cambió');
+    });
+  });
+
   describe('create', () => {
     const dto = Object.assign(new CreateProductDto(), { sku: 'GIL-001', name: 'Boquilla', salePrice: 25 });
 
@@ -66,6 +86,19 @@ describe('ProductsService', () => {
       expect(data.minStock).toBe(0);
       expect(data.isActive).toBe(true);
       expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ module: 'products', action: 'CREATE' }));
+    });
+
+    it('sin permiso prices:write el producto nace sin precio; si intenta fijarlo → 403', async () => {
+      await service.create(Object.assign(new CreateProductDto(), { sku: 'GIL-002', name: 'Filtro' }), inventario);
+      expect(ctx.prisma.product.create.mock.calls[0][0].data.salePrice).toBe(0);
+      await expect(service.create(dto, inventario)).rejects.toThrow('no puede fijar precios');
+    });
+
+    it('el precio inicial queda en el historial: se indica al trigger quién lo fijó', async () => {
+      await service.create(dto, actor);
+      expect(ctx.prisma.$queryRaw).toHaveBeenCalled();
+      const values = ctx.prisma.$queryRaw.mock.calls[0].slice(1);
+      expect(values).toEqual(['u1', 'Precio inicial']);
     });
 
     it('SKU duplicado → 409 con el error en el campo sku', async () => {

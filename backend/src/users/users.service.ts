@@ -194,7 +194,8 @@ export class UsersService {
 
     await this.prisma.user.update({
       where: { id: actor.id },
-      data: { passwordHash: await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS) },
+      // passwordChangedAt invalida los JWT emitidos antes (otras sesiones abiertas).
+      data: { passwordHash: await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS), passwordChangedAt: new Date() },
     });
     await this.audit.log({
       userId: actor.id,
@@ -212,7 +213,7 @@ export class UsersService {
     const existing = await this.findOne(id);
     await this.prisma.user.update({
       where: { id },
-      data: { passwordHash: await bcrypt.hash(newPassword, BCRYPT_ROUNDS) },
+      data: { passwordHash: await bcrypt.hash(newPassword, BCRYPT_ROUNDS), passwordChangedAt: new Date() },
     });
     await this.audit.log({
       userId: actor.id,

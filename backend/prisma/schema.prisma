@@ -1,5 +1,19 @@
-// NORCOR FUELING SYSTEM — modelo de datos comercial (productos terminados)
+// =====================================================================
+// NORCOR FUELING SYSTEM — SIVEN (Sistema de Inventario y Ventas)
+// Modelo de datos comercial: productos terminados, una bodega y una sucursal.
+//
+// Convenciones
+// - Tablas y columnas en snake_case (@@map / @map); modelos y campos en camelCase.
+// - Claves primarias UUID v7 (ordenadas por tiempo: índices más compactos al insertar).
+//   Las tablas de referencia pequeñas (locations) usan SMALLINT.
+// - Fechas en TIMESTAMPTZ(3): un instante absoluto. La API conecta con TimeZone=UTC
+//   (ver PrismaService) y los reportes convierten a America/Managua en SQL.
+// - Dinero en DECIMAL(14,2); costos unitarios en DECIMAL(14,4).
+// - Lo que Prisma no puede declarar aquí (CHECK, índices parciales, triggers) vive en las
+//   migraciones SQL; Prisma no los toca al comparar el esquema. Ver docs/base-de-datos.md.
+//
 // Prisma 7: la URL de conexión NO va aquí, vive en prisma.config.ts
+// =====================================================================
 
 generator client {
   provider     = "prisma-client"
@@ -63,16 +77,50 @@ enum ServiceOrderStatus {
   CANCELLED
 }
 
+/// Solicitud web: Nueva → En revisión → Cotizada → Cerrada; Cancelada para spam o duplicadas.
 enum InquiryStatus {
   NEW
-  ATTENDED
+  IN_REVIEW
+  QUOTED
   CLOSED
+  CANCELLED
+}
+
+/// Compra: Borrador → Ordenada (pendiente de recibir) → Parcialmente recibida → Recibida.
+enum PurchaseStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum UnitOfMeasure {
+  UNIT
+  PAIR
+  SET
+  KIT
+  BOX
+  METER
+  LITER
+  GALLON
+}
+
+/// Operación real de NORCOR: una bodega y una sucursal (sin multialmacén).
+enum LocationType {
+  WAREHOUSE
+  BRANCH
+}
+
+enum Currency {
+  NIO
+  USD
 }
 
 // ─────────────── USUARIOS, ROLES Y PERMISOS ───────────────
 
 model Role {
-  id          String           @id @default(uuid()) @db.Uuid
+  id          String           @id @default(uuid(7)) @db.Uuid
   code        UserRole         @unique
   name        String           @db.VarChar(80)
   description String?          @db.VarChar(255)
@@ -83,7 +131,7 @@ model Role {
 }
 
 model Permission {
-  id          String           @id @default(uuid()) @db.Uuid
+  id          String           @id @default(uuid(7)) @db.Uuid
   code        String           @unique @db.VarChar(80) // ej. "products:write"
   description String?          @db.VarChar(255)
   roles       RolePermission[]
@@ -92,43 +140,121 @@ model Permission {
 }
 
 model RolePermission {
-  roleId       String     @db.Uuid
-  permissionId String     @db.Uuid
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
   role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
+  @@index([permissionId])
   @@map("role_permissions")
 }
 
+/// Personal interno de NORCOR. Inicia sesión con usuario o correo (ambos en minúsculas).
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
-  username     String    @unique @db.VarChar(50)
-  passwordHash String    @map("password_hash") @db.VarChar(255)
-  firstName    String    @map("first_name") @db.VarChar(100)
-  lastName     String    @map("last_name") @db.VarChar(100)
-  email        String    @unique @db.VarChar(150)
-  isActive     Boolean   @default(true) @map("is_active")
-  roleId       String    @map("role_id") @db.Uuid
-  role         Role      @relation(fields: [roleId], references: [id])
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  lastLoginAt  DateTime? @map("last_login_at")
+  id                String    @id @default(uuid(7)) @db.Uuid
+  username          String    @unique @db.VarChar(50)
+  passwordHash      String    @map("password_hash") @db.VarChar(255)
+  firstName         String    @map("first_name") @db.VarChar(100)
+  lastName          String    @map("last_name") @db.VarChar(100)
+  email             String    @unique @db.VarChar(150)
+  isActive          Boolean   @default(true) @map("is_active")
+  roleId            String    @map("role_id") @db.Uuid
+  lastLoginAt       DateTime? @map("last_login_at") @db.Timestamptz(3)
+  /// Los JWT emitidos antes de esta fecha dejan de valer (cambio o recuperación de contraseña).
+  passwordChangedAt DateTime? @map("password_changed_at") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  role               Role                 @relation(fields: [roleId], references: [id])
   quotations         Quotation[]
   sales              Sale[]
   payments           Payment[]
   inventoryMovements InventoryMovement[]
-  serviceOrders      ServiceOrder[]      @relation("ServiceOrderTechnician")
+  serviceOrders      ServiceOrder[]       @relation("ServiceOrderTechnician")
+  priceChanges       ProductPrice[]
+  purchases          Purchase[]
+  purchaseReceipts   PurchaseReceipt[]
+  assignedInquiries  WebInquiry[]
+  configChanges      SystemConfig[]
+  resetCodes         PasswordResetCode[]
+  resetTokens        PasswordResetToken[]
 
   @@index([roleId])
   @@map("users")
 }
 
+/// Recuperación de contraseña, paso 2: código de 6 dígitos enviado por correo.
+/// Se guarda solo el hash SHA-256. Pertenece a un usuario interno O a una cuenta de cliente.
+model PasswordResetCode {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  userId            String?   @map("user_id") @db.Uuid
+  customerAccountId String?   @map("customer_account_id") @db.Uuid
+  /// Correo al que se envió (queda como evidencia aunque el usuario cambie su correo).
+  sentTo            String    @map("sent_to") @db.VarChar(150)
+  codeHash          String    @map("code_hash") @db.Char(64)
+  attempts          Int       @default(0) @db.SmallInt
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt            DateTime? @map("used_at") @db.Timestamptz(3)
+  requestIp         String?   @map("request_ip") @db.VarChar(64)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user            User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerAccount CustomerAccount?     @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  tokens          PasswordResetToken[]
+
+  @@index([userId, createdAt])
+  @@index([customerAccountId, createdAt])
+  @@index([expiresAt])
+  @@map("password_reset_codes")
+}
+
+/// Recuperación de contraseña, paso 3: permiso temporal (hash) que solo permite fijar la nueva clave.
+model PasswordResetToken {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  codeId            String    @map("code_id") @db.Uuid
+  userId            String?   @map("user_id") @db.Uuid
+  customerAccountId String?   @map("customer_account_id") @db.Uuid
+  tokenHash         String    @unique @map("token_hash") @db.Char(64)
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt            DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  code            PasswordResetCode @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  user            User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerAccount CustomerAccount?  @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  @@index([codeId])
+  @@index([userId])
+  @@index([customerAccountId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+// ───────────────────── UBICACIONES (BODEGA / SUCURSAL) ─────────────────────
+
+/// 1 = Bodega principal, 2 = Sucursal (creadas por la migración; las existencias son únicas).
+model Location {
+  id        Int          @id @default(autoincrement()) @db.SmallInt
+  code      String       @unique @db.VarChar(20)
+  name      String       @db.VarChar(100)
+  type      LocationType
+  address   String?      @db.VarChar(255)
+  isDefault Boolean      @default(false) @map("is_default")
+  isActive  Boolean      @default(true) @map("is_active")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  movements InventoryMovement[]
+  sales     Sale[]
+  receipts  PurchaseReceipt[]
+
+  @@map("locations")
+}
+
 // ───────────────── CATÁLOGO DE PRODUCTOS TERMINADOS ─────────────────
 
 model Category {
-  id          String    @id @default(uuid()) @db.Uuid
+  id          String    @id @default(uuid(7)) @db.Uuid
   name        String    @unique @db.VarChar(100)
   description String?   @db.VarChar(255)
   isActive    Boolean   @default(true) @map("is_active")
@@ -138,7 +264,7 @@ model Category {
 }
 
 model Brand {
-  id       String    @id @default(uuid()) @db.Uuid
+  id       String    @id @default(uuid(7)) @db.Uuid
   name     String    @unique @db.VarChar(100)
   isActive Boolean   @default(true) @map("is_active")
   products Product[]
@@ -146,29 +272,41 @@ model Brand {
   @@map("brands")
 }
 
-// El stock vive en Product (inventario de productos terminados).
-// Nunca se modifica sin crear un InventoryMovement en la misma transacción.
+/// Datos maestros del repuesto. El stock y el costo promedio solo cambian con movimientos
+/// de inventario (en la misma transacción); el precio vigente tiene historial en product_prices.
 model Product {
-  id          String   @id @default(uuid()) @db.Uuid
-  sku         String   @unique @db.VarChar(60)
-  name        String   @db.VarChar(200)
-  description String?  @db.Text
-  categoryId  String?  @map("category_id") @db.Uuid
-  brandId     String?  @map("brand_id") @db.Uuid
-  avgCost     Decimal  @default(0) @map("avg_cost") @db.Decimal(14, 4)
-  salePrice   Decimal  @default(0) @map("sale_price") @db.Decimal(14, 2)
-  stock       Int      @default(0)
-  minStock    Int      @default(0) @map("min_stock")
-  isActive    Boolean  @default(true) @map("is_active")
-  version     Int      @default(0) // control optimista de concurrencia
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                    String        @id @default(uuid(7)) @db.Uuid
+  sku                   String        @unique @db.VarChar(60)
+  barcode               String?       @unique @db.VarChar(64)
+  name                  String        @db.VarChar(200)
+  description           String?       @db.Text
+  categoryId            String?       @map("category_id") @db.Uuid
+  brandId               String?       @map("brand_id") @db.Uuid
+  unit                  UnitOfMeasure @default(UNIT)
+  imageUrl              String?       @map("image_url") @db.VarChar(500)
+  avgCost               Decimal       @default(0) @map("avg_cost") @db.Decimal(14, 4)
+  /// Precio comercial vigente (copia del registro abierto en product_prices).
+  salePrice             Decimal       @default(0) @map("sale_price") @db.Decimal(14, 2)
+  stock                 Int           @default(0)
+  minStock              Int           @default(0) @map("min_stock")
+  /// Tope de reposición: la sugerencia de compra lleva el stock hasta este valor.
+  maxStock              Int?          @map("max_stock")
+  /// "Posponer" en el panel de reabastecimiento.
+  restockPostponedUntil DateTime?     @map("restock_postponed_until") @db.Timestamptz(3)
+  isActive              Boolean       @default(true) @map("is_active")
+  version               Int           @default(0) // control optimista de concurrencia
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  category           Category?           @relation(fields: [categoryId], references: [id])
-  brand              Brand?              @relation(fields: [brandId], references: [id])
-  movements          InventoryMovement[]
-  quotationItems     QuotationItem[]
-  saleItems          SaleItem[]
+  category       Category?           @relation(fields: [categoryId], references: [id])
+  brand          Brand?              @relation(fields: [brandId], references: [id])
+  movements      InventoryMovement[]
+  quotationItems QuotationItem[]
+  saleItems      SaleItem[]
+  prices         ProductPrice[]
+  suppliers      ProductSupplier[]
+  purchaseItems  PurchaseItem[]
+  inquiryItems   WebInquiryItem[]
 
   @@index([categoryId])
   @@index([brandId])
@@ -177,43 +315,112 @@ model Product {
   @@map("products")
 }
 
+/// Historial de precios comerciales. Lo llena un trigger al cambiar products.sale_price,
+/// con el usuario y el motivo que la API fija en la transacción (app.user_id, app.price_reason).
+model ProductPrice {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  productId   String    @map("product_id") @db.Uuid
+  price       Decimal   @db.Decimal(14, 2)
+  validFrom   DateTime  @default(now()) @map("valid_from") @db.Timestamptz(3)
+  validTo     DateTime? @map("valid_to") @db.Timestamptz(3)
+  changedById String?   @map("changed_by_id") @db.Uuid
+  reason      String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  changedBy User?   @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([productId, validFrom(sort: Desc)])
+  @@index([changedById])
+  @@map("product_prices")
+}
+
+/// Proveedores de cada producto (N:M) con su código, último costo y plazo de entrega.
+model ProductSupplier {
+  productId    String   @map("product_id") @db.Uuid
+  supplierId   String   @map("supplier_id") @db.Uuid
+  supplierSku  String?  @map("supplier_sku") @db.VarChar(60)
+  lastCost     Decimal? @map("last_cost") @db.Decimal(14, 4)
+  currency     Currency @default(NIO)
+  leadTimeDays Int?     @map("lead_time_days") @db.SmallInt
+  isPreferred  Boolean  @default(false) @map("is_preferred")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@id([productId, supplierId])
+  @@index([supplierId])
+  @@map("product_suppliers")
+}
+
 // ───────────────────── CLIENTES Y PROVEEDORES ─────────────────────
 
 model Customer {
-  id            String   @id @default(uuid()) @db.Uuid
-  name          String   @db.VarChar(200) // nombre / razón social
-  ruc           String?  @unique @db.VarChar(30)
-  contactName   String?  @map("contact_name") @db.VarChar(120)
-  phone         String?  @db.VarChar(40)
-  email         String?  @db.VarChar(150)
-  address       String?  @db.VarChar(255)
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(uuid(7)) @db.Uuid
+  name        String   @db.VarChar(200) // nombre / razón social
+  ruc         String?  @unique @db.VarChar(30)
+  contactName String?  @map("contact_name") @db.VarChar(120)
+  phone       String?  @db.VarChar(40)
+  email       String?  @db.VarChar(150)
+  address     String?  @db.VarChar(255)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   quotations    Quotation[]
   sales         Sale[]
   serviceOrders ServiceOrder[]
+  accounts      CustomerAccount[]
+  inquiries     WebInquiry[]
 
   @@index([name])
+  @@index([email])
   @@map("customers")
 }
 
-model Supplier {
-  id            String   @id @default(uuid()) @db.Uuid
-  name          String   @db.VarChar(200)
-  taxId         String?  @unique @map("tax_id") @db.VarChar(40)
-  country       String?  @db.VarChar(80)
-  isInternational Boolean @default(false) @map("is_international")
-  contactName   String?  @map("contact_name") @db.VarChar(120)
-  phone         String?  @db.VarChar(40)
-  email         String?  @db.VarChar(150)
-  address       String?  @db.VarChar(255)
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+/// Cuenta del portal de clientes (login externo, separado del personal interno).
+model CustomerAccount {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  customerId        String    @map("customer_id") @db.Uuid
+  email             String    @unique @db.VarChar(150)
+  passwordHash      String    @map("password_hash") @db.VarChar(255)
+  contactName       String    @map("contact_name") @db.VarChar(120)
+  phone             String?   @db.VarChar(40)
+  isActive          Boolean   @default(true) @map("is_active")
+  emailVerifiedAt   DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  lastLoginAt       DateTime? @map("last_login_at") @db.Timestamptz(3)
+  passwordChangedAt DateTime? @map("password_changed_at") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  movements     InventoryMovement[]
+  customer    Customer             @relation(fields: [customerId], references: [id])
+  inquiries   WebInquiry[]
+  resetCodes  PasswordResetCode[]
+  resetTokens PasswordResetToken[]
+
+  @@index([customerId])
+  @@map("customer_accounts")
+}
+
+model Supplier {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  name            String   @db.VarChar(200)
+  taxId           String?  @unique @map("tax_id") @db.VarChar(40)
+  country         String?  @db.VarChar(80)
+  isInternational Boolean  @default(false) @map("is_international")
+  contactName     String?  @map("contact_name") @db.VarChar(120)
+  phone           String?  @db.VarChar(40)
+  email           String?  @db.VarChar(150)
+  address         String?  @db.VarChar(255)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  movements InventoryMovement[]
+  products  ProductSupplier[]
+  purchases Purchase[]
 
   @@index([name])
   @@map("suppliers")
@@ -221,61 +428,172 @@ model Supplier {
 
 // ───────────────────────── INVENTARIO ─────────────────────────
 
+/// Bitácora de existencias (solo inserción). Cada movimiento enlaza su documento de origen:
+/// la venta (salida o devolución por anulación) o la línea de recepción de compra (entrada).
 model InventoryMovement {
-  id            String                @id @default(uuid()) @db.Uuid
-  productId     String                @map("product_id") @db.Uuid
-  type          InventoryMovementType
-  quantity      Int                   // siempre > 0; el signo lo da el tipo (en AJUSTE ver stockBefore/After)
-  unitCost      Decimal               @map("unit_cost") @db.Decimal(14, 4)
-  stockBefore   Int                   @map("stock_before")
-  stockAfter    Int                   @map("stock_after")
-  reference     String?               @db.VarChar(120)
-  note          String?               @db.VarChar(500)
-  userId        String                @map("user_id") @db.Uuid
-  supplierId    String?               @map("supplier_id") @db.Uuid
-  sourceEntity  String?               @map("source_entity") @db.VarChar(40) // ej. "Sale"
-  sourceId      String?               @map("source_id") @db.Uuid
-  createdAt     DateTime              @default(now()) @map("created_at")
+  id                    String                @id @default(uuid(7)) @db.Uuid
+  productId             String                @map("product_id") @db.Uuid
+  type                  InventoryMovementType
+  quantity              Int // siempre > 0; el signo lo da el tipo (en AJUSTE ver stockBefore/After)
+  unitCost              Decimal               @map("unit_cost") @db.Decimal(14, 4)
+  stockBefore           Int                   @map("stock_before")
+  stockAfter            Int                   @map("stock_after")
+  reference             String?               @db.VarChar(120)
+  note                  String?               @db.VarChar(500)
+  userId                String                @map("user_id") @db.Uuid
+  supplierId            String?               @map("supplier_id") @db.Uuid
+  locationId            Int                   @default(1) @map("location_id") @db.SmallInt
+  saleId                String?               @map("sale_id") @db.Uuid
+  purchaseReceiptItemId String?               @unique @map("purchase_receipt_item_id") @db.Uuid
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  product  Product   @relation(fields: [productId], references: [id])
-  user     User      @relation(fields: [userId], references: [id])
-  supplier Supplier? @relation(fields: [supplierId], references: [id])
+  product             Product              @relation(fields: [productId], references: [id])
+  user                User                 @relation(fields: [userId], references: [id])
+  supplier            Supplier?            @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  location            Location             @relation(fields: [locationId], references: [id])
+  sale                Sale?                @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  purchaseReceiptItem PurchaseReceiptItem? @relation(fields: [purchaseReceiptItemId], references: [id], onDelete: Restrict)
 
   @@index([productId, createdAt])
+  @@index([createdAt])
   @@index([type])
-  @@index([sourceEntity, sourceId])
+  @@index([userId])
+  @@index([supplierId])
+  @@index([saleId])
   @@map("inventory_movements")
+}
+
+// ───────────────────────── COMPRAS Y RECEPCIÓN ─────────────────────────
+
+/// Orden de compra a un proveedor nacional o internacional.
+model Purchase {
+  id                 String         @id @default(uuid(7)) @db.Uuid
+  code               String         @unique @db.VarChar(30) // OC-000001
+  supplierId         String         @map("supplier_id") @db.Uuid
+  status             PurchaseStatus @default(DRAFT)
+  currency           Currency       @default(NIO)
+  /// C$ por unidad de la moneda de la compra (1 si es en córdobas).
+  exchangeRate       Decimal        @default(1) @map("exchange_rate") @db.Decimal(12, 6)
+  orderedAt          DateTime?      @map("ordered_at") @db.Timestamptz(3)
+  expectedAt         DateTime?      @map("expected_at") @db.Timestamptz(3)
+  subtotal           Decimal        @default(0) @db.Decimal(14, 2)
+  /// Flete, aduana y otros gastos que se prorratean en el costo.
+  additionalCosts    Decimal        @default(0) @map("additional_costs") @db.Decimal(14, 2)
+  total              Decimal        @default(0) @db.Decimal(14, 2)
+  notes              String?        @db.VarChar(1000)
+  createdById        String         @map("created_by_id") @db.Uuid
+  cancelledAt        DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?        @map("cancellation_reason") @db.VarChar(500)
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  supplier  Supplier          @relation(fields: [supplierId], references: [id])
+  createdBy User              @relation(fields: [createdById], references: [id])
+  items     PurchaseItem[]
+  receipts  PurchaseReceipt[]
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id               String  @id @default(uuid(7)) @db.Uuid
+  purchaseId       String  @map("purchase_id") @db.Uuid
+  productId        String  @map("product_id") @db.Uuid
+  quantity         Int
+  /// En la moneda de la compra.
+  unitCost         Decimal @map("unit_cost") @db.Decimal(14, 4)
+  subtotal         Decimal @db.Decimal(14, 2)
+  receivedQuantity Int     @default(0) @map("received_quantity")
+
+  purchase     Purchase              @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product      Product               @relation(fields: [productId], references: [id])
+  receiptItems PurchaseReceiptItem[]
+
+  @@unique([purchaseId, productId])
+  @@index([productId])
+  @@map("purchase_items")
+}
+
+/// Recepción (total o parcial) de una compra. Cada línea genera una ENTRADA de inventario.
+model PurchaseReceipt {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  code         String   @unique @db.VarChar(30) // REC-000001
+  purchaseId   String   @map("purchase_id") @db.Uuid
+  locationId   Int      @default(1) @map("location_id") @db.SmallInt
+  receivedAt   DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+  receivedById String   @map("received_by_id") @db.Uuid
+  notes        String?  @db.VarChar(500)
+
+  purchase   Purchase              @relation(fields: [purchaseId], references: [id])
+  location   Location              @relation(fields: [locationId], references: [id])
+  receivedBy User                  @relation(fields: [receivedById], references: [id])
+  items      PurchaseReceiptItem[]
+
+  @@index([purchaseId])
+  @@index([receivedById])
+  @@index([receivedAt])
+  @@map("purchase_receipts")
+}
+
+model PurchaseReceiptItem {
+  id             String  @id @default(uuid(7)) @db.Uuid
+  receiptId      String  @map("receipt_id") @db.Uuid
+  purchaseItemId String  @map("purchase_item_id") @db.Uuid
+  quantity       Int
+  /// Costo unitario en C$ ya con gastos prorrateados: el que entra al costo promedio.
+  unitCost       Decimal @map("unit_cost") @db.Decimal(14, 4)
+
+  receipt      PurchaseReceipt    @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  purchaseItem PurchaseItem       @relation(fields: [purchaseItemId], references: [id])
+  movement     InventoryMovement?
+
+  @@unique([receiptId, purchaseItemId])
+  @@index([purchaseItemId])
+  @@map("purchase_receipt_items")
 }
 
 // ───────────────────────── COTIZACIONES ─────────────────────────
 
 model Quotation {
-  id         String          @id @default(uuid()) @db.Uuid
-  code       String          @unique @db.VarChar(30)
-  customerId String          @map("customer_id") @db.Uuid
-  sellerId   String          @map("seller_id") @db.Uuid
-  issuedAt   DateTime        @default(now()) @map("issued_at")
-  validUntil DateTime        @map("valid_until")
-  subtotal   Decimal         @db.Decimal(14, 2)
-  tax        Decimal         @db.Decimal(14, 2)
-  total      Decimal         @db.Decimal(14, 2)
-  status     QuotationStatus @default(DRAFT)
-  notes      String?         @db.VarChar(500)
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
+  id              String          @id @default(uuid(7)) @db.Uuid
+  code            String          @unique @db.VarChar(30)
+  customerId      String          @map("customer_id") @db.Uuid
+  sellerId        String          @map("seller_id") @db.Uuid
+  /// Solicitud web de origen (1:1): la solicitud se conserva como evidencia.
+  inquiryId       String?         @unique @map("inquiry_id") @db.Uuid
+  issuedAt        DateTime        @default(now()) @map("issued_at") @db.Timestamptz(3)
+  validUntil      DateTime        @map("valid_until") @db.Timestamptz(3)
+  subtotal        Decimal         @db.Decimal(14, 2)
+  /// Tasa de impuesto aplicada al emitir (0 en régimen de cuota fija).
+  taxRate         Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 4)
+  tax             Decimal         @db.Decimal(14, 2)
+  total           Decimal         @db.Decimal(14, 2)
+  status          QuotationStatus @default(DRAFT)
+  statusChangedAt DateTime        @default(now()) @map("status_changed_at") @db.Timestamptz(3)
+  rejectionReason String?         @map("rejection_reason") @db.VarChar(500)
+  notes           String?         @db.VarChar(500)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   customer Customer        @relation(fields: [customerId], references: [id])
   seller   User            @relation(fields: [sellerId], references: [id])
+  inquiry  WebInquiry?     @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
   items    QuotationItem[]
-  sale     Sale?            // 1:1, evita conversiones duplicadas
+  sale     Sale? // 1:1, evita conversiones duplicadas
 
   @@index([customerId])
-  @@index([status])
+  @@index([sellerId])
+  @@index([status, validUntil])
+  @@index([issuedAt])
   @@map("quotations")
 }
 
 model QuotationItem {
-  id          String  @id @default(uuid()) @db.Uuid
+  id          String  @id @default(uuid(7)) @db.Uuid
   quotationId String  @map("quotation_id") @db.Uuid
   productId   String  @map("product_id") @db.Uuid
   quantity    Int
@@ -285,7 +603,7 @@ model QuotationItem {
   quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   product   Product   @relation(fields: [productId], references: [id])
 
-  @@index([quotationId])
+  @@unique([quotationId, productId])
   @@index([productId])
   @@map("quotation_items")
 }
@@ -293,31 +611,35 @@ model QuotationItem {
 // ─────────────────────── VENTAS Y FACTURACIÓN ───────────────────────
 
 model Sale {
-  id            String        @id @default(uuid()) @db.Uuid
+  id            String        @id @default(uuid(7)) @db.Uuid
   invoiceNumber String        @unique @map("invoice_number") @db.VarChar(30)
   customerId    String        @map("customer_id") @db.Uuid
   sellerId      String        @map("seller_id") @db.Uuid
   quotationId   String?       @unique @map("quotation_id") @db.Uuid
-  soldAt        DateTime      @default(now()) @map("sold_at")
+  locationId    Int           @default(2) @map("location_id") @db.SmallInt
+  soldAt        DateTime      @default(now()) @map("sold_at") @db.Timestamptz(3)
   subtotal      Decimal       @db.Decimal(14, 2)
+  taxRate       Decimal       @default(0) @map("tax_rate") @db.Decimal(5, 4)
   tax           Decimal       @db.Decimal(14, 2)
   total         Decimal       @db.Decimal(14, 2)
   paymentMethod PaymentMethod @map("payment_method")
   paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
   balance       Decimal       @db.Decimal(14, 2)
-  dueDate       DateTime?     @map("due_date") // solo ventas a crédito
+  dueDate       DateTime?     @map("due_date") @db.Timestamptz(3) // solo ventas a crédito
   status        SaleStatus    @default(ACTIVE)
-  voidedAt      DateTime?     @map("voided_at")
+  voidedAt      DateTime?     @map("voided_at") @db.Timestamptz(3)
   voidReason    String?       @map("void_reason") @db.VarChar(500)
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  customer      Customer       @relation(fields: [customerId], references: [id])
-  seller        User           @relation(fields: [sellerId], references: [id])
-  quotation     Quotation?     @relation(fields: [quotationId], references: [id])
+  customer      Customer            @relation(fields: [customerId], references: [id])
+  seller        User                @relation(fields: [sellerId], references: [id])
+  quotation     Quotation?          @relation(fields: [quotationId], references: [id])
+  location      Location            @relation(fields: [locationId], references: [id])
   items         SaleItem[]
   payments      Payment[]
   serviceOrders ServiceOrder[]
+  movements     InventoryMovement[]
 
   @@index([customerId])
   @@index([sellerId])
@@ -327,7 +649,7 @@ model Sale {
 }
 
 model SaleItem {
-  id        String  @id @default(uuid()) @db.Uuid
+  id        String  @id @default(uuid(7)) @db.Uuid
   saleId    String  @map("sale_id") @db.Uuid
   productId String  @map("product_id") @db.Uuid
   quantity  Int
@@ -338,15 +660,16 @@ model SaleItem {
   sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
 
-  @@index([saleId])
+  @@unique([saleId, productId])
   @@index([productId])
   @@map("sale_items")
 }
 
+/// Abonos (solo inserción). El crédito no es un medio de pago: solo CASH o TRANSFER.
 model Payment {
-  id        String        @id @default(uuid()) @db.Uuid
+  id        String        @id @default(uuid(7)) @db.Uuid
   saleId    String        @map("sale_id") @db.Uuid
-  paidAt    DateTime      @default(now()) @map("paid_at")
+  paidAt    DateTime      @default(now()) @map("paid_at") @db.Timestamptz(3)
   amount    Decimal       @db.Decimal(14, 2)
   method    PaymentMethod
   reference String?       @db.VarChar(120)
@@ -357,36 +680,41 @@ model Payment {
 
   @@index([saleId])
   @@index([paidAt])
+  @@index([userId])
   @@map("payments")
 }
 
 // ─────────────────────── ÓRDENES DE SERVICIO (OPI) ───────────────────────
 
 model ServiceOrder {
-  id          String             @id @default(uuid()) @db.Uuid
-  code        String             @unique @db.VarChar(30)
-  customerId  String             @map("customer_id") @db.Uuid
-  description String             @db.Text
-  technicianId String?           @map("technician_id") @db.Uuid
-  saleId      String?            @map("sale_id") @db.Uuid // factura asociada cuando pasa a FACTURADA
-  status      ServiceOrderStatus @default(REGISTERED)
-  registeredAt DateTime          @default(now()) @map("registered_at")
-  startedAt   DateTime?          @map("started_at")
-  finishedAt  DateTime?          @map("finished_at")
-  notes       String?            @db.Text
-  updatedAt   DateTime           @updatedAt @map("updated_at")
+  id                 String             @id @default(uuid(7)) @db.Uuid
+  code               String             @unique @db.VarChar(30)
+  customerId         String             @map("customer_id") @db.Uuid
+  description        String             @db.Text
+  technicianId       String?            @map("technician_id") @db.Uuid
+  saleId             String?            @map("sale_id") @db.Uuid // factura asociada al pasar a FACTURADA
+  status             ServiceOrderStatus @default(REGISTERED)
+  registeredAt       DateTime           @default(now()) @map("registered_at") @db.Timestamptz(3)
+  startedAt          DateTime?          @map("started_at") @db.Timestamptz(3)
+  finishedAt         DateTime?          @map("finished_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?          @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?            @map("cancellation_reason") @db.VarChar(500)
+  notes              String?            @db.Text
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   customer   Customer @relation(fields: [customerId], references: [id])
-  technician User?    @relation("ServiceOrderTechnician", fields: [technicianId], references: [id])
-  sale       Sale?    @relation(fields: [saleId], references: [id])
+  technician User?    @relation("ServiceOrderTechnician", fields: [technicianId], references: [id], onDelete: Restrict)
+  sale       Sale?    @relation(fields: [saleId], references: [id], onDelete: Restrict)
 
   @@index([customerId])
   @@index([technicianId])
   @@index([status])
+  @@index([saleId])
+  @@index([registeredAt])
   @@map("service_orders")
 }
 
-// Contadores atómicos de numeración (COT-000001, FAC-000001, OPI-000001).
+// Contadores atómicos de numeración (COT, FAC, OPI, SOL, OC, REC).
 model DocumentSequence {
   key       String @id @db.VarChar(40)
   lastValue Int    @default(0) @map("last_value")
@@ -396,23 +724,59 @@ model DocumentSequence {
 
 // ─────────────────────── CATÁLOGO PÚBLICO ───────────────────────
 
+/// Solicitud de cotización del sitio público. Nunca se borra: es la evidencia de lo pedido
+/// y se enlaza con la cotización que genera (quotations.inquiry_id).
 model WebInquiry {
-  id              String        @id @default(uuid()) @db.Uuid
-  name            String        @db.VarChar(200) // nombre / empresa
-  contact         String        @db.VarChar(150) // teléfono o correo
-  productInterest String?       @map("product_interest") @db.VarChar(200)
-  message         String?       @db.VarChar(1000)
-  status          InquiryStatus @default(NEW)
-  createdAt       DateTime      @default(now()) @map("created_at")
+  id                String        @id @default(uuid(7)) @db.Uuid
+  code              String        @unique @db.VarChar(30) // SOL-000001
+  name              String        @db.VarChar(200) // nombre / empresa
+  contact           String        @db.VarChar(150) // teléfono o correo
+  productInterest   String?       @map("product_interest") @db.VarChar(200)
+  message           String?       @db.VarChar(1000)
+  status            InquiryStatus @default(NEW)
+  statusChangedAt   DateTime      @default(now()) @map("status_changed_at") @db.Timestamptz(3)
+  customerId        String?       @map("customer_id") @db.Uuid
+  customerAccountId String?       @map("customer_account_id") @db.Uuid
+  assignedToId      String?       @map("assigned_to_id") @db.Uuid
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerAccount CustomerAccount? @relation(fields: [customerAccountId], references: [id], onDelete: SetNull)
+  assignedTo      User?            @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  items           WebInquiryItem[]
+  quotation       Quotation?
 
   @@index([status])
+  @@index([createdAt])
+  @@index([customerId])
+  @@index([customerAccountId])
+  @@index([assignedToId])
   @@map("web_inquiries")
+}
+
+/// Lista de solicitud de cotización (productos y cantidades pedidos desde el catálogo).
+model WebInquiryItem {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  inquiryId String  @map("inquiry_id") @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  quantity  Int
+  note      String? @db.VarChar(255)
+
+  inquiry WebInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  product Product    @relation(fields: [productId], references: [id])
+
+  @@unique([inquiryId, productId])
+  @@index([productId])
+  @@map("web_inquiry_items")
 }
 
 // ─────────────────────── AUDITORÍA Y CONFIGURACIÓN ───────────────────────
 
+/// Bitácora de solo inserción (un trigger impide modificar o borrar). Sin FK a users a
+/// propósito: el registro debe sobrevivir aunque el usuario cambie o deje de existir.
 model AuditLog {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(uuid(7)) @db.Uuid
   userId      String?  @map("user_id") @db.Uuid
   username    String?  @db.VarChar(50)
   module      String   @db.VarChar(40)
@@ -422,7 +786,7 @@ model AuditLog {
   description String?  @db.VarChar(500)
   ip          String?  @db.VarChar(64)
   metadata    Json?
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([userId])
   @@index([module, action])
@@ -431,11 +795,16 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+/// Parámetros del negocio (IVA, plazo de crédito, datos de la empresa para el sitio público).
 model SystemConfig {
   key         String   @id @db.VarChar(60) // ej. "TAX_RATE"
   value       String   @db.VarChar(255)
   description String?  @db.VarChar(255)
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([updatedById])
   @@map("system_config")
 }

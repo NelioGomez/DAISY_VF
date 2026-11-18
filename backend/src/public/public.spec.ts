@@ -85,23 +85,35 @@ describe('Catálogo público', () => {
 
 describe('Consultas web', () => {
   function buildInq(existing: Record<string, unknown> | null = null, updated = 1) {
-    const prisma = {
+    const prisma: Record<string, unknown> = {
       webInquiry: {
-        create: jest.fn().mockResolvedValue({ id: 'i1' }),
+        create: jest.fn().mockResolvedValue({ id: 'i1', code: 'SOL-000001' }),
         findUnique: jest.fn().mockResolvedValue(existing),
         updateMany: jest.fn().mockResolvedValue({ count: updated }),
       },
     };
+    prisma.$transaction = jest.fn((fn: (t: unknown) => unknown) => fn(prisma));
     const audit = { log: jest.fn() } as unknown as AuditService;
-    return { prisma, audit, service: new InquiriesService(prisma as never, audit) };
+    const sequence = { next: jest.fn().mockResolvedValue('SOL-000001') };
+    return {
+      prisma: prisma as { webInquiry: Record<string, jest.Mock>; $transaction: jest.Mock },
+      audit,
+      sequence,
+      service: new InquiriesService(prisma as never, audit, sequence as never),
+    };
   }
   const actor = { id: 'u1', username: 'ana', role: 'SELLER', permissions: [] } as never;
-  const base = { id: 'i1', name: 'Los Pinos', contact: '88888888', productInterest: null, message: null, createdAt: new Date() };
+  const base = {
+    id: 'i1', code: 'SOL-000001', name: 'Los Pinos', contact: '88888888', productInterest: null, message: null,
+    statusChangedAt: new Date(), customerId: null, assignedToId: null, createdAt: new Date(), items: [], quotation: null,
+  };
 
-  it('alta pública: guarda como NUEVA (por defecto) y audita sin usuario', async () => {
-    const { prisma, audit, service } = buildInq();
+  it('alta pública: código SOL correlativo, guarda como NUEVA (por defecto) y audita sin usuario', async () => {
+    const { prisma, audit, sequence, service } = buildInq();
     const res = await service.createPublic(Object.assign(new CreateInquiryDto(), { name: 'A', contact: 'a@b.com' }), '9.9.9.9');
-    expect(res).toEqual({ received: true });
+    expect(res).toEqual({ received: true, code: 'SOL-000001' });
+    expect(sequence.next).toHaveBeenCalledWith(expect.anything(), 'INQUIRY', 'SOL');
+    expect(prisma.webInquiry.create.mock.calls[0][0].data).toMatchObject({ code: 'SOL-000001' });
     expect(prisma.webInquiry.create.mock.calls[0][0].data).not.toHaveProperty('status');
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ module: 'inquiries', action: 'PUBLIC_CREATE', ip: '9.9.9.9' }));
   });
@@ -113,21 +125,25 @@ describe('Consultas web', () => {
     expect(prisma.webInquiry.create).not.toHaveBeenCalled();
   });
 
-  it('transiciones: NUEVA→ATENDIDA→CERRADA; no se reabre', () => {
-    expect(canMoveInquiry('NEW', 'ATTENDED')).toBe(true);
+  it('transiciones: NUEVA→EN REVISIÓN→COTIZADA→CERRADA; cancelar spam; no se reabre', () => {
+    expect(canMoveInquiry('NEW', 'IN_REVIEW')).toBe(true);
     expect(canMoveInquiry('NEW', 'CLOSED')).toBe(true);
-    expect(canMoveInquiry('ATTENDED', 'CLOSED')).toBe(true);
-    expect(canMoveInquiry('ATTENDED', 'NEW')).toBe(false);
+    expect(canMoveInquiry('NEW', 'CANCELLED')).toBe(true);
+    expect(canMoveInquiry('IN_REVIEW', 'QUOTED')).toBe(true);
+    expect(canMoveInquiry('QUOTED', 'CLOSED')).toBe(true);
+    expect(canMoveInquiry('QUOTED', 'CANCELLED')).toBe(false);
+    expect(canMoveInquiry('IN_REVIEW', 'NEW')).toBe(false);
     expect(canMoveInquiry('CLOSED', 'NEW')).toBe(false);
+    expect(canMoveInquiry('CANCELLED', 'IN_REVIEW')).toBe(false);
   });
 
   it('cambiar estado: audita; transición inválida → 409; cambio concurrente → 409', async () => {
     const ok = buildInq({ ...base, status: 'NEW' });
-    expect(await ok.service.setStatus('i1', 'ATTENDED' as never, actor)).toMatchObject({ status: 'ATTENDED' });
+    expect(await ok.service.setStatus('i1', 'IN_REVIEW' as never, actor)).toMatchObject({ status: 'IN_REVIEW' });
     expect(ok.audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'STATUS_CHANGE', username: 'ana' }));
     await expect(buildInq({ ...base, status: 'CLOSED' }).service.setStatus('i1', 'NEW' as never, actor)).rejects.toThrow('No se puede pasar');
-    await expect(buildInq({ ...base, status: 'NEW' }, 0).service.setStatus('i1', 'ATTENDED' as never, actor)).rejects.toThrow('cambió de estado');
-    await expect(buildInq(null).service.setStatus('i1', 'ATTENDED' as never, actor)).rejects.toThrow(NotFoundException);
+    await expect(buildInq({ ...base, status: 'NEW' }, 0).service.setStatus('i1', 'IN_REVIEW' as never, actor)).rejects.toThrow('cambió de estado');
+    await expect(buildInq(null).service.setStatus('i1', 'IN_REVIEW' as never, actor)).rejects.toThrow(NotFoundException);
   });
 });
 

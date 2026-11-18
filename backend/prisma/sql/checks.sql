@@ -1,7 +1,11 @@
+-- HISTÓRICO: este contenido ya está dentro de la migración 20261012065513_bd_complete.
+-- No lo pegue en migraciones nuevas. Las restricciones vigentes (75 CHECK) las crean las
+-- migraciones de prisma/migrations; ver backend/docs/base-de-datos.md.
+--
 -- Restricciones CHECK (Prisma no las soporta en schema.prisma).
--- Se pegan al FINAL de la migración inicial generada con:
+-- Antes se pegaban al FINAL de la migración inicial generada con
 --   npx prisma migrate dev --name init --create-only
--- y luego se aplica con:  npx prisma migrate dev
+-- y luego se aplicaba con:  npx prisma migrate dev
 
 ALTER TABLE products
   ADD CONSTRAINT chk_products_avg_cost  CHECK (avg_cost  >= 0),

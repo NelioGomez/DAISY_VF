@@ -31,7 +31,9 @@ describe('API (smoke)', () => {
 
   const prismaMock = {
     $queryRaw: jest.fn().mockResolvedValue([1]),
-    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+    $transaction: jest.fn((arg: unknown): unknown =>
+      typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(prismaMock) : Promise.all(arg as Promise<unknown>[]),
+    ),
     user: {
       findUnique: jest.fn().mockResolvedValue({
         id: 'u1',
@@ -49,7 +51,10 @@ describe('API (smoke)', () => {
     },
     auditLog: { create: jest.fn().mockResolvedValue({}) },
     webInquiry: {
-      create: jest.fn().mockResolvedValue({ id: 'i1' }),
+      create: jest.fn().mockResolvedValue({ id: 'i1', code: 'SOL-000001' }),
+    },
+    documentSequence: {
+      upsert: jest.fn().mockResolvedValue({ lastValue: 1 }),
     },
     customer: {
       count: jest.fn().mockResolvedValue(0),
@@ -271,7 +276,7 @@ describe('API (smoke)', () => {
       .post('/api/v1/public/inquiries')
       .send({ name: 'Los Pinos', contact: 'compras@lospinos.com', productInterest: 'Boquilla' })
       .expect(201);
-    expect(ok.body).toEqual({ success: true, data: { received: true } });
+    expect(ok.body).toEqual({ success: true, data: { received: true, code: 'SOL-000001' } });
     await request(server()).post('/api/v1/public/inquiries').send({ name: 'X', contact: 'hola' }).expect(422);
   });
 

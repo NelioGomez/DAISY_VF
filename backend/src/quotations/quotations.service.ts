@@ -34,9 +34,13 @@ interface QuotationRow {
   issuedAt: Date;
   validUntil: Date;
   subtotal: Dec;
+  taxRate: Dec;
   tax: Dec;
   total: Dec;
   status: QuotationStatus;
+  statusChangedAt: Date;
+  rejectionReason: string | null;
+  inquiryId: string | null;
   notes: string | null;
   customer?: { id: string; name: string; ruc: string | null };
   seller?: { id: string; username: string; firstName: string; lastName: string };
@@ -105,7 +109,8 @@ export class QuotationsService {
     const created = (await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await this.assertCustomer(tx, dto.customerId);
       const lines = await this.lines.prepare(dto.items, tx);
-      const totals = calculateTotals(lines.map((l) => l.subtotal), await this.tax.getRate(tx));
+      const rate = await this.tax.getRate(tx);
+      const totals = calculateTotals(lines.map((l) => l.subtotal), rate);
       const code = await this.sequence.next(tx, 'QUOTATION', 'COT');
       return tx.quotation.create({
         data: {
@@ -114,6 +119,7 @@ export class QuotationsService {
           sellerId: actor.id,
           validUntil,
           subtotal: fixed2(totals.subtotal),
+          taxRate: rate.toFixed(4),
           tax: fixed2(totals.tax),
           total: fixed2(totals.total),
           status: dto.asDraft ? QuotationStatus.DRAFT : QuotationStatus.PENDING,
@@ -149,10 +155,12 @@ export class QuotationsService {
       if (dto.notes !== undefined) data.notes = dto.notes;
       if (dto.items !== undefined) {
         const lines = await this.lines.prepare(dto.items, tx);
-        const totals = calculateTotals(lines.map((l) => l.subtotal), await this.tax.getRate(tx));
+        const rate = await this.tax.getRate(tx);
+        const totals = calculateTotals(lines.map((l) => l.subtotal), rate);
         await tx.quotationItem.deleteMany({ where: { quotationId: id } });
         data.items = { create: lines.map(lineToData) };
         data.subtotal = fixed2(totals.subtotal);
+        data.taxRate = rate.toFixed(4);
         data.tax = fixed2(totals.tax);
         data.total = fixed2(totals.total);
       }
@@ -224,7 +232,15 @@ export class QuotationsService {
       if (!canTransition(q.status, to) || (onlyFrom && !onlyFrom.includes(q.status))) {
         throw new ConflictException(`No se puede pasar una cotización de ${q.status} a ${to}`);
       }
-      return tx.quotation.update({ where: { id }, data: { status: to }, include: QUOTATION_INCLUDE });
+      return tx.quotation.update({
+        where: { id },
+        data: {
+          status: to,
+          statusChangedAt: new Date(),
+          ...(to === QuotationStatus.REJECTED && reason ? { rejectionReason: reason } : {}),
+        },
+        include: QUOTATION_INCLUDE,
+      });
     }, TX_OPTIONS)) as QuotationRow;
 
     await this.log(actor, action, updated, `Cotización ${updated.code} ${verb}${reason ? `: ${reason}` : ''}`, ip);
@@ -251,9 +267,13 @@ export class QuotationsService {
       issuedAt: q.issuedAt,
       validUntil: q.validUntil,
       subtotal: decimalToNumber(q.subtotal),
+      taxRate: decimalToNumber(q.taxRate),
       tax: decimalToNumber(q.tax),
       total: decimalToNumber(q.total),
       status: q.status,
+      statusChangedAt: q.statusChangedAt,
+      rejectionReason: q.rejectionReason,
+      inquiryId: q.inquiryId,
       notes: q.notes,
       sale: q.sale ?? null,
       ...(q.items && {

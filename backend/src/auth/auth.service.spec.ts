@@ -6,7 +6,7 @@ describe('AuthService.login', () => {
   const password = 'Secret123';
   let passwordHash: string;
 
-  const prisma = { user: { findUnique: jest.fn(), update: jest.fn() } };
+  const prisma = { user: { findFirst: jest.fn(), update: jest.fn() } };
   const jwt = {
     signAsync: jest.fn().mockResolvedValue('token-firmado'),
     decode: jest.fn().mockReturnValue({ iat: 1000, exp: 1900 }),
@@ -37,7 +37,7 @@ describe('AuthService.login', () => {
   });
 
   it('login correcto: devuelve token, expiración y permisos, sin hash', async () => {
-    prisma.user.findUnique.mockResolvedValue(dbUser());
+    prisma.user.findFirst.mockResolvedValue(dbUser());
 
     const res = await service.login({ username: 'admin', password }, '127.0.0.1');
 
@@ -50,14 +50,14 @@ describe('AuthService.login', () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'LOGIN' }));
   });
 
-  it('el JWT solo lleva sub, username y role', async () => {
-    prisma.user.findUnique.mockResolvedValue(dbUser());
+  it('el JWT solo lleva sub, username, role y la hora exacta de emisión (sin datos sensibles)', async () => {
+    prisma.user.findFirst.mockResolvedValue(dbUser());
     await service.login({ username: 'admin', password });
-    expect(jwt.signAsync).toHaveBeenCalledWith({ sub: 'u1', username: 'admin', role: 'ADMIN' });
+    expect(jwt.signAsync).toHaveBeenCalledWith({ sub: 'u1', username: 'admin', role: 'ADMIN', iatMs: expect.any(Number) });
   });
 
   it('login incorrecto: contraseña errónea → 401 y auditoría', async () => {
-    prisma.user.findUnique.mockResolvedValue(dbUser());
+    prisma.user.findFirst.mockResolvedValue(dbUser());
     await expect(service.login({ username: 'admin', password: 'Otra1234' })).rejects.toThrow(
       UnauthorizedException,
     );
@@ -66,14 +66,14 @@ describe('AuthService.login', () => {
   });
 
   it('usuario inexistente → 401 con el mismo mensaje genérico', async () => {
-    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.findFirst.mockResolvedValue(null);
     await expect(service.login({ username: 'nadie', password })).rejects.toThrow(
       'Credenciales inválidas',
     );
   });
 
   it('usuario inactivo con contraseña correcta → 403', async () => {
-    prisma.user.findUnique.mockResolvedValue(dbUser({ isActive: false }));
+    prisma.user.findFirst.mockResolvedValue(dbUser({ isActive: false }));
     await expect(service.login({ username: 'admin', password })).rejects.toThrow(ForbiddenException);
     expect(jwt.signAsync).not.toHaveBeenCalled();
   });

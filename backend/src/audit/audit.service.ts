@@ -32,6 +32,7 @@ const MODULE_LABEL: Record<string, string> = {
   inquiries: 'Consultas web',
   reports: 'Reportes',
   audit: 'Auditoría',
+  settings: 'Configuración',
 };
 
 /** Acciones que conviene resaltar en amarillo (posibles intentos de abuso). */

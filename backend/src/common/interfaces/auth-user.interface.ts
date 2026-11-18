@@ -8,9 +8,13 @@ export interface AuthUser {
   permissions: string[];
 }
 
-/** Contenido mínimo del JWT. */
+/** Contenido mínimo del JWT (iat y exp los agrega la firma). */
 export interface JwtPayload {
   sub: string;
   username: string;
   role: UserRole;
+  iat?: number;
+  exp?: number;
+  /** Momento exacto de emisión (ms): permite invalidar sesiones al cambiar la contraseña. */
+  iatMs?: number;
 }

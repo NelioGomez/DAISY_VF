@@ -19,7 +19,12 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { SetStatusDto } from '../common/dto/set-status.dto';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
-import { CreateProductDto, FilterProductDto, UpdateProductDto } from './dto/product.dto';
+import {
+  CreateProductDto,
+  FilterProductDto,
+  UpdateProductDto,
+  SetProductPriceDto,
+} from './dto/product.dto';
 import { ProductsService } from './products.service';
 
 @ApiTags('Products')
@@ -56,6 +61,27 @@ export class ProductsController {
         'Content-Disposition': `attachment; filename="productos-${date}.csv"`,
       })
       .send(csv);
+  }
+
+  @Patch(':id/price')
+  @Permissions('prices:write')
+  @ApiOperation({ summary: 'Cambia el precio comercial (Administración / Gerencia); queda en el historial' })
+  @ApiResponse({ status: 400, description: 'Precio inválido o igual al vigente' })
+  setPrice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetProductPriceDto,
+    @CurrentUser() actor: AuthUser,
+    @ClientIp() ip?: string,
+  ) {
+    return this.products.setPrice(id, dto, actor, ip);
+  }
+
+  @Get(':id/prices')
+  @Permissions('prices:read')
+  @ApiOperation({ summary: 'Historial de precios del producto (quién, cuándo y por qué)' })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
+  priceHistory(@Param('id', ParseUUIDPipe) id: string) {
+    return this.products.priceHistory(id);
   }
 
   @Get(':id')

@@ -1,10 +1,12 @@
 /* Rutas de la aplicación.
    /login       → acceso interno
+   /recuperar   → recuperación de contraseña en 3 pasos
    /catalogo    → sitio público (sin sesión)
    /app/:módulo → panel interno protegido por sesión y rol */
 import type { ReactElement } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '../../features/auth/LoginPage';
+import { RecoverPage } from '../../features/auth/recover/RecoverPage';
 import { AuditPage } from '../../features/audit/AuditPage';
 import { CatalogInternalPage } from '../../features/catalog/CatalogInternalPage';
 import { PublicCatalogPage } from '../../features/catalog/PublicCatalogPage';
@@ -45,6 +47,7 @@ export function AppRouter() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/recuperar" element={<RecoverPage />} />
       <Route path="/catalogo" element={<PublicCatalogPage />} />
       <Route
         path="/app"

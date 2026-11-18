@@ -61,3 +61,64 @@ export const ShieldIcon = () => (
     <path d="M12 3 4.5 6v5.5c0 4.5 3.2 8.2 7.5 9.5 4.3-1.3 7.5-5 7.5-9.5V6L12 3Z" />
   </svg>
 );
+
+export const MailIcon = () => (
+  <svg {...base}>
+    <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+    <path d="m4 7.5 8 6 8-6" />
+  </svg>
+);
+
+export const CheckIcon = ({ size = 18 }: { size?: number }) => (
+  <svg {...base} width={size} height={size} strokeWidth={2.4}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </svg>
+);
+
+export const ArrowLeftIcon = () => (
+  <svg {...base} width={16} height={16}>
+    <path d="M19 12H5M11 6l-6 6 6 6" />
+  </svg>
+);
+
+/* Áreas del sistema (panel de marca) */
+export const BoxIcon = () => (
+  <svg {...base} width={20} height={20}>
+    <path d="M12 3 3.5 7.5v9L12 21l8.5-4.5v-9L12 3Z" />
+    <path d="M3.5 7.5 12 12l8.5-4.5M12 12v9" />
+  </svg>
+);
+
+export const FileIcon = () => (
+  <svg {...base} width={20} height={20}>
+    <path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8l-5-5Z" />
+    <path d="M14 3v5h5M8.5 13h7M8.5 16.5h5" />
+  </svg>
+);
+
+export const WalletIcon = () => (
+  <svg {...base} width={20} height={20}>
+    <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3" />
+    <rect x="4" y="8" width="16.5" height="11" rx="2.5" />
+    <path d="M16 13.5h1.5" />
+  </svg>
+);
+
+export const WrenchIcon = () => (
+  <svg {...base} width={20} height={20}>
+    <path d="M14.5 6.5a4 4 0 0 0-5.3 5L4 16.7 7.3 20l5.2-5.2a4 4 0 0 0 5-5.3l-2.6 2.6-2.4-.6-.6-2.4 2.6-2.6Z" />
+  </svg>
+);
+
+export const ChartIcon = () => (
+  <svg {...base} width={20} height={20}>
+    <path d="M4 20h16M7 16v-5M12 16V7M17 16v-8" />
+  </svg>
+);
+
+export const ClipboardIcon = () => (
+  <svg {...base} width={20} height={20}>
+    <rect x="5" y="4.5" width="14" height="16.5" rx="2" />
+    <path d="M9 4.5V3.5h6v1M9 11l2 2 4-4M9 17h6" />
+  </svg>
+);

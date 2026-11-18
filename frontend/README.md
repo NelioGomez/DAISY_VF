@@ -43,6 +43,16 @@ Medidas aplicadas en el cliente (`config/security.ts`, `services/auth/authServic
 - La contraseña se borra tras un fallo y nunca se recuerda; "Recordar mi usuario" guarda solo el nombre.
 - Cierre automático tras 15 min sin actividad, con aviso y regreso a la vista anterior.
 
+### Recuperación de contraseña (`/recuperar`)
+
+Tres pasos: correo → código de 6 dígitos → contraseña nueva. La respuesta al pedir el código es
+igual exista o no el correo; el código vence a los 10 min, admite 5 intentos y se reenvía cada
+60 s (máximo 3 por correo cada 15 min). La contraseña nueva debe cumplir la política de
+`utils/passwordPolicy.ts`. La cuenta `ngomez` usa el correo de pruebas `ngomezanderson@gmail.com`.
+
+El correo real lo envía el backend (guía y plantilla en `docs/` en la raíz del repo). Mientras
+no exista ese endpoint, en desarrollo el código se muestra en pantalla.
+
 Pendiente en NestJS (lo que realmente protege): contraseñas con hash argon2/bcrypt, límite de
 intentos en el servidor (`@nestjs/throttler`), JWT en cookie `httpOnly` + `Secure` + `SameSite` y HTTPS.
 
@@ -51,6 +61,7 @@ intentos en el servidor (`@nestjs/throttler`), JWT en cookie `httpOnly` + `Secur
 | Ruta            | Vista                                        |
 | --------------- | -------------------------------------------- |
 | `/login`        | Inicio de sesión del personal                |
+| `/recuperar`    | Recuperación de contraseña en 3 pasos        |
 | `/catalogo`     | Catálogo público (sin sesión)                |
 | `/app/<módulo>` | Panel interno (dashboard, productos, ventas…) |
 

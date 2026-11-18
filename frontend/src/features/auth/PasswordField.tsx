@@ -8,11 +8,15 @@ interface PasswordFieldProps {
   onBlur?(): void;
   error?: string;
   disabled?: boolean;
+  id?: string;
+  label?: string;
+  /** "current-password" en el login, "new-password" al crear una nueva. */
+  autoComplete?: 'current-password' | 'new-password';
 }
 
 /** Contraseña con botón mostrar/ocultar y aviso de Bloq Mayús. */
 export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(function PasswordField(
-  { value, onChange, onBlur, error, disabled },
+  { value, onChange, onBlur, error, disabled, id = 'password', label = 'Contraseña', autoComplete = 'current-password' },
   ref,
 ) {
   const [visible, setVisible] = useState(false);
@@ -20,20 +24,20 @@ export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(fu
 
   const checkCaps = (e: KeyboardEvent<HTMLInputElement>) => setCapsLock(e.getModifierState('CapsLock'));
 
-  const hintId = 'password-hint';
+  const hintId = `${id}-hint`;
   return (
     <div className={`auth-field ${error ? 'has-error' : ''}`}>
-      <label htmlFor="password">Contraseña</label>
+      <label htmlFor={id}>{label}</label>
       <div className="auth-input">
         <span className="auth-input-icon">
           <LockIcon />
         </span>
         <input
           ref={ref}
-          id="password"
-          name="password"
+          id={id}
+          name={id}
           type={visible ? 'text' : 'password'}
-          autoComplete="current-password"
+          autoComplete={autoComplete}
           maxLength={PASSWORD_MAX}
           value={value}
           disabled={disabled}

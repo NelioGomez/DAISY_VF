@@ -71,4 +71,4 @@ Haga clic en un cliente para abrir su perfil en el panel lateral. Reúne en un s
 
 ## Clientes inactivos
 
-Los clientes no se borran, para que sus facturas y pagos sigan en el historial. Un cliente **inactivo** no se puede elegir para ventas ni cotizaciones nuevas, pero su perfil se puede seguir consultando. Si necesita desactivar o reactivar un cliente, pídalo al administrador del sistema.
+Los clientes no se borran, para que sus facturas y pagos sigan en el historial. Un cliente **inactivo** no se puede elegir para ventas ni cotizaciones nuevas, pero su perfil se puede seguir consultando. Lo desactiva o reactiva el administrador en **Panel de administración › Clientes y proveedores** (vea [Panel de administración](?cap=administracion#clientes-y-proveedores)).

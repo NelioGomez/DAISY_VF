@@ -57,7 +57,7 @@ Tenga en cuenta:
 - El código **vence en 10 minutos**; la pantalla muestra cuánto tiempo le queda. Si venció, pida uno nuevo.
 - Si el código no llega, después de un minuto se activa **Reenviar código**. También puede volver atrás y escribir otro correo.
 - Si escribe mal el código varias veces, debe pedir uno nuevo.
-- Por seguridad, el sistema responde lo mismo aunque el correo no pertenezca a ninguna cuenta. Si no le llega nada, pida al administrador que revise el correo registrado en su usuario.
+- Por seguridad, el sistema responde lo mismo aunque el correo no pertenezca a ninguna cuenta. Si no le llega nada, pida al administrador que revise el correo registrado en su usuario o que le restablezca la contraseña.
 
 > **Importante:** Al cambiar la contraseña se cierran las sesiones que tenía abiertas en otras computadoras o celulares.
 
@@ -80,11 +80,12 @@ Mientras escribe la contraseña nueva, el sistema marca con un visto cada requis
 
 ## Si necesita un usuario o cambiar de rol
 
-Los usuarios los crea el **administrador del sistema**. Pídale a él que:
+Los usuarios los maneja el **administrador del sistema** desde el [Panel de administración](?cap=administracion). Pídale a él que:
 
-- cree un usuario para una persona nueva;
+- cree un usuario para una persona nueva (le entregará una contraseña temporal);
 - cambie el rol de alguien (por ejemplo, de vendedor a gerencia);
 - desactive el usuario de una persona que ya no trabaja en la empresa;
-- corrija el correo registrado, si no le llegan los códigos de recuperación.
+- corrija el correo registrado, si no le llegan los códigos de recuperación;
+- le restablezca la contraseña, si no puede recuperarla por correo.
 
 Lo que cada rol puede ver y hacer se explica en [Roles y permisos](?cap=roles).

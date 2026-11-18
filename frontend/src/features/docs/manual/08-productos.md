@@ -50,7 +50,7 @@ Con **Columnas** puede mostrar también el código de barras, las existencias en
 
 El producto nuevo empieza con existencia **0**. Para tenerlo en inventario, regístrelo en una [compra](?cap=compras) y reciba la mercadería.
 
-> **Nota:** Las categorías y las marcas no tienen pantalla propia: si necesita una nueva, pídala al administrador del sistema.
+> **Nota:** Las categorías y las marcas las crea el administrador en **Panel de administración › Categorías y marcas** (vea [Panel de administración](?cap=administracion#categorias-y-marcas)). Si necesita una nueva, pídasela.
 
 ## Editar un producto
 

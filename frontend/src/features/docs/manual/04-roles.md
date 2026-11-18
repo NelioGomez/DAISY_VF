@@ -21,7 +21,7 @@ Su rol aparece en la barra superior, debajo de su nombre. En este manual, al ini
 
 | Rol | Su trabajo en el sistema |
 |---|---|
-| **Administrador** | Ve y hace todo. Es el único que puede **anular ventas**. Registra, asigna y factura las órdenes de servicio. |
+| **Administrador** | Ve y hace todo. Es el único que puede **anular ventas** y entrar al [Panel de administración](?cap=administracion) (usuarios, categorías, marcas y datos de la empresa). Registra, asigna y factura las órdenes de servicio. |
 | **Gerencia** | Consulta los indicadores, reportes, inventario, compras, producción, ventas y la auditoría. **Fija el precio de venta** de los productos. No registra ventas ni compras. |
 | **Vendedor** | Atiende a los clientes: clientes, cotizaciones, punto de venta, consultas web y catálogo web. Ve los productos y precios para cotizar y vender, pero no los modifica. |
 | **Encargado de inventario** | Productos, inventario (ajustes y traslados), pedidos de compra y su recepción, proveedores, producción y control de calidad. Ve los precios, pero no los fija. |
@@ -74,6 +74,6 @@ Todas estas acciones quedan registradas en la [Auditoría](?cap=auditoria) con e
 
 1. Revise en la tabla de arriba si su rol debería tenerlo.
 2. Si lo necesita para su trabajo, pídaselo al **administrador del sistema**, explicando para qué lo necesita.
-3. El administrador puede cambiar su rol. Cierre sesión y vuelva a entrar para ver su menú actualizado.
+3. El administrador le cambia el rol en **Panel de administración › Usuarios**. Cierre sesión y vuelva a entrar para ver su menú actualizado.
 
 > **Nota:** Puede leer en este manual cómo funciona cualquier módulo, aunque su rol no lo abra. En el índice, esos capítulos tienen un candado :ic-lock:.

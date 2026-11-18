@@ -23,7 +23,7 @@ Después de varios intentos fallidos, el acceso se bloquea **un minuto**. Espere
 
 - Revise la carpeta de **correo no deseado**.
 - Espere un minuto y use **Reenviar código**.
-- Si sigue sin llegar, pida al administrador que revise el correo registrado en su usuario.
+- Si sigue sin llegar, pida al administrador que revise el correo registrado en su usuario o que le restablezca la contraseña desde el [Panel de administración](?cap=administracion#restablecer-una-contrasena).
 
 ### El sistema me sacó y tuve que volver a entrar
 
@@ -150,6 +150,20 @@ Su empresa ya está registrada como cliente. Pase el caso al administrador del s
 ### El sitio dice «Ya recibimos varias solicitudes desde su conexión»
 
 Es una protección contra abusos que limita los mensajes por hora. El cliente puede intentar más tarde o escribir por WhatsApp.
+
+## Administración
+
+### ¿Cómo creo un usuario para una persona nueva?
+
+Solo el administrador: **Panel de administración › Usuarios › + Nuevo usuario**. Vea [Crear un usuario](?cap=administracion#crear-un-usuario).
+
+### Una persona dejó la empresa
+
+El administrador desactiva su usuario en **Panel de administración › Usuarios**. No se borra: su historial se conserva en ventas, movimientos y auditoría.
+
+### Los clientes no ven el WhatsApp ni el horario en el sitio
+
+Faltan los datos de contacto de la empresa. El administrador los llena en **Panel de administración › Empresa**.
 
 ## Sobre este manual
 

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuditService } from '../audit/audit.service';
+import { passwordPolicyErrors } from '../auth/password-policy';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { buildPagination } from '../common/utils/pagination';
 import { isUniqueViolation } from '../common/utils/prisma-errors';
@@ -75,6 +76,7 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto, actor: AuthUser, ip?: string) {
+    this.assertPolicy(dto.password, dto.username);
     const email = dto.email.toLowerCase();
     await this.assertUnique(dto.username, email);
     const role = await this.prisma.role.findUnique({ where: { code: dto.role } });
@@ -185,6 +187,7 @@ export class UsersService {
         errors: [{ field: 'currentPassword', message: 'La contraseña actual es incorrecta' }],
       });
     }
+    this.assertPolicy(dto.newPassword, actor.username, 'newPassword');
     if (dto.currentPassword === dto.newPassword) {
       throw new BadRequestException({
         message: 'No fue posible cambiar la contraseña',
@@ -211,6 +214,7 @@ export class UsersService {
 
   async resetPassword(id: string, newPassword: string, actor: AuthUser, ip?: string): Promise<void> {
     const existing = await this.findOne(id);
+    this.assertPolicy(newPassword, existing.username, 'newPassword');
     await this.prisma.user.update({
       where: { id },
       data: { passwordHash: await bcrypt.hash(newPassword, BCRYPT_ROUNDS), passwordChangedAt: new Date() },
@@ -225,6 +229,15 @@ export class UsersService {
       description: `Contraseña de ${existing.username} restablecida por un administrador`,
       ip,
     });
+  }
+
+  /** Misma política que la recuperación por correo y el frontend (10+ caracteres, mayúsculas,
+      minúsculas, número, símbolo y sin el nombre de usuario). */
+  private assertPolicy(password: string, username: string, field = 'password') {
+    const errors = passwordPolicyErrors(password, username);
+    if (errors.length) {
+      throw new BadRequestException({ message: 'La contraseña no cumple la política', errors: errors.map((message) => ({ field, message })) });
+    }
   }
 
   /** Lanza 409 con el detalle por campo si el username o el correo ya existen. */

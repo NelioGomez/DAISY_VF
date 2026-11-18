@@ -14,7 +14,8 @@ export interface TermsState {
   recibido: string;
 }
 
-export const initialTerms = (): TermsState => ({ metodo: 'Contado', referencia: '', diasCredito: '15', abono: '', metodoAbono: 'Contado', recibido: '' });
+/** diasCredito: el plazo por omisión de Administración › Empresa (15 si no está configurado). */
+export const initialTerms = (diasCredito = 15): TermsState => ({ metodo: 'Contado', referencia: '', diasCredito: String(diasCredito || 15), abono: '', metodoAbono: 'Contado', recibido: '' });
 
 export interface Efectivo {
   recibido: number;

@@ -16,6 +16,10 @@ COPY . .
 # se usa un valor ficticio solo para este paso (no queda en la imagen final).
 RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" npx prisma generate \
  && npm run build
+# Seed base (roles, permisos, admin, configuración) empaquetado en JavaScript: dist/seed.js.
+# Así se puede correr en producción sin tsx (que es dependencia de desarrollo).
+RUN npx esbuild prisma/seed.ts --bundle --platform=node --target=node22 --format=cjs \
+      --packages=external --outfile=dist/seed.js
 
 # ---------- dependencias de producción ----------
 FROM base AS prod-deps
@@ -39,6 +43,8 @@ COPY package.json prisma.config.ts ./
 COPY prisma ./prisma
 # Plantilla del correo de recuperación de contraseña (se lee desde process.cwd()/templates).
 COPY templates ./templates
+# Pre-deploy de Railway: migraciones y, con SEED_ON_DEPLOY=true, el seed base.
+COPY predeploy.sh ./
 
 # Carpeta de fotos de productos. En Railway se monta un Volume aquí (/app/uploads).
 RUN mkdir -p /app/uploads/products && chown -R node:node /app/uploads

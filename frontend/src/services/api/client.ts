@@ -74,11 +74,21 @@ function buildUrl(path: string, query?: Query): string {
   return `${API_URL}${path}${s ? `?${s}` : ''}`;
 }
 
-export async function request<T>(method: string, path: string, opts: { body?: unknown; query?: Query; auth?: boolean } = {}): Promise<ApiEnvelope<T>> {
-  const useAuth = opts.auth !== false;
+/**
+ * `token` permite usar otra sesión (la del portal de clientes) sin tocar la del personal:
+ * en ese caso un 401 no cierra la sesión interna.
+ */
+export async function request<T>(
+  method: string,
+  path: string,
+  opts: { body?: unknown; query?: Query; auth?: boolean; token?: string | null } = {},
+): Promise<ApiEnvelope<T>> {
+  const ownToken = opts.token !== undefined;
+  const useAuth = opts.auth !== false && !ownToken;
   const headers = new Headers({ Accept: 'application/json' });
   if (opts.body !== undefined) headers.set('Content-Type', 'application/json');
   if (useAuth && authToken) headers.set('Authorization', `Bearer ${authToken}`);
+  if (ownToken && opts.token) headers.set('Authorization', `Bearer ${opts.token}`);
 
   let res: Response;
   try {

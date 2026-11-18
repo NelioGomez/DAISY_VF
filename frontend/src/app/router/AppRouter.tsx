@@ -1,31 +1,54 @@
 /* Rutas de la aplicación.
-   /login       → acceso interno
-   /recuperar   → recuperación de contraseña en 3 pasos
-   /catalogo    → sitio público (sin sesión)
-   /app/:módulo → panel interno protegido por sesión y rol */
-import type { ReactElement } from 'react';
+   /                    → sitio público: Inicio, /catalogo, /catalogo/:id, /nosotros, /contacto
+   /clientes/...        → acceso y portal de clientes (sesión propia, separada del personal)
+   /login, /recuperar   → acceso interno del personal
+   /app/:módulo         → panel interno protegido por sesión y rol */
+import { lazy, Suspense, type ComponentType, type ReactElement } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { LoginPage } from '../../features/auth/LoginPage';
-import { RecoverPage } from '../../features/auth/recover/RecoverPage';
-import { AuditPage } from '../../features/audit/AuditPage';
-import { CatalogInternalPage } from '../../features/catalog/CatalogInternalPage';
-import { PublicCatalogPage } from '../../features/catalog/PublicCatalogPage';
-import { CustomersPage } from '../../features/customers/CustomersPage';
-import { DashboardPage } from '../../features/dashboard/DashboardPage';
-import { InventoryPage } from '../../features/inventory/InventoryPage';
-import { PaymentsPage } from '../../features/payments/PaymentsPage';
-import { ProductsPage } from '../../features/products/ProductsPage';
-import { PurchasesPage } from '../../features/purchases/PurchasesPage';
-import { QuotationsPage } from '../../features/quotations/QuotationsPage';
-import { ReportsPage } from '../../features/reports/ReportsPage';
-import { PosPage } from '../../features/sales/PosPage';
-import { SalesPage } from '../../features/sales/SalesPage';
-import { ServiceOrdersPage } from '../../features/service-orders/ServiceOrdersPage';
-import { SuppliersPage } from '../../features/suppliers/SuppliersPage';
-import { WebInquiriesPage } from '../../features/web-inquiries/WebInquiriesPage';
-import { DashboardLayout } from '../../layouts/DashboardLayout';
+import { FullScreenLoader } from '../../components/feedback/FullScreenLoader';
+import { CustomerLoginPage } from '../../features/portal/CustomerLoginPage';
+import { CustomerRegisterPage } from '../../features/portal/CustomerRegisterPage';
+import { MyInquiriesPage } from '../../features/portal/MyInquiriesPage';
+import { MyProfilePage } from '../../features/portal/MyProfilePage';
+import { MyQuotationsPage } from '../../features/portal/MyQuotationsPage';
+import { PortalLayout } from '../../features/portal/PortalLayout';
+import { QuotationDetailPage } from '../../features/portal/QuotationDetailPage';
+import { RequireCustomer } from '../../features/portal/RequireCustomer';
+import { AboutPage } from '../../features/public/AboutPage';
+import { CatalogPage } from '../../features/public/CatalogPage';
+import { ContactPage } from '../../features/public/ContactPage';
+import { HomePage } from '../../features/public/HomePage';
+import { NotFoundPage } from '../../features/public/NotFoundPage';
+import { ProductPage } from '../../features/public/ProductPage';
+import { PublicLayout } from '../../features/public/PublicLayout';
 import type { ModuleId } from '../../types';
 import { HomeRedirect, RequireAuth, RequireModule } from './guards';
+
+/* El sitio público va en el paquete inicial; el sistema interno se descarga solo
+   cuando alguien del personal entra (cada módulo por separado). */
+const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) =>
+  lazy(() => load().then((m) => ({ default: m[name] })));
+
+const LoginPage = page(() => import('../../features/auth/LoginPage'), 'LoginPage');
+const RecoverPage = page(() => import('../../features/auth/recover/RecoverPage'), 'RecoverPage');
+const DashboardLayout = page(() => import('../../layouts/DashboardLayout'), 'DashboardLayout');
+const DashboardPage = page(() => import('../../features/dashboard/DashboardPage'), 'DashboardPage');
+const ProductsPage = page(() => import('../../features/products/ProductsPage'), 'ProductsPage');
+const InventoryPage = page(() => import('../../features/inventory/InventoryPage'), 'InventoryPage');
+const PurchasesPage = page(() => import('../../features/purchases/PurchasesPage'), 'PurchasesPage');
+const CustomersPage = page(() => import('../../features/customers/CustomersPage'), 'CustomersPage');
+const SuppliersPage = page(() => import('../../features/suppliers/SuppliersPage'), 'SuppliersPage');
+const QuotationsPage = page(() => import('../../features/quotations/QuotationsPage'), 'QuotationsPage');
+const SalesPage = page(() => import('../../features/sales/SalesPage'), 'SalesPage');
+const PosPage = page(() => import('../../features/sales/PosPage'), 'PosPage');
+const PaymentsPage = page(() => import('../../features/payments/PaymentsPage'), 'PaymentsPage');
+const ServiceOrdersPage = page(() => import('../../features/service-orders/ServiceOrdersPage'), 'ServiceOrdersPage');
+const ReportsPage = page(() => import('../../features/reports/ReportsPage'), 'ReportsPage');
+const CatalogInternalPage = page(() => import('../../features/catalog/CatalogInternalPage'), 'CatalogInternalPage');
+const WebInquiriesPage = page(() => import('../../features/web-inquiries/WebInquiriesPage'), 'WebInquiriesPage');
+const AuditPage = page(() => import('../../features/audit/AuditPage'), 'AuditPage');
+
+const staff = (el: ReactElement) => <Suspense fallback={<FullScreenLoader text="Cargando SIVEN…" />}>{el}</Suspense>;
 
 /** Cada módulo del menú y la página que lo implementa. */
 const MODULE_PAGES: Record<ModuleId, ReactElement> = {
@@ -48,18 +71,33 @@ const MODULE_PAGES: Record<ModuleId, ReactElement> = {
 export function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/recuperar" element={<RecoverPage />} />
-      <Route path="/catalogo" element={<PublicCatalogPage />} />
-      <Route
-        path="/app"
-        element={
-          <RequireAuth>
-            <DashboardLayout />
-          </RequireAuth>
-        }
-      >
+      <Route element={<PublicLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="catalogo" element={<CatalogPage />} />
+        <Route path="catalogo/:id" element={<ProductPage />} />
+        <Route path="nosotros" element={<AboutPage />} />
+        <Route path="contacto" element={<ContactPage />} />
+        <Route path="clientes/ingresar" element={<CustomerLoginPage />} />
+        <Route path="clientes/registro" element={<CustomerRegisterPage />} />
+        <Route
+          path="clientes/cuenta"
+          element={
+            <RequireCustomer>
+              <PortalLayout />
+            </RequireCustomer>
+          }
+        >
+          <Route index element={<Navigate to="solicitudes" replace />} />
+          <Route path="solicitudes" element={<MyInquiriesPage />} />
+          <Route path="cotizaciones" element={<MyQuotationsPage />} />
+          <Route path="cotizaciones/:id" element={<QuotationDetailPage />} />
+          <Route path="perfil" element={<MyProfilePage />} />
+        </Route>
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+      <Route path="/login" element={staff(<LoginPage />)} />
+      <Route path="/recuperar" element={staff(<RecoverPage />)} />
+      <Route path="/app" element={staff(<RequireAuth>{<DashboardLayout />}</RequireAuth>)}>
         <Route index element={<HomeRedirect />} />
         {(Object.keys(MODULE_PAGES) as ModuleId[]).map((id) => (
           <Route key={id} path={id} element={<RequireModule id={id}>{MODULE_PAGES[id]}</RequireModule>} />
@@ -75,7 +113,6 @@ export function AppRouter() {
         />
         <Route path="*" element={<HomeRedirect />} />
       </Route>
-      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

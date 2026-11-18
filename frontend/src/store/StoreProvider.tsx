@@ -456,16 +456,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       facturarOrden: (id, ventaId) => run(() => api.post(`/service-orders/${id}/invoice`, { saleId: ventaId }).then(() => undefined), ['ordenes', 'dashboard', 'auditoria']),
       cancelarOrden: (id, motivo) => run(() => api.post(`/service-orders/${id}/cancel`, { reason: motivo }).then(() => undefined), ['ordenes', 'dashboard', 'auditoria']),
 
-      crearConsulta: async (nombre, contacto, producto, msg) => {
-        try {
-          const r = await api.post<{ code?: string }>('/public/inquiries', { name: nombre.trim(), contact: contacto.trim(), ...(producto.trim() ? { productInterest: producto.trim() } : {}), ...(msg.trim() ? { message: msg.trim() } : {}) }, false);
-          if (userRef.current) await refresh(['consultas', 'dashboard']);
-          return ok(r?.code);
-        } catch (e) {
-          return fail(errorMessage(e));
-        }
-      },
-
       cambiarEstadoConsulta: (id, estado) =>
         run(() => api.patch(`/inquiries/${id}/status`, { status: INQUIRY_TO_API[estado] }).then(() => undefined), ['consultas', 'dashboard', 'auditoria']),
 

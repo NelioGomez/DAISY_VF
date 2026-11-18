@@ -468,3 +468,73 @@ export interface Database {
 
 /** Resultado uniforme de una operación de negocio. */
 export type Result<T = void> = { ok: true; data: T } | { ok: false; error: string };
+
+/* ---------- Portal de clientes (sesión separada del personal) ---------- */
+
+export type Disponibilidad = 'Disponible' | 'Pocas unidades' | 'Bajo pedido';
+
+export interface CuentaCliente {
+  id: string;
+  email: string;
+  contacto: string;
+  telefono: string;
+  cliente: { id: string; nombre: string; ruc: string; telefono: string; direccion: string };
+}
+
+export interface SolicitudPortal {
+  id: string;
+  codigo: string;
+  estado: EstadoConsulta;
+  estadoDesde: string;
+  fecha: string;
+  mensaje: string;
+  items: Array<{ prod: string; sku: string; nombre: string; cant: number; nota: string; disponibilidad: Disponibilidad }>;
+  cotizacion: { id: string; codigo: string; estado: EstadoCotizacion; total: number; validaHasta: string } | null;
+  /** La cotización existe pero el vendedor todavía no la envía (borrador). */
+  enPreparacion: boolean;
+}
+
+export interface CotizacionPortal {
+  id: string;
+  codigo: string;
+  estado: EstadoCotizacion;
+  fecha: string;
+  validaHasta: string;
+  sub: number;
+  iva: number;
+  total: number;
+  notas: string;
+  vendedor: { nombre: string; correo: string };
+  solicitud: { id: string; codigo: string } | null;
+  factura: string | null;
+  items?: Array<{ sku: string; nombre: string; cant: number; precio: number; sub: number }>;
+}
+
+/** Producto del catálogo público (sin costos ni stock exacto). */
+export interface ProductoPublico {
+  id: string;
+  sku: string;
+  nombre: string;
+  descripcion: string;
+  marca: string;
+  categoria: string;
+  categoriaId: string | null;
+  precio: number | null;
+  unidad: string;
+  imagen: string | null;
+  disponibilidad: Disponibilidad;
+  ic: string;
+}
+
+/** Línea de la lista de solicitud de cotización (carrito B2B del catálogo). */
+export interface LineaLista {
+  id: string;
+  nombre: string;
+  sku: string;
+  precio: number | null;
+  disponibilidad: Disponibilidad;
+  categoria: string;
+  imagen: string | null;
+  cant: number;
+  nota: string;
+}

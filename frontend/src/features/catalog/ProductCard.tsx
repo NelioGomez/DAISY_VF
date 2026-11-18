@@ -18,12 +18,11 @@ const TONE: Record<Disponibilidad, TagTone> = { Disponible: 't-green', 'Pocas un
 
 interface ProductCardProps {
   item: CatalogItem;
-  /** "internal": vista previa en el panel. "public": catálogo del sitio con botón Solicitar. */
-  variant: 'internal' | 'public';
-  onRequest?(item: CatalogItem): void;
+  /** Vista previa del catálogo dentro del panel interno (el sitio público usa features/public). */
+  variant: 'internal';
 }
 
-export function ProductCard({ item, variant, onRequest }: ProductCardProps) {
+export function ProductCard({ item }: ProductCardProps) {
   return (
     <div className="prod-card">
       <div className="img">
@@ -32,16 +31,13 @@ export function ProductCard({ item, variant, onRequest }: ProductCardProps) {
       </div>
       <div className="bd">
         <b>{item.nombre}</b>
-        <div className="mk">{variant === 'internal' ? `${item.marca} · ${item.sku}` : item.marca}</div>
+        <div className="mk">
+          {item.marca} · {item.sku}
+        </div>
         <div className="pr">{money(item.precio)}</div>
         <div className="av">
           <Tag tone={TONE[item.disponibilidad]}>{item.disponibilidad}</Tag>
         </div>
-        {variant === 'public' && (
-          <button className="b b-out b-sm" style={{ marginTop: 10 }} onClick={() => onRequest?.(item)}>
-            Solicitar
-          </button>
-        )}
       </div>
     </div>
   );

@@ -4,7 +4,17 @@ import { decimalToNumber } from '../common/utils/decimal';
 import { UserRole } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-export type SearchType = 'PRODUCT' | 'CUSTOMER' | 'SUPPLIER' | 'SALE' | 'QUOTATION' | 'INQUIRY' | 'PURCHASE' | 'SERVICE_ORDER';
+export type SearchType =
+  | 'PRODUCT'
+  | 'CUSTOMER'
+  | 'SUPPLIER'
+  | 'SALE'
+  | 'QUOTATION'
+  | 'INQUIRY'
+  | 'PURCHASE'
+  | 'SERVICE_ORDER'
+  | 'PRODUCTION_ORDER'
+  | 'PRODUCTION_LOT';
 
 export interface SearchHit {
   type: SearchType;
@@ -21,8 +31,8 @@ const can = (u: AuthUser, perm: string) => u.role === UserRole.ADMIN || u.permis
 
 /**
  * Búsqueda global (mejora n.° 7): un solo cuadro para productos, clientes, proveedores, ventas,
- * cotizaciones, solicitudes, compras y órdenes OPI. Cada grupo aparece solo si el usuario puede
- * leer ese módulo; un técnico solo encuentra sus propias órdenes.
+ * cotizaciones, solicitudes, compras, órdenes OPI, órdenes de producción y lotes. Cada grupo
+ * aparece solo si el usuario puede leer ese módulo; un técnico solo encuentra sus propias órdenes.
  */
 @Injectable()
 export class SearchService {
@@ -146,6 +156,34 @@ export class SearchService {
             .then((rows) =>
               rows.map<SearchHit>((o) => ({
                 type: 'SERVICE_ORDER', id: o.id, code: o.code, title: o.customer.name, subtitle: o.description.slice(0, 80), status: o.status,
+              })),
+            )
+        : [],
+      can(actor, 'production:read')
+        ? this.prisma.productionOrder
+            .findMany({
+              where: { OR: [{ code: has }, { product: { name: has } }, { product: { sku: has } }] },
+              select: { id: true, code: true, quantity: true, status: true, product: { select: { sku: true, name: true } } },
+              orderBy: { createdAt: 'desc' },
+              take,
+            })
+            .then((rows) =>
+              rows.map<SearchHit>((o) => ({
+                type: 'PRODUCTION_ORDER', id: o.id, code: o.code, title: o.product.name, subtitle: `${o.quantity} u. · ${o.product.sku}`, status: o.status,
+              })),
+            )
+        : [],
+      can(actor, 'production:read')
+        ? this.prisma.productionLot
+            .findMany({
+              where: { OR: [{ code: has }, { order: { code: has } }] },
+              select: { id: true, code: true, quantity: true, releasedQuantity: true, status: true, order: { select: { code: true } }, product: { select: { name: true } } },
+              orderBy: { producedAt: 'desc' },
+              take,
+            })
+            .then((rows) =>
+              rows.map<SearchHit>((l) => ({
+                type: 'PRODUCTION_LOT', id: l.id, code: l.code, title: l.product.name, subtitle: `${l.order.code} · ${l.releasedQuantity} de ${l.quantity} liberadas`, status: l.status,
               })),
             )
         : [],

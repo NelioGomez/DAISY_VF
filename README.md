@@ -202,6 +202,63 @@ datos: solo se usa para el vuelto y el comprobante de esa venta.
 
 El token de cliente no sirve en la API interna y el del personal no sirve en `/portal`.
 
+## Manufactura: BOM, rutas, órdenes de producción, lotes y calidad
+
+Bloque manufacturero alrededor del producto piloto **Manguera 3/4" × 10 pies con terminales**.
+Demuestra el flujo **compra → recepción → producción → inventario → venta** con lote, no conformidad
+y su disposición. Desde la carpeta `backend`:
+
+```powershell
+npm install
+npx prisma generate
+npx prisma migrate deploy      # aplica 20261031000000_manufactura
+npm run seed:manufactura       # datos maestros del piloto (se puede repetir)
+npm run start:dev
+```
+
+La migración crea `boms`, `bom_items`, `production_routes`, `route_operations`, `production_orders`,
+`production_consumptions`, `production_order_steps`, `production_lots` y `quality_inspections`; agrega la
+unidad `FOOT` (pie) y las columnas `production_order_id` / `production_lot_id` a `inventory_movements`, y los
+permisos `production:read|write` y `quality:read|write` (Administrador y Enc. de inventario: todo; Gerencia:
+lectura). El seed **no** carga stock ni precio: el stock entra con una compra y el precio lo fija Gerencia.
+
+| SKU | Producto | Unidad |
+| --- | --- | --- |
+| `MNG-34-PIE` | Manguera 3/4" a granel (por pie) | pie |
+| `TRM-34-M` / `TRM-34-H` | Terminal macho / hembra 3/4" NPT | unidad |
+| `MNG-34-10P` | Manguera 3/4" × 10 pies con terminales (producto terminado) | unidad |
+| `LM-000001` | BOM: 10 pies de manguera + 1 terminal macho + 1 terminal hembra | — |
+| `RT-000001` | Ruta: 10 Medición y corte → 20 Acoplamiento de terminales → 30 Verificación | — |
+
+**Recorrido para la defensa** (usuario `ngomez` o `admin`):
+
+1. **Compras** → nueva compra de 50 pies de `MNG-34-PIE` y 5 de cada terminal → ordenar → registrar recepción.
+2. **Producción** → *Nueva orden de producción* → `MNG-34-10P`, cantidad 5 (OP-000001): muestra lo requerido y si
+   alcanza. *Liberar* → *Iniciar producción*: descarga los materiales del inventario al costo promedio (salidas
+   con origen OP en el kardex). Si falta material, no deja iniciar y ofrece *Comprar faltantes*.
+3. Marcar los pasos de la ruta en orden → *Terminar orden*: las unidades forman el lote `LOT-…` **por inspeccionar**
+   (todavía no están en el inventario).
+4. *Inspeccionar*: conformes / no conformes. Para las no conformes se elige la disposición: **Retrabajo** (vuelven a
+   inspección), **Scrap** (se desechan) o **Liberación por concesión** (entran con el defecto documentado). Lo
+   liberado entra al inventario con costo = materiales consumidos ÷ unidades producidas.
+5. Gerencia fija el precio de `MNG-34-10P` → **Punto de venta** → vender.
+6. **Dashboard** → tarjeta *Manufactura*: rendimiento (yield = liberadas ÷ planificadas de las OP terminadas),
+   tasa de no conformidad (no conformes ÷ inspeccionadas en la primera inspección) y tiempo de ciclo promedio
+   (inicio → término), todo de los últimos 30 días y calculado por el servidor.
+
+Los productos tienen ahora **unidad de medida** (formulario de producto). La búsqueda global (Ctrl + K) encuentra
+órdenes `OP-…` y lotes `LOT-…`, y el kardex muestra el origen de cada movimiento de producción.
+
+| Método y ruta | Permiso | Uso |
+| --- | --- | --- |
+| `GET/POST /production/boms`, `GET/PATCH /production/boms/:id`, `PATCH …/:id/status` | `production:*` | BOM; si ya se usó, editar crea una versión nueva |
+| `GET/POST /production/routes`, `GET/PATCH /production/routes/:id`, `PATCH …/:id/status` | `production:*` | Rutas y operaciones |
+| `GET/POST /production/orders`, `GET /production/orders/:id` | `production:*` | Órdenes (detalle con materiales, pasos, lotes y movimientos) |
+| `POST /production/orders/:id/release` · `/start` · `/complete` · `/cancel` | `production:write` (+ `inventory:write` para iniciar) | Ciclo de la orden |
+| `POST /production/orders/:id/steps/:stepId/complete` | `production:write` | Registrar un paso de la ruta (en orden) |
+| `GET /production/lots`, `GET /production/lots/:id` | `production:read` | Lotes con su historial de inspecciones |
+| `POST /production/lots/:id/inspections` | `quality:write` | Inspección: `defectiveQuantity`, `disposition` (REWORK/SCRAP/RELEASE) |
+
 ## Inventario (Fase 9)
 
 | Método | Ruta | Permiso |
@@ -368,6 +425,7 @@ Estas tres fases **no cambian el esquema**: no hace falta una migración nueva (
 | `npx prisma migrate dev` | Crea/aplica migraciones en desarrollo |
 | `npx prisma migrate deploy` | Aplica migraciones en producción |
 | `npm test` | Pruebas unitarias |
+| `npm run seed:manufactura` | Datos maestros del producto piloto de manufactura |
 
 ## Notas de diseño
 

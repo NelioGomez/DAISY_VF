@@ -45,6 +45,7 @@ const UNIT_LABEL: Record<string, string> = {
   METER: 'metro',
   LITER: 'litro',
   GALLON: 'galón',
+  FOOT: 'pie',
 };
 
 export function availabilityOf(stock: number, minStock: number): Availability {

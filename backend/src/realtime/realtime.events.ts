@@ -20,6 +20,8 @@ export const CHANGE_AUDIENCE: Record<string, { primary: string[]; related: strin
   // Una recepción mueve stock y costo promedio: inventario, productos y catálogo también recargan.
   purchases: { primary: ['purchases:read'], related: ['inventory:read', 'products:read', 'catalog:read', 'dashboard:read'] },
   quotations: { primary: ['quotations:read'], related: ['dashboard:read'] },
+  // Producción consume materiales y, al liberar calidad un lote, entra producto terminado.
+  production: { primary: ['production:read'], related: ['inventory:read', 'products:read', 'catalog:read', 'dashboard:read'] },
   sales: {
     primary: ['sales:read'],
     related: ['inventory:read', 'products:read', 'payments:read', 'customers:read', 'quotations:read', 'service-orders:read', 'dashboard:read', 'catalog:read'],

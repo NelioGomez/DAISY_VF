@@ -15,6 +15,10 @@ export interface MovementContext {
   saleId?: string | null;
   /** Línea de recepción de compra que origina la entrada (relación 1:1). */
   purchaseReceiptItemId?: string | null;
+  /** Orden de producción: consumo de materiales (salida) o producto terminado (entrada). */
+  productionOrderId?: string | null;
+  /** Lote liberado por calidad que origina la entrada del producto terminado. */
+  productionLotId?: string | null;
   /** Dónde ocurrió; por defecto la bodega principal (valor por defecto de la columna). */
   locationId?: number;
 }
@@ -186,6 +190,8 @@ export class StockService {
         supplierId: ctx.supplierId ?? null,
         saleId: ctx.saleId ?? null,
         purchaseReceiptItemId: ctx.purchaseReceiptItemId ?? null,
+        productionOrderId: ctx.productionOrderId ?? null,
+        productionLotId: ctx.productionLotId ?? null,
         ...(ctx.locationId !== undefined && { locationId: ctx.locationId }),
       },
     });

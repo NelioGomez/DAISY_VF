@@ -24,6 +24,7 @@ const MODULE_LABEL: Record<string, string> = {
   brands: 'Marcas',
   inventory: 'Inventario',
   purchases: 'Compras',
+  production: 'Producción',
   portal: 'Portal de clientes',
   customers: 'Clientes',
   suppliers: 'Proveedores',

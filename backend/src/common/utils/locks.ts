@@ -20,3 +20,9 @@ export const lockInquiry = (tx: Prisma.TransactionClient, id: string) =>
   tx.$queryRaw`SELECT id FROM web_inquiries WHERE id = ${id}::uuid FOR UPDATE`;
 
 export const TX_OPTIONS = { maxWait: 5_000, timeout: 20_000 } as const;
+
+export const lockProductionOrder = (tx: Prisma.TransactionClient, id: string) =>
+  tx.$queryRaw`SELECT id FROM production_orders WHERE id = ${id}::uuid FOR UPDATE`;
+
+export const lockProductionLot = (tx: Prisma.TransactionClient, id: string) =>
+  tx.$queryRaw`SELECT id FROM production_lots WHERE id = ${id}::uuid FOR UPDATE`;

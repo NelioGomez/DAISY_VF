@@ -15,6 +15,7 @@ import {
   Min,
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { UnitOfMeasure } from '../../generated/prisma/client';
 import { SortOrder } from '../../common/dto/sort-order.enum';
 import { emptyToNull } from '../../common/transformers/text.transformers';
 import { toBoolean } from '../../common/transformers/to-boolean.transformer';
@@ -63,6 +64,15 @@ export class CreateProductDto {
   @IsString()
   @MaxLength(2000)
   description?: string;
+
+  @ApiPropertyOptional({
+    enum: UnitOfMeasure,
+    default: UnitOfMeasure.UNIT,
+    description: 'Unidad en que se controla el stock (p. ej. FOOT para manguera a granel que se consume por pie)',
+  })
+  @IsOptional()
+  @IsEnum(UnitOfMeasure, { message: 'Unidad de medida inválida' })
+  unit?: UnitOfMeasure;
 
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   @IsOptional()

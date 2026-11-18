@@ -104,6 +104,7 @@ enum UnitOfMeasure {
   METER
   LITER
   GALLON
+  FOOT
 }
 
 /// Operación real de NORCOR: una bodega y una sucursal (sin multialmacén).
@@ -179,6 +180,10 @@ model User {
   configChanges      SystemConfig[]
   resetCodes         PasswordResetCode[]
   resetTokens        PasswordResetToken[]
+  boms               Bom[]
+  productionOrders   ProductionOrder[]     @relation("ProductionOrderCreatedBy")
+  productionSteps    ProductionOrderStep[] @relation("ProductionStepCompletedBy")
+  qualityInspections QualityInspection[]   @relation("QualityInspector")
 
   @@index([roleId])
   @@map("users")
@@ -307,6 +312,14 @@ model Product {
   suppliers      ProductSupplier[]
   purchaseItems  PurchaseItem[]
   inquiryItems   WebInquiryItem[]
+
+  // Manufactura (entrega 2): el producto puede ser terminado (BOM, ruta, OP, lote) o componente.
+  boms                   Bom[]                   @relation("BomProduct")
+  bomComponents          BomItem[]               @relation("BomComponent")
+  productionRoutes       ProductionRoute[]       @relation("RouteProduct")
+  productionOrders       ProductionOrder[]       @relation("ProductionOrderProduct")
+  productionConsumptions ProductionConsumption[] @relation("ProductionConsumptionComponent")
+  productionLots         ProductionLot[]         @relation("ProductionLotProduct")
 
   @@index([categoryId])
   @@index([brandId])
@@ -445,6 +458,10 @@ model InventoryMovement {
   locationId            Int                   @default(1) @map("location_id") @db.SmallInt
   saleId                String?               @map("sale_id") @db.Uuid
   purchaseReceiptItemId String?               @unique @map("purchase_receipt_item_id") @db.Uuid
+  /// Consumo de materiales o entrada de producto terminado de una orden de producción.
+  productionOrderId     String?               @map("production_order_id") @db.Uuid
+  /// Lote liberado por calidad que origina la entrada del producto terminado.
+  productionLotId       String?               @map("production_lot_id") @db.Uuid
   createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
 
   product             Product              @relation(fields: [productId], references: [id])
@@ -453,6 +470,8 @@ model InventoryMovement {
   location            Location             @relation(fields: [locationId], references: [id])
   sale                Sale?                @relation(fields: [saleId], references: [id], onDelete: Restrict)
   purchaseReceiptItem PurchaseReceiptItem? @relation(fields: [purchaseReceiptItemId], references: [id], onDelete: Restrict)
+  productionOrder     ProductionOrder?     @relation(fields: [productionOrderId], references: [id], onDelete: Restrict)
+  productionLot       ProductionLot?       @relation(fields: [productionLotId], references: [id], onDelete: Restrict)
 
   @@index([productId, createdAt])
   @@index([createdAt])
@@ -460,6 +479,8 @@ model InventoryMovement {
   @@index([userId])
   @@index([supplierId])
   @@index([saleId])
+  @@index([productionOrderId])
+  @@index([productionLotId])
   @@map("inventory_movements")
 }
 
@@ -808,3 +829,256 @@ model SystemConfig {
   @@index([updatedById])
   @@map("system_config")
 }
+
+// =====================================================================
+// MANUFACTURA (Proyecto integrador ERP, entrega 2)
+// Compra → recepción → producción → inventario → venta, con lote y control de calidad.
+// La producción usa el mismo StockService: el consumo de materiales es una SALIDA y el
+// producto terminado ENTRA al inventario solo cuando calidad libera el lote.
+// =====================================================================
+
+enum ProductionOrderStatus {
+  DRAFT
+  RELEASED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ProductionStepStatus {
+  PENDING
+  DONE
+}
+
+enum LotStatus {
+  PENDING_QC
+  REWORK
+  RELEASED
+  SCRAPPED
+}
+
+enum InspectionStage {
+  INITIAL
+  REWORK
+}
+
+enum InspectionResult {
+  CONFORMING
+  NONCONFORMING
+}
+
+/// Disposición de las unidades no conformes.
+enum NonconformityDisposition {
+  REWORK
+  SCRAP
+  RELEASE
+}
+
+/// Lista de materiales (BOM): componentes que consume UNA unidad del producto terminado.
+model Bom {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  code        String   @unique @db.VarChar(30) // LM-000001
+  productId   String   @map("product_id") @db.Uuid
+  version     Int      @default(1)
+  isActive    Boolean  @default(true) @map("is_active")
+  notes       String?  @db.VarChar(500)
+  createdById String   @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product   Product           @relation("BomProduct", fields: [productId], references: [id])
+  createdBy User              @relation(fields: [createdById], references: [id])
+  items     BomItem[]
+  orders    ProductionOrder[]
+
+  @@unique([productId, version])
+  @@index([createdById])
+  @@map("boms")
+}
+
+model BomItem {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  bomId       String  @map("bom_id") @db.Uuid
+  componentId String  @map("component_id") @db.Uuid
+  /// Por unidad terminada, en la unidad de medida del componente (p. ej. 10 pies).
+  quantity    Int
+  notes       String? @db.VarChar(255)
+
+  bom       Bom     @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  component Product @relation("BomComponent", fields: [componentId], references: [id])
+
+  @@unique([bomId, componentId])
+  @@index([componentId])
+  @@map("bom_items")
+}
+
+/// Ruta de producción: operaciones en orden (p. ej. corte → acoplamiento → verificación).
+model ProductionRoute {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  code      String   @unique @db.VarChar(30) // RT-000001
+  productId String   @map("product_id") @db.Uuid
+  name      String   @db.VarChar(120)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product    Product           @relation("RouteProduct", fields: [productId], references: [id])
+  operations RouteOperation[]
+  orders     ProductionOrder[]
+
+  @@index([productId])
+  @@map("production_routes")
+}
+
+model RouteOperation {
+  id              String  @id @default(uuid(7)) @db.Uuid
+  routeId         String  @map("route_id") @db.Uuid
+  sequence        Int
+  name            String  @db.VarChar(120)
+  workCenter      String? @map("work_center") @db.VarChar(80)
+  /// Minutos estándar por unidad.
+  standardMinutes Int     @default(0) @map("standard_minutes")
+  instructions    String? @db.VarChar(500)
+
+  route ProductionRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@unique([routeId, sequence])
+  @@map("route_operations")
+}
+
+/// Orden de producción (OP): fabrica N unidades consumiendo la BOM y siguiendo la ruta.
+model ProductionOrder {
+  id                 String                @id @default(uuid(7)) @db.Uuid
+  code               String                @unique @db.VarChar(30) // OP-000001
+  productId          String                @map("product_id") @db.Uuid
+  bomId              String                @map("bom_id") @db.Uuid
+  routeId            String?               @map("route_id") @db.Uuid
+  /// Cantidad planificada.
+  quantity           Int
+  /// Unidades buenas reportadas al terminar (forman el lote).
+  producedQuantity   Int                   @default(0) @map("produced_quantity")
+  status             ProductionOrderStatus @default(DRAFT)
+  plannedStart       DateTime?             @map("planned_start") @db.Timestamptz(3)
+  dueDate            DateTime?             @map("due_date") @db.Timestamptz(3)
+  releasedAt         DateTime?             @map("released_at") @db.Timestamptz(3)
+  startedAt          DateTime?             @map("started_at") @db.Timestamptz(3)
+  completedAt        DateTime?             @map("completed_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?             @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?               @map("cancellation_reason") @db.VarChar(500)
+  /// Costo (C$) de los materiales consumidos; base del costo unitario del lote.
+  materialCost       Decimal               @default(0) @map("material_cost") @db.Decimal(14, 2)
+  notes              String?               @db.VarChar(1000)
+  createdById        String                @map("created_by_id") @db.Uuid
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product      Product                 @relation("ProductionOrderProduct", fields: [productId], references: [id])
+  bom          Bom                     @relation(fields: [bomId], references: [id])
+  route        ProductionRoute?        @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  createdBy    User                    @relation("ProductionOrderCreatedBy", fields: [createdById], references: [id])
+  consumptions ProductionConsumption[]
+  steps        ProductionOrderStep[]
+  lots         ProductionLot[]
+  movements    InventoryMovement[]
+
+  @@index([productId])
+  @@index([bomId])
+  @@index([routeId])
+  @@index([status])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("production_orders")
+}
+
+/// Materiales de la OP: lo planificado según la BOM y lo realmente consumido (con su costo).
+model ProductionConsumption {
+  id               String  @id @default(uuid(7)) @db.Uuid
+  orderId          String  @map("order_id") @db.Uuid
+  componentId      String  @map("component_id") @db.Uuid
+  plannedQuantity  Int     @map("planned_quantity")
+  consumedQuantity Int     @default(0) @map("consumed_quantity")
+  /// Costo promedio del componente al momento del consumo.
+  unitCost         Decimal @default(0) @map("unit_cost") @db.Decimal(14, 4)
+
+  order     ProductionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  component Product         @relation("ProductionConsumptionComponent", fields: [componentId], references: [id])
+
+  @@unique([orderId, componentId])
+  @@index([componentId])
+  @@map("production_consumptions")
+}
+
+/// Pasos de la OP copiados de la ruta: se marcan hechos en orden.
+model ProductionOrderStep {
+  id              String               @id @default(uuid(7)) @db.Uuid
+  orderId         String               @map("order_id") @db.Uuid
+  sequence        Int
+  name            String               @db.VarChar(120)
+  workCenter      String?              @map("work_center") @db.VarChar(80)
+  standardMinutes Int                  @default(0) @map("standard_minutes")
+  status          ProductionStepStatus @default(PENDING)
+  completedAt     DateTime?            @map("completed_at") @db.Timestamptz(3)
+  completedById   String?              @map("completed_by_id") @db.Uuid
+  notes           String?              @db.VarChar(500)
+
+  order       ProductionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  completedBy User?           @relation("ProductionStepCompletedBy", fields: [completedById], references: [id])
+
+  @@unique([orderId, sequence])
+  @@index([completedById])
+  @@map("production_order_steps")
+}
+
+/// Lote de producto terminado de una OP. Sus unidades entran al inventario al liberarlas calidad.
+model ProductionLot {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  code             String    @unique @db.VarChar(30) // LOT-000001
+  orderId          String    @map("order_id") @db.Uuid
+  productId        String    @map("product_id") @db.Uuid
+  quantity         Int
+  /// Por inspeccionar.
+  pendingQuantity  Int       @map("pending_quantity")
+  /// No conformes enviadas a retrabajo (esperan reinspección).
+  reworkQuantity   Int       @default(0) @map("rework_quantity")
+  releasedQuantity Int       @default(0) @map("released_quantity")
+  scrappedQuantity Int       @default(0) @map("scrapped_quantity")
+  status           LotStatus @default(PENDING_QC)
+  /// Costo unitario de materiales con el que entra al inventario.
+  unitCost         Decimal   @default(0) @map("unit_cost") @db.Decimal(14, 4)
+  producedAt       DateTime  @default(now()) @map("produced_at") @db.Timestamptz(3)
+
+  order       ProductionOrder     @relation(fields: [orderId], references: [id])
+  product     Product             @relation("ProductionLotProduct", fields: [productId], references: [id])
+  inspections QualityInspection[]
+  movements   InventoryMovement[]
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([status])
+  @@map("production_lots")
+}
+
+/// Inspección de calidad de un lote: conformes se liberan; las no conformes reciben disposición.
+model QualityInspection {
+  id                String                    @id @default(uuid(7)) @db.Uuid
+  code              String                    @unique @db.VarChar(30) // QC-000001
+  lotId             String                    @map("lot_id") @db.Uuid
+  stage             InspectionStage
+  inspectedQuantity Int                       @map("inspected_quantity")
+  defectiveQuantity Int                       @default(0) @map("defective_quantity")
+  result            InspectionResult
+  disposition       NonconformityDisposition?
+  defectDescription String?                   @map("defect_description") @db.VarChar(500)
+  notes             String?                   @db.VarChar(500)
+  inspectorId       String                    @map("inspector_id") @db.Uuid
+  inspectedAt       DateTime                  @default(now()) @map("inspected_at") @db.Timestamptz(3)
+
+  lot       ProductionLot @relation(fields: [lotId], references: [id])
+  inspector User          @relation("QualityInspector", fields: [inspectorId], references: [id])
+
+  @@index([lotId])
+  @@index([inspectorId])
+  @@index([inspectedAt])
+  @@map("quality_inspections")
+}
+

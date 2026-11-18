@@ -23,7 +23,9 @@ export interface Alert {
     | 'PURCHASES_LATE'
     | 'PURCHASES_TO_RECEIVE'
     | 'SERVICE_ORDERS_UNASSIGNED'
-    | 'SERVICE_ORDERS_ASSIGNED';
+    | 'SERVICE_ORDERS_ASSIGNED'
+    | 'LOTS_PENDING_QC'
+    | 'PRODUCTION_RELEASED';
   severity: 'critical' | 'warning' | 'info';
   message: string;
   count: number;
@@ -50,7 +52,7 @@ export class DashboardService {
     const canStock = can(actor, 'inventory:read') || can(actor, 'products:read');
     const canAr = can(actor, 'payments:read') || canSales;
 
-    const [sales, inventory, receivables, orders, quotations, inquiries, purchases] = await Promise.all([
+    const [sales, inventory, receivables, orders, quotations, inquiries, purchases, production] = await Promise.all([
       canSales ? this.sales(now, since) : null,
       canStock ? this.inventory(can(actor, 'inventory:read')) : null,
       canAr ? this.receivables(now) : null,
@@ -58,6 +60,7 @@ export class DashboardService {
       can(actor, 'quotations:read') ? this.quotations(now, since) : null,
       can(actor, 'inquiries:read') ? this.inquiries() : null,
       can(actor, 'purchases:read') ? this.purchases(now) : null,
+      can(actor, 'production:read') ? this.production(since) : null,
     ]);
 
     return {
@@ -69,7 +72,11 @@ export class DashboardService {
       quotations,
       inquiries,
       purchases,
-      alerts: this.alerts(inventory, receivables, quotations, inquiries, purchases, orders, actor.role === UserRole.TECHNICIAN),
+      production,
+      alerts: [
+        ...this.alerts(inventory, receivables, quotations, inquiries, purchases, orders, actor.role === UserRole.TECHNICIAN),
+        ...this.productionAlerts(production),
+      ],
     };
   }
 
@@ -237,6 +244,70 @@ export class DashboardService {
         previous30Days: { issued: int(r.issued_prev), converted: int(r.converted_prev) },
       },
     };
+  }
+
+  /**
+   * KPI de manufactura (entrega 2) calculados con los datos del sistema, últimos 30 días:
+   * - Rendimiento: unidades liberadas por calidad ÷ unidades planificadas de las OP terminadas.
+   * - Tasa de no conformidad: no conformes ÷ inspeccionadas en la primera inspección.
+   * - Tiempo de ciclo: promedio entre el inicio y el término de las OP terminadas.
+   */
+  private async production(since: Date) {
+    const [orders, lots, qc, pending] = await Promise.all([
+      this.prisma.$queryRaw(Prisma.sql`
+        SELECT COUNT(*) FILTER (WHERE status = 'RELEASED')::int AS released,
+               COUNT(*) FILTER (WHERE status = 'IN_PROGRESS')::int AS in_progress,
+               COUNT(*) FILTER (WHERE status = 'COMPLETED' AND completed_at >= ${ts(since)})::int AS completed,
+               COALESCE(SUM(quantity) FILTER (WHERE status = 'COMPLETED' AND completed_at >= ${ts(since)}), 0)::int AS planned,
+               COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) / 3600)
+                        FILTER (WHERE status = 'COMPLETED' AND completed_at >= ${ts(since)}), 0)::text AS cycle_hours
+        FROM production_orders`) as Promise<Raw[]>,
+      this.prisma.$queryRaw(Prisma.sql`
+        SELECT COALESCE(SUM(l.released_quantity), 0)::int AS released,
+               COALESCE(SUM(l.scrapped_quantity), 0)::int AS scrapped,
+               COALESCE(SUM(l.pending_quantity + l.rework_quantity), 0)::int AS awaiting
+        FROM production_lots l JOIN production_orders o ON o.id = l.order_id
+        WHERE o.status = 'COMPLETED' AND o.completed_at >= ${ts(since)}`) as Promise<Raw[]>,
+      this.prisma.$queryRaw(Prisma.sql`
+        SELECT COALESCE(SUM(inspected_quantity), 0)::int AS inspected,
+               COALESCE(SUM(defective_quantity), 0)::int AS defective
+        FROM quality_inspections WHERE stage = 'INITIAL' AND inspected_at >= ${ts(since)}`) as Promise<Raw[]>,
+      this.prisma.$queryRaw(Prisma.sql`
+        SELECT COUNT(*) FILTER (WHERE status IN ('PENDING_QC', 'REWORK'))::int AS lots
+        FROM production_lots`) as Promise<Raw[]>,
+    ]);
+    const o = orders[0] ?? {};
+    const l = lots[0] ?? {};
+    const q = qc[0] ?? {};
+    const planned = int(o.planned);
+    const inspected = int(q.inspected);
+    const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 1000) / 10 : null);
+    return {
+      releasedOrders: int(o.released),
+      inProgressOrders: int(o.in_progress),
+      completedOrders30: int(o.completed),
+      plannedUnits30: planned,
+      releasedUnits30: int(l.released),
+      scrappedUnits30: int(l.scrapped),
+      awaitingInspectionUnits30: int(l.awaiting),
+      yieldPercent: pct(int(l.released), planned),
+      inspectedUnits30: inspected,
+      defectiveUnits30: int(q.defective),
+      nonconformityPercent: pct(int(q.defective), inspected),
+      avgCycleHours: Math.round(Number(o.cycle_hours ?? 0) * 100) / 100,
+      lotsPendingQc: int(pending[0]?.lots),
+    };
+  }
+
+  private productionAlerts(p: { lotsPendingQc: number; releasedOrders: number } | null): Alert[] {
+    const out: Alert[] = [];
+    if (p?.lotsPendingQc) {
+      out.push({ type: 'LOTS_PENDING_QC', severity: 'warning', count: p.lotsPendingQc, message: `${p.lotsPendingQc} lote(s) esperan inspección de calidad` });
+    }
+    if (p?.releasedOrders) {
+      out.push({ type: 'PRODUCTION_RELEASED', severity: 'info', count: p.releasedOrders, message: `${p.releasedOrders} orden(es) de producción liberada(s) por iniciar` });
+    }
+    return out;
   }
 
   private async purchases(now: Date) {

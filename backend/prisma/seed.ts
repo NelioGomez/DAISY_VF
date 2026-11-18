@@ -24,6 +24,8 @@ const MODULES = [
   'service-orders', 'reports', 'inquiries', 'audit', 'catalog',
   // Mejoras: compras y recepción, precio comercial con historial, configuración del negocio.
   'purchases', 'prices', 'settings',
+  // Manufactura (entrega 2): BOM, rutas, órdenes de producción, lotes y control de calidad.
+  'production', 'quality',
 ];
 const ACTIONS = ['read', 'write'];
 // Permisos especiales fuera del par read/write (acciones sensibles).
@@ -40,6 +42,8 @@ const ROLE_ACCESS: Record<UserRole, string[]> = {
     'dashboard:read', 'reports:read', 'inventory:read', 'sales:read', 'audit:read',
     // Gerencia establece el precio comercial y consulta las compras.
     'prices:read', 'prices:write', 'purchases:read',
+    // Consulta producción y calidad (KPI de manufactura).
+    'production:read', 'quality:read',
   ],
   SELLER: [
     'dashboard:read', 'customers:read', 'customers:write',
@@ -54,6 +58,8 @@ const ROLE_ACCESS: Record<UserRole, string[]> = {
     'inventory:read', 'inventory:write', 'suppliers:read', 'suppliers:write',
     // Compras y recepción (el costo sale de lo comprado); el precio lo ve, no lo fija.
     'purchases:read', 'purchases:write', 'prices:read',
+    // Producción y control de calidad del taller.
+    'production:read', 'production:write', 'quality:read', 'quality:write',
   ],
   ACCOUNTING: [
     'dashboard:read', 'sales:read', 'payments:read', 'payments:write', 'reports:read',

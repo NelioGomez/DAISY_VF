@@ -57,6 +57,8 @@ const AdminRoles = page(() => import('../../features/admin/RolesPage'), 'RolesPa
 const AdminCatalogs = page(() => import('../../features/admin/CatalogsPage'), 'CatalogsPage');
 const AdminPartners = page(() => import('../../features/admin/PartnersPage'), 'PartnersPage');
 const AdminCompany = page(() => import('../../features/admin/CompanyPage'), 'CompanyPage');
+const AdminPortal = page(() => import('../../features/admin/PortalAccountsPage'), 'PortalAccountsPage');
+const AdminActivity = page(() => import('../../features/admin/ActivityPage'), 'ActivityPage');
 
 const staff = (el: ReactElement) => <Suspense fallback={<FullScreenLoader text="Cargando SIVEN…" />}>{el}</Suspense>;
 
@@ -113,10 +115,12 @@ export function AppRouter() {
       <Route path="/admin" element={staff(<AdminLayout />)}>
         <Route index element={<Navigate to="usuarios" replace />} />
         <Route path="usuarios" element={staff(<AdminUsers />)} />
+        <Route path="portal" element={staff(<AdminPortal />)} />
         <Route path="roles" element={staff(<AdminRoles />)} />
         <Route path="catalogos" element={staff(<AdminCatalogs />)} />
         <Route path="socios" element={staff(<AdminPartners />)} />
         <Route path="empresa" element={staff(<AdminCompany />)} />
+        <Route path="actividad" element={staff(<AdminActivity />)} />
         <Route path="*" element={<Navigate to="usuarios" replace />} />
       </Route>
       <Route path="/app" element={staff(<RequireAuth>{<DashboardLayout />}</RequireAuth>)}>

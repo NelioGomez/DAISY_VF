@@ -65,7 +65,7 @@ export class CustomerAuthGuard implements CanActivate {
     });
     if (!account || !account.isActive || !account.customer.isActive) throw new UnauthorizedException('La cuenta no está activa');
     if (issuedBeforePasswordChange(payload.iat, account.passwordChangedAt, payload.iatMs)) {
-      throw new UnauthorizedException('La contraseña cambió; inicie sesión de nuevo');
+      throw new UnauthorizedException('Su sesión se cerró (cambio de contraseña o cierre por el administrador); inicie sesión de nuevo');
     }
 
     req.customer = {

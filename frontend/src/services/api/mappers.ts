@@ -668,7 +668,7 @@ export const DEFAULT_CONFIG: Configuracion = {
   taxRate: 0,
   taxRegime: 'CUOTA_FIJA',
   creditTermDays: 15,
-  empresa: { name: 'NORCOR FUELING SYSTEM', phone: '', email: '', whatsapp: '', address: '' },
+  empresa: { name: 'NORCOR FUELING SYSTEM', ruc: '', phone: '', email: '', whatsapp: '', address: '' },
 };
 
 export const mapConfig = (c: Json): Configuracion => ({

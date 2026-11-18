@@ -1,23 +1,36 @@
-/* Administración › Usuarios: crear usuarios con su rol, editarlos, restablecer su contraseña y
-   activarlos o desactivarlos. El backend impide cambiar el propio rol y desactivar la propia cuenta. */
+/* Administración › Usuarios (mejoras n.° 66 y 69): crear usuarios con su rol y tener el control
+   completo de cada cuenta: usuario, correo, nombres y rol, contraseña, sesiones abiertas y estado.
+   La ficha de cada usuario muestra lo que ha hecho y los cambios que se le han hecho a su cuenta.
+   El backend impide cambiar el propio rol, desactivar la propia cuenta y repetir usuario o correo. */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Icon } from '../../components/common/Icon';
 import { Field } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
 import { Modal } from '../../components/modals/Modal';
 import { useModal } from '../../components/modals/useModal';
 import { Tag } from '../../components/tables/Tag';
 import { ROLES } from '../../config/navigation';
+import { REMEMBER_USER_KEY } from '../../config/security';
 import { errorMessage } from '../../services/api/client';
 import { ROLE_FROM_API, type ApiRole } from '../../services/api/mappers';
 import { useAuth } from '../../store/hooks';
 import { fmtDateTime } from '../../utils/format';
 import { passwordRules } from '../../utils/passwordPolicy';
-import { adminApi, generarContrasena, type UsuarioAdmin } from './adminApi';
-import { AdminHead, Confirmar, Vacio } from './ui';
+import { adminApi, generarContrasena, type Evento, type FiltroActividad, type UsuarioAdmin } from './adminApi';
+import { AdminHead, ClaveTemporal, Confirmar, ListaEventos, Vacio } from './ui';
 
 const ORDEN_ROLES: ApiRole[] = ['ADMIN', 'MANAGEMENT', 'SELLER', 'INVENTORY_MANAGER', 'ACCOUNTING', 'TECHNICIAN'];
 const nombreRol = (r: ApiRole) => ROLES[ROLE_FROM_API[r]].name;
+const USUARIO_RE = /^[a-z0-9._-]{3,50}$/;
+
+type Listo = (msg: string) => void;
+
+function RolTag({ code }: { code: ApiRole }) {
+  return (
+    <span className="adm-role" style={{ ['--rc' as string]: ROLES[ROLE_FROM_API[code]].color }}>
+      {nombreRol(code)}
+    </span>
+  );
+}
 
 export function UsersPage() {
   const { user } = useAuth();
@@ -50,45 +63,18 @@ export function UsersPage() {
   }, [lista, q, rol, estado]);
 
   const activos = (lista ?? []).filter((u) => u.isActive).length;
-  const listo = (msg: string) => {
+  const nunca = (lista ?? []).filter((u) => !u.lastLoginAt).length;
+  const listo: Listo = (msg) => {
     toast(msg, 'ok');
     cargar();
   };
-
-  const cambiarEstado = (u: UsuarioAdmin) =>
-    modal.open(
-      <Confirmar
-        titulo={u.isActive ? `Desactivar a ${u.username}` : `Activar a ${u.username}`}
-        boton={u.isActive ? 'Desactivar usuario' : 'Activar usuario'}
-        peligro={u.isActive}
-        onConfirmar={async () => {
-          await adminApi.estadoUsuario(u.id, !u.isActive);
-          listo(`${u.username} ${u.isActive ? 'desactivado' : 'activado'}`);
-        }}
-      >
-        {u.isActive ? (
-          <p>
-            <b>
-              {u.firstName} {u.lastName}
-            </b>{' '}
-            ya no podrá iniciar sesión y, si tiene una sesión abierta, se cerrará en su próxima acción. Su historial (ventas, movimientos, auditoría) se conserva.
-          </p>
-        ) : (
-          <p>
-            <b>
-              {u.firstName} {u.lastName}
-            </b>{' '}
-            podrá volver a iniciar sesión con su contraseña actual.
-          </p>
-        )}
-      </Confirmar>,
-    );
+  const acciones = useAcciones(user?.id, listo);
 
   return (
     <>
       <AdminHead
         titulo="Usuarios"
-        desc="Las personas que entran a SIVEN. El rol decide qué módulos ve cada una."
+        desc="Las personas que entran a SIVEN. Haga clic en un usuario para ver su ficha y su actividad."
         acciones={
           <button type="button" className="b b-amber" onClick={() => modal.open(<UserForm onListo={listo} />)}>
             + Nuevo usuario
@@ -107,6 +93,10 @@ export function UsersPage() {
         <div>
           <b>{lista ? lista.length - activos : '—'}</b>
           <span>inactivos</span>
+        </div>
+        <div>
+          <b>{lista ? nunca : '—'}</b>
+          <span>nunca han entrado</span>
         </div>
       </div>
       <div className="toolbar">
@@ -150,7 +140,9 @@ export function UsersPage() {
               return (
                 <tr key={u.id} className={u.isActive ? '' : 'adm-off'}>
                   <td className="mono">
-                    {u.username}
+                    <button type="button" className="adm-link mono" onClick={() => modal.open(<UserFicha usuario={u} esYo={yo} acciones={acciones} />)} title="Ver la ficha del usuario">
+                      {u.username}
+                    </button>
                     {yo && <div className="sub-num">usted</div>}
                   </td>
                   <td>
@@ -158,18 +150,16 @@ export function UsersPage() {
                   </td>
                   <td>{u.email}</td>
                   <td>
-                    <span className="adm-role" style={{ ['--rc' as string]: ROLES[ROLE_FROM_API[u.role.code]].color }}>
-                      {nombreRol(u.role.code)}
-                    </span>
+                    <RolTag code={u.role.code} />
                   </td>
                   <td className="mono">{u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : <span className="muted-sm">Nunca</span>}</td>
                   <td>{u.isActive ? <Tag tone="t-green">Activo</Tag> : <Tag>Inactivo</Tag>}</td>
                   <td>
                     <span className="row-actions">
-                      <button type="button" className="b b-out b-sm" onClick={() => modal.open(<UserForm usuario={u} esYo={yo} onListo={listo} />)}>
+                      <button type="button" className="b b-out b-sm" onClick={() => acciones.editar(u)}>
                         Editar
                       </button>
-                      <button type="button" className="b b-out b-sm" onClick={() => modal.open(<ResetForm usuario={u} onListo={listo} />)}>
+                      <button type="button" className="b b-out b-sm" onClick={() => acciones.clave(u)}>
                         Contraseña
                       </button>
                       <button
@@ -177,7 +167,7 @@ export function UsersPage() {
                         className={`b b-sm ${u.isActive ? 'b-red' : 'b-green'}`}
                         disabled={yo}
                         title={yo ? 'No puede desactivar su propia cuenta' : undefined}
-                        onClick={() => cambiarEstado(u)}
+                        onClick={() => acciones.estado(u)}
                       >
                         {u.isActive ? 'Desactivar' : 'Activar'}
                       </button>
@@ -193,9 +183,174 @@ export function UsersPage() {
   );
 }
 
+/* ---------- Acciones (desde la tabla o desde la ficha) ---------- */
+
+function useAcciones(miId: string | undefined, listo: Listo) {
+  const modal = useModal();
+  return useMemo(
+    () => ({
+      editar: (u: UsuarioAdmin) => modal.open(<UserForm usuario={u} esYo={u.id === miId} onListo={listo} />),
+      clave: (u: UsuarioAdmin) => modal.open(<ResetForm usuario={u} onListo={listo} />),
+      sesiones: (u: UsuarioAdmin) =>
+        modal.open(
+          <Confirmar
+            titulo={`Cerrar las sesiones de ${u.username}`}
+            boton="Cerrar sesiones"
+            peligro
+            onConfirmar={async () => {
+              await adminApi.cerrarSesiones(u.id);
+              listo(`Se cerraron las sesiones de ${u.username}`);
+            }}
+          >
+            <p>
+              Se cierran todas las sesiones que{' '}
+              <b>
+                {u.firstName} {u.lastName}
+              </b>{' '}
+              tenga abiertas, en cualquier computadora o celular. Su contraseña no cambia: puede volver a entrar cuando quiera.
+            </p>
+            <p className="muted-sm">Úselo si perdió su celular o dejó la sesión abierta en un equipo compartido.</p>
+          </Confirmar>,
+        ),
+      estado: (u: UsuarioAdmin) =>
+        modal.open(
+          <Confirmar
+            titulo={u.isActive ? `Desactivar a ${u.username}` : `Activar a ${u.username}`}
+            boton={u.isActive ? 'Desactivar usuario' : 'Activar usuario'}
+            peligro={u.isActive}
+            onConfirmar={async () => {
+              await adminApi.estadoUsuario(u.id, !u.isActive);
+              listo(`${u.username} ${u.isActive ? 'desactivado' : 'activado'}`);
+            }}
+          >
+            {u.isActive ? (
+              <p>
+                <b>
+                  {u.firstName} {u.lastName}
+                </b>{' '}
+                ya no podrá iniciar sesión y, si tiene una sesión abierta, se cerrará en su próxima acción. Su historial (ventas, movimientos, auditoría) se conserva.
+              </p>
+            ) : (
+              <p>
+                <b>
+                  {u.firstName} {u.lastName}
+                </b>{' '}
+                podrá volver a iniciar sesión con su contraseña actual.
+              </p>
+            )}
+          </Confirmar>,
+        ),
+    }),
+    [modal, miId, listo],
+  );
+}
+
+type Acciones = ReturnType<typeof useAcciones>;
+
+/* ---------- Ficha del usuario ---------- */
+
+function UserFicha({ usuario: u, esYo, acciones }: { usuario: UsuarioAdmin; esYo: boolean; acciones: Acciones }) {
+  const { close } = useModal();
+  const [tab, setTab] = useState<'hizo' | 'cuenta'>('hizo');
+
+  return (
+    <Modal
+      wide
+      className="adm-ficha"
+      title={`${u.firstName} ${u.lastName}`}
+      footer={
+        <>
+          <button type="button" className="b b-out adm-cerrar" onClick={close}>
+            Cerrar
+          </button>
+          <button type="button" className="b b-out" onClick={() => acciones.editar(u)}>
+            Editar
+          </button>
+          <button type="button" className="b b-out" onClick={() => acciones.clave(u)}>
+            Contraseña
+          </button>
+          <button type="button" className="b b-out" disabled={esYo} title={esYo ? 'Para cerrar su propia sesión use «Cerrar sesión»' : undefined} onClick={() => acciones.sesiones(u)}>
+            Cerrar sesiones
+          </button>
+          <button type="button" className={`b ${u.isActive ? 'b-red' : 'b-green'}`} disabled={esYo} onClick={() => acciones.estado(u)}>
+            {u.isActive ? 'Desactivar' : 'Activar'}
+          </button>
+        </>
+      }
+    >
+      <dl className="adm-dl">
+        <div>
+          <dt>Usuario</dt>
+          <dd className="mono">
+            {u.username}
+            {esYo && <span className="muted-sm"> (usted)</span>}
+          </dd>
+        </div>
+        <div>
+          <dt>Correo</dt>
+          <dd>{u.email}</dd>
+        </div>
+        <div>
+          <dt>Rol</dt>
+          <dd>
+            <RolTag code={u.role.code} />
+          </dd>
+        </div>
+        <div>
+          <dt>Estado</dt>
+          <dd>{u.isActive ? <Tag tone="t-green">Activo</Tag> : <Tag>Inactivo</Tag>}</dd>
+        </div>
+        <div>
+          <dt>Creado</dt>
+          <dd className="mono">{fmtDateTime(u.createdAt)}</dd>
+        </div>
+        <div>
+          <dt>Último ingreso</dt>
+          <dd className="mono">{u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : 'Nunca'}</dd>
+        </div>
+      </dl>
+      <div className="adm-seg" role="tablist" aria-label="Historial">
+        <button type="button" role="tab" aria-selected={tab === 'hizo'} className={tab === 'hizo' ? 'is-on' : ''} onClick={() => setTab('hizo')}>
+          Lo que ha hecho
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'cuenta'} className={tab === 'cuenta' ? 'is-on' : ''} onClick={() => setTab('cuenta')}>
+          Cambios a su cuenta
+        </button>
+      </div>
+      <Historial
+        key={tab}
+        filtro={tab === 'hizo' ? { userId: u.id, limit: 15 } : { entity: 'User', entityId: u.id, limit: 15 }}
+        conQuien={tab === 'cuenta'}
+        vacio={tab === 'hizo' ? 'Todavía no hay actividad de este usuario.' : 'Nadie ha modificado esta cuenta desde que se creó.'}
+      />
+      <p className="muted-sm" style={{ marginTop: 8 }}>
+        Se muestran los 15 registros más recientes. El historial completo está en Actividad y en la Auditoría de SIVEN.
+      </p>
+    </Modal>
+  );
+}
+
+/** Últimos registros de la bitácora con un filtro fijo (se vuelve a montar al cambiar de pestaña). */
+function Historial({ filtro, vacio, conQuien }: { filtro: FiltroActividad; vacio: string; conQuien: boolean }) {
+  const [eventos, setEventos] = useState<Evento[] | null>(null);
+  const [error, setError] = useState('');
+  const clave = JSON.stringify(filtro);
+  useEffect(() => {
+    let vivo = true;
+    adminApi
+      .actividad(JSON.parse(clave) as FiltroActividad)
+      .then((r) => vivo && setEventos(r.items))
+      .catch((e) => vivo && setError(errorMessage(e)));
+    return () => {
+      vivo = false;
+    };
+  }, [clave]);
+  return error ? <div className="adm-error">{error}</div> : <ListaEventos eventos={eventos} conQuien={conQuien} vacio={vacio} />;
+}
+
 /* ---------- Crear o editar ---------- */
 
-function UserForm({ usuario, esYo = false, onListo }: { usuario?: UsuarioAdmin; esYo?: boolean; onListo: (msg: string) => void }) {
+function UserForm({ usuario, esYo = false, onListo }: { usuario?: UsuarioAdmin; esYo?: boolean; onListo: Listo }) {
   const { close } = useModal();
   const toast = useToast();
   const nuevo = !usuario;
@@ -207,26 +362,48 @@ function UserForm({ usuario, esYo = false, onListo }: { usuario?: UsuarioAdmin; 
     role: usuario?.role.code ?? ('SELLER' as ApiRole),
     password: nuevo ? generarContrasena() : '',
   });
+  const [errores, setErrores] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-  const set = (k: keyof typeof d) => (v: string) => setD((x) => ({ ...x, [k]: v }));
+  const set = (k: keyof typeof d) => (v: string) => {
+    setD((x) => ({ ...x, [k]: v }));
+    setErrores((x) => ({ ...x, [k]: '' }));
+  };
   const reglas = passwordRules(d.password, d.username);
-  const usuarioOk = /^[a-z0-9._-]{3,50}$/.test(d.username);
-  const valido = d.firstName.trim() && d.lastName.trim() && /\S+@\S+\.\S+/.test(d.email) && (!nuevo || (usuarioOk && reglas.every((r) => r.ok)));
+  const usuarioOk = USUARIO_RE.test(d.username);
+  const correoOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email.trim());
+  const valido = d.firstName.trim() && d.lastName.trim() && correoOk && usuarioOk && (!nuevo || reglas.every((r) => r.ok));
+  const cambiaUsuario = !nuevo && d.username !== usuario.username;
+  const cambiaCorreo = !nuevo && d.email.trim().toLowerCase() !== usuario.email;
 
   const guardar = async () => {
     setSaving(true);
     try {
-      const base = { firstName: d.firstName.trim(), lastName: d.lastName.trim(), email: d.email.trim(), role: d.role };
+      const base = { username: d.username, firstName: d.firstName.trim(), lastName: d.lastName.trim(), email: d.email.trim(), role: d.role };
       if (nuevo) {
-        await adminApi.crearUsuario({ ...base, username: d.username, password: d.password });
+        await adminApi.crearUsuario({ ...base, password: d.password });
         close();
         onListo(`Usuario ${d.username} creado. Entréguele su contraseña temporal.`);
-      } else {
-        await adminApi.editarUsuario(usuario.id, esYo ? { firstName: base.firstName, lastName: base.lastName, email: base.email } : base);
-        close();
-        onListo(`Usuario ${usuario.username} actualizado`);
+        return;
       }
+      const { role, ...sinRol } = base;
+      await adminApi.editarUsuario(usuario.id, esYo ? sinRol : { ...sinRol, role });
+      close();
+      if (esYo) {
+        // «Recordar mi usuario» guarda el usuario anterior: se actualiza para el próximo inicio de sesión.
+        try {
+          if (cambiaUsuario && localStorage.getItem(REMEMBER_USER_KEY) === usuario.username) localStorage.setItem(REMEMBER_USER_KEY, d.username);
+        } catch {
+          /* sin almacenamiento local */
+        }
+        toast('Su cuenta se actualizó', 'ok');
+        // La sesión se restaura con los datos nuevos (GET /auth/me).
+        setTimeout(() => window.location.reload(), 700);
+        return;
+      }
+      onListo(cambiaUsuario ? `Usuario actualizado: ahora entra como ${d.username}` : `Usuario ${usuario.username} actualizado`);
     } catch (e) {
+      const errs = (e as { errors?: Array<{ field?: string; message: string }> }).errors ?? [];
+      setErrores(Object.fromEntries(errs.filter((x) => x.field).map((x) => [x.field!, x.message])));
       toast(errorMessage(e), 'err');
     } finally {
       setSaving(false);
@@ -254,11 +431,27 @@ function UserForm({ usuario, esYo = false, onListo }: { usuario?: UsuarioAdmin; 
         <Field label="Apellidos" htmlFor="u-apellidos">
           <input id="u-apellidos" value={d.lastName} onChange={(e) => set('lastName')(e.target.value)} maxLength={100} />
         </Field>
-        <Field label="Usuario" htmlFor="u-usuario" help={nuevo ? 'Para iniciar sesión. Minúsculas, números, punto o guion. No se puede cambiar después.' : 'El usuario no se puede cambiar.'}>
-          <input id="u-usuario" value={d.username} disabled={!nuevo} onChange={(e) => set('username')(e.target.value.toLowerCase().replace(/\s/g, ''))} maxLength={50} placeholder="jperez" />
+        <Field
+          label="Usuario"
+          htmlFor="u-usuario"
+          help={
+            errores.username ||
+            (d.username && !usuarioOk ? 'De 3 a 50: minúsculas, números, punto, guion o guion bajo.' : 'Con él inicia sesión. Minúsculas, números, punto o guion.')
+          }
+        >
+          <input
+            id="u-usuario"
+            className={errores.username || (d.username && !usuarioOk) ? 'is-invalid' : ''}
+            value={d.username}
+            onChange={(e) => set('username')(e.target.value.toLowerCase().replace(/\s/g, ''))}
+            maxLength={50}
+            placeholder="jperez"
+            autoComplete="off"
+            spellCheck={false}
+          />
         </Field>
-        <Field label="Correo" htmlFor="u-correo" help="A este correo le llega el código si olvida su contraseña.">
-          <input id="u-correo" type="email" value={d.email} onChange={(e) => set('email')(e.target.value)} maxLength={150} />
+        <Field label="Correo" htmlFor="u-correo" help={errores.email || 'A este correo le llega el código si olvida su contraseña.'}>
+          <input id="u-correo" type="email" className={errores.email ? 'is-invalid' : ''} value={d.email} onChange={(e) => set('email')(e.target.value)} maxLength={150} />
         </Field>
         <Field label="Rol" htmlFor="u-rol" full help={esYo ? 'No puede cambiar su propio rol.' : 'Decide qué módulos verá en SIVEN (vea Roles y permisos).'}>
           <select id="u-rol" value={d.role} disabled={esYo} onChange={(e) => set('role')(e.target.value)}>
@@ -270,6 +463,24 @@ function UserForm({ usuario, esYo = false, onListo }: { usuario?: UsuarioAdmin; 
           </select>
         </Field>
       </div>
+      {(cambiaUsuario || cambiaCorreo) && (
+        <div className="note" style={{ marginTop: 4 }}>
+          <span className="ic">ℹ️</span>
+          <div>
+            {cambiaUsuario && (
+              <p style={{ margin: 0 }}>
+                Desde que guarde, {esYo ? 'usted entra' : 'la persona entra'} con <b className="mono">{d.username}</b> (o con su correo). Su historial y su auditoría se conservan.
+              </p>
+            )}
+            {cambiaCorreo && (
+              <p style={{ margin: cambiaUsuario ? '4px 0 0' : 0 }}>
+                El código para recuperar la contraseña llegará a <b>{d.email.trim().toLowerCase()}</b>.
+              </p>
+            )}
+            {esYo && <p style={{ margin: '4px 0 0' }}>Su sesión sigue abierta; la página se recargará con sus datos nuevos.</p>}
+          </div>
+        </div>
+      )}
       {nuevo && <ClaveTemporal valor={d.password} onCambio={set('password')} reglas={reglas} />}
     </Modal>
   );
@@ -277,7 +488,7 @@ function UserForm({ usuario, esYo = false, onListo }: { usuario?: UsuarioAdmin; 
 
 /* ---------- Restablecer contraseña ---------- */
 
-function ResetForm({ usuario, onListo }: { usuario: UsuarioAdmin; onListo: (msg: string) => void }) {
+function ResetForm({ usuario, onListo }: { usuario: UsuarioAdmin; onListo: Listo }) {
   const { close } = useModal();
   const toast = useToast();
   const [clave, setClave] = useState(generarContrasena);
@@ -320,36 +531,5 @@ function ResetForm({ usuario, onListo }: { usuario: UsuarioAdmin; onListo: (msg:
         <div>Se cerrarán las sesiones que tenga abiertas. Después, la persona puede poner una contraseña propia con «¿Olvidó su contraseña?» en el inicio de sesión.</div>
       </div>
     </Modal>
-  );
-}
-
-function ClaveTemporal({ valor, onCambio, reglas }: { valor: string; onCambio: (v: string) => void; reglas: ReturnType<typeof passwordRules> }) {
-  const toast = useToast();
-  const copiar = () =>
-    navigator.clipboard
-      ?.writeText(valor)
-      .then(() => toast('Contraseña copiada', 'ok'))
-      .catch(() => toast('No se pudo copiar; selecciónela y cópiela a mano', 'err'));
-  return (
-    <div className="adm-pass">
-      <Field label="Contraseña temporal" htmlFor="u-clave" help="Entréguela a la persona en privado. Se genera sola; puede escribir otra.">
-        <div className="adm-pass-row">
-          <input id="u-clave" className="mono" value={valor} onChange={(e) => onCambio(e.target.value)} maxLength={72} autoComplete="new-password" spellCheck={false} />
-          <button type="button" className="b b-out b-sm" onClick={() => onCambio(generarContrasena())} title="Generar otra">
-            <Icon name="refresh-cw" size={14} /> Otra
-          </button>
-          <button type="button" className="b b-out b-sm" onClick={copiar}>
-            Copiar
-          </button>
-        </div>
-      </Field>
-      <ul className="adm-rules">
-        {reglas.map((r) => (
-          <li key={r.id} className={r.ok ? 'ok' : ''}>
-            {r.ok ? '✓' : '•'} {r.label.replace('su nombre de usuario', 'el nombre de usuario')}
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }

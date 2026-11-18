@@ -118,27 +118,43 @@ export class UsersService {
       throw new ForbiddenException('No puede cambiar su propio rol');
     }
 
-    const email = dto.email?.toLowerCase();
-    if (email) await this.assertUnique(undefined, email, id);
+    // Solo cuenta como cambio lo que es distinto de lo actual.
+    const username = dto.username !== undefined && dto.username !== existing.username ? dto.username : undefined;
+    const email = dto.email !== undefined && dto.email.toLowerCase() !== existing.email ? dto.email.toLowerCase() : undefined;
+    if (username || email) await this.assertUnique(username, email, id);
 
     let roleId: string | undefined;
-    if (dto.role) {
+    if (dto.role && dto.role !== existing.role.code) {
       const role = await this.prisma.role.findUnique({ where: { code: dto.role } });
       if (!role) throw new BadRequestException('El rol indicado no existe');
       roleId = role.id;
     }
 
-    const user = await this.prisma.user.update({
-      where: { id },
-      data: {
-        ...(dto.firstName !== undefined && { firstName: dto.firstName }),
-        ...(dto.lastName !== undefined && { lastName: dto.lastName }),
-        ...(email !== undefined && { email }),
-        ...(roleId !== undefined && { roleId }),
-      },
-      select: USER_SELECT,
-    });
+    let user;
+    try {
+      user = await this.prisma.user.update({
+        where: { id },
+        data: {
+          ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+          ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+          ...(username !== undefined && { username }),
+          ...(email !== undefined && { email }),
+          ...(roleId !== undefined && { roleId }),
+        },
+        select: USER_SELECT,
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) await this.assertUnique(username, email, id);
+      throw error;
+    }
 
+    const cambios = [
+      username && `usuario ${existing.username} → ${username}`,
+      email && `correo ${existing.email} → ${email}`,
+      roleId && `rol ${existing.role.code} → ${dto.role}`,
+      dto.firstName !== undefined && dto.firstName !== existing.firstName && `nombres «${existing.firstName}» → «${dto.firstName}»`,
+      dto.lastName !== undefined && dto.lastName !== existing.lastName && `apellidos «${existing.lastName}» → «${dto.lastName}»`,
+    ].filter(Boolean);
     await this.audit.log({
       userId: actor.id,
       username: actor.username,
@@ -146,10 +162,32 @@ export class UsersService {
       action: 'UPDATE',
       entity: 'User',
       entityId: id,
-      description: `Usuario ${existing.username} modificado`,
+      description: `Usuario ${existing.username} modificado${cambios.length ? `: ${cambios.join('; ')}` : ' (sin cambios)'}`,
       ip,
     });
     return user;
+  }
+
+  /**
+   * Cierra todas las sesiones abiertas de un usuario (por ejemplo, si perdió el celular): los
+   * tokens emitidos antes de ahora dejan de valer. La contraseña no cambia.
+   */
+  async revokeSessions(id: string, actor: AuthUser, ip?: string): Promise<void> {
+    if (id === actor.id) {
+      throw new ForbiddenException('Para cerrar su propia sesión use «Cerrar sesión»');
+    }
+    const existing = await this.findOne(id);
+    await this.prisma.user.update({ where: { id }, data: { passwordChangedAt: new Date() } });
+    await this.audit.log({
+      userId: actor.id,
+      username: actor.username,
+      module: 'users',
+      action: 'REVOKE_SESSIONS',
+      entity: 'User',
+      entityId: id,
+      description: `Sesiones de ${existing.username} cerradas por un administrador`,
+      ip,
+    });
   }
 
   async setStatus(id: string, isActive: boolean, actor: AuthUser, ip?: string) {
@@ -241,21 +279,20 @@ export class UsersService {
   }
 
   /** Lanza 409 con el detalle por campo si el username o el correo ya existen. */
-  private async assertUnique(username: string | undefined, email: string, excludeId?: string) {
+  private async assertUnique(username: string | undefined, email: string | undefined, excludeId?: string) {
+    const or = [...(username ? [{ username }] : []), ...(email ? [{ email }] : [])];
+    if (!or.length) return;
     const clashes = await this.prisma.user.findMany({
-      where: {
-        ...(excludeId && { NOT: { id: excludeId } }),
-        OR: [...(username ? [{ username }] : []), { email }],
-      },
+      where: { ...(excludeId && { NOT: { id: excludeId } }), OR: or },
       select: { username: true, email: true },
     });
 
     const errors: { field: string; message: string }[] = [];
     if (username && clashes.some((u) => u.username === username)) {
-      errors.push({ field: 'username', message: 'El usuario ya existe' });
+      errors.push({ field: 'username', message: 'Ese usuario ya lo tiene otra persona' });
     }
-    if (clashes.some((u) => u.email === email)) {
-      errors.push({ field: 'email', message: 'El correo ya está registrado' });
+    if (email && clashes.some((u) => u.email === email)) {
+      errors.push({ field: 'email', message: 'Ese correo ya lo tiene otra persona' });
     }
     if (errors.length) {
       throw new ConflictException({ message: 'No fue posible guardar el usuario', errors });

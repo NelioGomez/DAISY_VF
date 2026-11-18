@@ -50,6 +50,12 @@ export function QuotationDetailPage() {
       <header className="pub-quote-head">
         <div>
           <h2>Cotización {q.codigo}</h2>
+          {info?.empresa && (
+            <p className="pub-muted pub-quote-issuer">
+              {info.empresa.nombre}
+              {info.empresa.ruc && <> · RUC {info.empresa.ruc}</>}
+            </p>
+          )}
           <p className="pub-muted">
             Emitida el {fmtDate(q.fecha)}. Válida hasta el {fmtDate(q.validaHasta)}.
           </p>

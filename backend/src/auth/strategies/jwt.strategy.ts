@@ -38,7 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Usuario inexistente o inactivo');
     }
     if (issuedBeforePasswordChange(payload.iat, user.passwordChangedAt, payload.iatMs)) {
-      throw new UnauthorizedException('La contraseña cambió; inicie sesión de nuevo');
+      throw new UnauthorizedException('Su sesión se cerró (cambio de contraseña o cierre por el administrador); inicie sesión de nuevo');
     }
 
     return {

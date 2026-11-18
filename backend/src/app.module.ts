@@ -6,6 +6,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { BrandsModule } from './brands/brands.module';
 import { CategoriesModule } from './categories/categories.module';
+import { CustomerAccountsModule } from './customer-accounts/customer-accounts.module';
 import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ProductionModule } from './production/production.module';
@@ -68,6 +69,7 @@ import { UsersModule } from './users/users.module';
     InquiriesModule,
     PublicModule,
     PortalModule,
+    CustomerAccountsModule,
     SettingsModule,
   ],
   controllers: [HealthController],

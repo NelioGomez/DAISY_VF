@@ -39,6 +39,7 @@ const MODULOS: Array<[string, string]> = [
   ['service-orders', 'OPI'],
   ['inquiries', 'Consultas'],
   ['portal', 'Portal clientes'],
+  ['customer-accounts', 'Cuentas del portal'],
   ['categories', 'Categorías'],
   ['brands', 'Marcas'],
   ['reports', 'Reportes'],

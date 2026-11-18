@@ -66,7 +66,8 @@ export class UsersController {
 
   @Patch(':id')
   @Permissions('users:write')
-  @ApiOperation({ summary: 'Edita nombres, correo o rol — requiere users:write' })
+  @ApiOperation({ summary: 'Edita usuario, nombres, correo o rol — requiere users:write' })
+  @ApiResponse({ status: 409, description: 'Usuario o correo de otra persona' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserDto,
@@ -100,5 +101,15 @@ export class UsersController {
   ) {
     await this.users.resetPassword(id, dto.newPassword, actor, ip);
     return { passwordReset: true };
+  }
+
+  @Post(':id/revoke-sessions')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('users:write')
+  @ApiOperation({ summary: 'Cierra todas las sesiones abiertas de un usuario — requiere users:write' })
+  @ApiResponse({ status: 403, description: 'No se puede usar con la propia cuenta' })
+  async revokeSessions(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser, @ClientIp() ip?: string) {
+    await this.users.revokeSessions(id, actor, ip);
+    return { sessionsRevoked: true };
   }
 }

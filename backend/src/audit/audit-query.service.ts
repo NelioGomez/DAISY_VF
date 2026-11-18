@@ -6,9 +6,23 @@ import { buildPagination } from '../common/utils/pagination';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from './audit.service';
-import { FilterAuditDto } from './dto/audit.dto';
+import { type AuditScope, FilterAuditDto } from './dto/audit.dto';
 
 const EXPORT_MAX_ROWS = 50_000;
+
+/** Eventos de acceso: inicio y cierre de sesión, intentos fallidos o bloqueados y recuperación de contraseña. */
+const ACCESS_ACTIONS = ['LOGIN', 'LOGIN_FAILED', 'LOGIN_BLOCKED', 'LOGOUT', 'PASSWORD_RESET_REQUEST', 'PASSWORD_RESET'];
+
+/** Qué cuenta como «acceso» y qué como «cambio de administración». */
+const SCOPE_WHERE: Record<AuditScope, Prisma.AuditLogWhereInput> = {
+  access: { module: { in: ['auth', 'portal'] }, action: { in: ACCESS_ACTIONS } },
+  admin: {
+    OR: [
+      { module: { in: ['users', 'customer-accounts', 'settings', 'categories', 'brands'] } },
+      { module: { in: ['customers', 'suppliers'] }, action: { in: ['ACTIVATE', 'DEACTIVATE'] } },
+    ],
+  },
+};
 
 const AUDIT_SELECT = {
   id: true,
@@ -118,6 +132,7 @@ export class AuditQueryService {
   private buildWhere(f: FilterAuditDto): Prisma.AuditLogWhereInput {
     const range = dateRange(f.from, f.to);
     return {
+      ...(f.scope && { AND: [SCOPE_WHERE[f.scope]] }),
       ...(f.userId && { userId: f.userId }),
       ...(f.username && { username: { contains: f.username, mode: 'insensitive' as const } }),
       ...(f.module && { module: f.module }),

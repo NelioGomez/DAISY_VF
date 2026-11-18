@@ -1,18 +1,19 @@
-/* PANEL DE ADMINISTRACIÓN (mejora n.° 66): área aparte de SIVEN, con barra propia. Usa los mismos
-   tokens de color, así que respeta el modo claro y el oscuro. */
+/* PANEL DE ADMINISTRACIÓN (mejoras n.° 66 y 69 a 72): área aparte de SIVEN, con barra propia. Usa
+   los mismos tokens de color, así que respeta el modo claro y el oscuro. */
 .adm{min-height:100vh;background:var(--panel);color:var(--ink)}
 .adm-top{background:var(--shell);color:#e8eef3;border-bottom:3px solid var(--amber);position:sticky;top:0;z-index:40}
-.adm-top-in{max-width:1280px;margin:0 auto;padding:0 20px;height:64px;display:flex;align-items:center;gap:22px}
-.adm-brand{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;flex:none}
+.adm-top-in{max-width:1280px;margin:0 auto;padding:0 20px;min-height:58px;display:flex;align-items:center;flex-wrap:wrap;gap:0 22px}
+.adm-brand{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;flex:none;min-height:58px}
 .adm-mark{width:36px;height:36px;border-radius:9px;background:var(--amber);color:#1a1205;display:grid;place-items:center;font:800 19px/1 var(--display)}
 .adm-brand b{display:block;font:700 16px/1.05 var(--display);letter-spacing:.6px}
 .adm-brand small{display:block;font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--amber-bright)}
-.adm-nav{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+/* Las secciones van en su propia fila, debajo de la marca y las acciones: caben todas con su nombre. */
+.adm-nav{display:flex;gap:4px;order:3;flex-basis:100%;min-width:0;overflow-x:auto;scrollbar-width:none;padding:2px 0 10px}
 .adm-nav::-webkit-scrollbar{display:none}
 .adm-nav a{display:inline-flex;align-items:center;gap:7px;padding:9px 12px;border-radius:9px;color:#a9bccb;text-decoration:none;font-weight:600;font-size:13.5px;white-space:nowrap}
 .adm-nav a:hover{color:#fff;background:rgba(255,255,255,.06)}
 .adm-nav a.is-on{color:#1a1205;background:var(--amber)}
-.adm-actions{display:flex;align-items:center;gap:6px;flex:none}
+.adm-actions{display:flex;align-items:center;gap:6px;flex:none;margin-left:auto;min-height:58px}
 .adm-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:9px;border:1px solid rgba(255,255,255,.14);background:transparent;color:#d6e1ea;cursor:pointer}
 .adm-icon:hover{background:rgba(255,255,255,.08);color:#fff}
 .adm-user{display:flex;flex-direction:column;line-height:1.15;padding:0 6px;max-width:170px}
@@ -58,12 +59,42 @@
 .adm-denied .adm-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:36px;text-align:center;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:10px}
 .adm-denied h1{font:700 22px/1.2 var(--display);margin:0}
 .adm-denied p{color:var(--muted);margin:0 0 6px}
+/* Mejoras n.° 69 a 72: fichas, cuentas del portal y actividad */
+.adm-link{border:0;background:none;padding:0;color:var(--blue);font:inherit;font-weight:600;cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--blue) 35%,transparent);text-underline-offset:3px}
+.adm-link:hover{text-decoration-color:currentColor}
+.field input.is-invalid,.field select.is-invalid{border-color:var(--red);box-shadow:0 0 0 3px var(--red-soft)}
+.adm-stats>div.is-red b{color:var(--red)}
+.adm-stats>div.is-amber b{color:var(--amber-ink)}
+.adm-stats-note{align-self:center;background:none!important;border:0!important;min-width:0!important;color:var(--soft);font-size:12px}
+.adm-dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 18px;margin:0 0 16px;padding:14px 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.adm-dl dt{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--soft);margin-bottom:2px}
+.adm-dl dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.adm-sub{font:700 15px/1.2 var(--display);margin:4px 0 8px}
+.adm-events{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.adm-events li{display:grid;grid-template-columns:196px 1fr;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px}
+.adm-events li:last-child{border-bottom:0}
+.adm-events-when{color:var(--muted);font-size:12px;white-space:nowrap}
+.adm-ficha .modal-f{flex-wrap:wrap;justify-content:flex-end}
+.adm-events-desc{display:block;color:var(--muted);font-size:12.5px;margin-top:3px;overflow-wrap:anywhere}
+.adm-pager{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap}
+.adm-pager .muted-sm{margin-right:auto}
+.adm-date{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.adm-date input{height:36px;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:var(--card);color:var(--ink);font:inherit}
+.adm-desc{max-width:460px;color:var(--muted);font-size:12.5px;white-space:normal;overflow-wrap:anywhere}
+.adm-pick{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.adm-pick-list{list-style:none;margin:6px 0 0;padding:0;border:1px solid var(--line);border-radius:10px;max-height:240px;overflow:auto}
+.adm-pick-list li{border-bottom:1px solid var(--line)}
+.adm-pick-list li:last-child{border-bottom:0}
+.adm-pick-list li.muted-sm{padding:10px 12px}
+.adm-pick-list button{display:flex;justify-content:space-between;gap:10px;width:100%;border:0;background:none;padding:9px 12px;text-align:left;color:var(--ink);cursor:pointer;font:inherit}
+.adm-pick-list button:hover,.adm-pick-list button:focus-visible{background:var(--amber-wash)}
+.adm-pick-list span{color:var(--muted);font-size:12px}
 @media (max-width:960px){
-  .adm-top-in{flex-wrap:wrap;height:auto;padding:10px 14px;gap:10px}
-  .adm-nav{order:3;flex-basis:100%}
-  .adm-actions{margin-left:auto}
+  .adm-top-in{padding:8px 14px 0;gap:8px 10px}
   .adm-user{display:none}
   .adm-grid2{grid-template-columns:1fr}
+  .adm-dl{grid-template-columns:1fr 1fr}
+  .adm-events li{grid-template-columns:1fr;gap:2px}
   .adm-main{padding:18px 14px 50px}
 }
-@media (max-width:560px){.adm-rules{grid-template-columns:1fr}.adm-nav a span{display:none}.adm-nav a.is-on span{display:inline}}
+@media (max-width:560px){.adm-ficha .modal-f .adm-cerrar{display:none}.adm-ficha .modal-f .b{flex:1 1 40%}.adm-rules{grid-template-columns:1fr}.adm-dl{grid-template-columns:1fr}.adm-nav a span{display:none}.adm-nav a.is-on span{display:inline}}

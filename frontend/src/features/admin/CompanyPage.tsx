@@ -1,5 +1,6 @@
 /* Administración › Empresa: datos de contacto que muestra el sitio público (teléfono, WhatsApp,
-   correo, dirección, horario) y parámetros de facturación (régimen, tasa de IVA, plazo de crédito). */
+   correo, dirección, horario), el RUC que sale en la factura impresa y en la cotización del portal
+   (mejora n.° 72) y los parámetros de facturación (régimen, tasa de IVA, plazo de crédito). */
 import { useEffect, useState } from 'react';
 import { Field } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
@@ -9,6 +10,7 @@ import { AdminHead } from './ui';
 
 interface Form {
   COMPANY_NAME: string;
+  COMPANY_RUC: string;
   COMPANY_PHONE: string;
   COMPANY_WHATSAPP: string;
   COMPANY_EMAIL: string;
@@ -32,6 +34,7 @@ export function CompanyPage() {
       .then((c) => {
         const v: Form = {
           COMPANY_NAME: c.company.name,
+          COMPANY_RUC: c.company.ruc ?? '',
           COMPANY_PHONE: c.company.phone,
           COMPANY_WHATSAPP: c.company.whatsapp,
           COMPANY_EMAIL: c.company.email,
@@ -54,6 +57,7 @@ export function CompanyPage() {
   const cambios = (Object.keys(f) as Array<keyof Form>).filter((k) => f[k] !== inicial[k]);
   const tasa = Number(f.TAX_RATE);
   const tasaOk = f.TAX_REGIME === 'CUOTA_FIJA' || (/^\d{1,3}$/.test(f.TAX_RATE) && tasa >= 0 && tasa <= 100);
+  const rucOk = !f.COMPANY_RUC.trim() || /^[A-Za-z0-9][A-Za-z0-9-]{3,29}$/.test(f.COMPANY_RUC.trim());
   const diasOk = /^\d{1,3}$/.test(f.CREDIT_TERM_DAYS) && +f.CREDIT_TERM_DAYS >= 1 && +f.CREDIT_TERM_DAYS <= 365;
 
   const guardar = async () => {
@@ -78,7 +82,7 @@ export function CompanyPage() {
         titulo="Empresa"
         desc="Datos de contacto que ven los clientes en el sitio y parámetros de facturación."
         acciones={
-          <button type="button" className="b b-amber" onClick={guardar} disabled={!cambios.length || !f.COMPANY_NAME.trim() || !tasaOk || !diasOk || saving}>
+          <button type="button" className="b b-amber" onClick={guardar} disabled={!cambios.length || !f.COMPANY_NAME.trim() || !rucOk || !tasaOk || !diasOk || saving}>
             {saving ? 'Guardando…' : cambios.length ? `Guardar cambios (${cambios.length})` : 'Sin cambios'}
           </button>
         }
@@ -86,10 +90,22 @@ export function CompanyPage() {
       <div className="adm-grid2">
         <section className="adm-card-sec">
           <h2>Contacto</h2>
-          <p className="muted-sm">Se muestran en Contacto, en el pie del sitio y en los botones de WhatsApp.</p>
-          <Field label="Nombre de la empresa" htmlFor="emp-nombre">
-            <input id="emp-nombre" value={f.COMPANY_NAME} onChange={(e) => set('COMPANY_NAME')(e.target.value)} maxLength={120} />
-          </Field>
+          <p className="muted-sm">Se muestran en Contacto, en el pie del sitio, en los botones de WhatsApp y en los documentos impresos.</p>
+          <div className="form-grid">
+            <Field label="Nombre de la empresa" htmlFor="emp-nombre">
+              <input id="emp-nombre" value={f.COMPANY_NAME} onChange={(e) => set('COMPANY_NAME')(e.target.value)} maxLength={120} />
+            </Field>
+            <Field label="RUC" htmlFor="emp-ruc" help={rucOk ? 'Sale en la factura impresa y en la cotización del portal.' : 'Solo letras, números y guiones.'}>
+              <input
+                id="emp-ruc"
+                className={`mono ${rucOk ? '' : 'is-invalid'}`}
+                value={f.COMPANY_RUC}
+                onChange={(e) => set('COMPANY_RUC')(e.target.value.toUpperCase())}
+                placeholder="J0310000000000"
+                maxLength={30}
+              />
+            </Field>
+          </div>
           <div className="form-grid">
             <Field label="Teléfono" htmlFor="emp-tel">
               <input id="emp-tel" value={f.COMPANY_PHONE} onChange={(e) => set('COMPANY_PHONE')(e.target.value)} placeholder="2222-0000" maxLength={40} />

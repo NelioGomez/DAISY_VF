@@ -1,7 +1,7 @@
-/* Llamadas del panel de administración (mejora n.° 66). Usa los mismos endpoints del backend que ya
-   existían (usuarios, roles, categorías, marcas, clientes, proveedores y configuración); todos piden
-   permisos de administrador y quedan en la auditoría. */
-import { api, getAll } from '../../services/api/client';
+/* Llamadas del panel de administración (mejoras n.° 66 y 69 a 72): usuarios, cuentas del portal,
+   roles, categorías, marcas, clientes, proveedores, configuración y actividad. Todas piden permisos
+   de administrador y quedan en la auditoría. */
+import { api, getAll, request, type Pagination } from '../../services/api/client';
 import type { ApiRole } from '../../services/api/mappers';
 
 export interface UsuarioAdmin {
@@ -48,13 +48,60 @@ export interface Configuracion {
   taxRate: number;
   taxRegime: 'CUOTA_FIJA' | 'IVA';
   creditTermDays: number;
-  company: { name: string; phone: string; email: string; whatsapp: string; address: string; hours: string };
+  company: { name: string; ruc: string; phone: string; email: string; whatsapp: string; address: string; hours: string };
+}
+
+/** Cuenta del portal de clientes (mejora n.° 70). */
+export interface CuentaPortal {
+  id: string;
+  email: string;
+  contactName: string;
+  phone: string | null;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  customer: { id: string; name: string; ruc: string | null; isActive: boolean };
+  _count: { inquiries: number };
+}
+
+export interface DatosCuenta {
+  email: string;
+  contactName: string;
+  phone: string | null;
+}
+
+/** Registro de la bitácora (auditoría). */
+export interface Evento {
+  id: string;
+  userId: string | null;
+  username: string | null;
+  module: string;
+  action: string;
+  entity: string | null;
+  entityId: string | null;
+  description: string | null;
+  ip: string | null;
+  createdAt: string;
+}
+
+export interface FiltroActividad {
+  scope?: 'access' | 'admin';
+  userId?: string;
+  entity?: string;
+  entityId?: string;
+  action?: string;
+  username?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
 }
 
 export type TipoCatalogo = 'categories' | 'brands';
 export type TipoSocio = 'customers' | 'suppliers';
 
 export interface DatosUsuario {
+  username: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -63,10 +110,22 @@ export interface DatosUsuario {
 
 export const adminApi = {
   usuarios: () => getAll<UsuarioAdmin>('/users').then((r) => r.items),
-  crearUsuario: (d: DatosUsuario & { username: string; password: string }) => api.post<UsuarioAdmin>('/users', d),
+  crearUsuario: (d: DatosUsuario & { password: string }) => api.post<UsuarioAdmin>('/users', d),
   editarUsuario: (id: string, d: Partial<DatosUsuario>) => api.patch<UsuarioAdmin>(`/users/${id}`, d),
   estadoUsuario: (id: string, isActive: boolean) => api.patch<UsuarioAdmin>(`/users/${id}/status`, { isActive }),
   restablecer: (id: string, newPassword: string) => api.post<{ passwordReset: boolean }>(`/users/${id}/reset-password`, { newPassword }),
+  cerrarSesiones: (id: string) => api.post<{ sessionsRevoked: boolean }>(`/users/${id}/revoke-sessions`),
+
+  cuentas: () => getAll<CuentaPortal>('/customer-accounts').then((r) => r.items),
+  crearCuenta: (d: DatosCuenta & { customerId: string; password: string }) => api.post<CuentaPortal>('/customer-accounts', d),
+  editarCuenta: (id: string, d: Partial<DatosCuenta>) => api.patch<CuentaPortal>(`/customer-accounts/${id}`, d),
+  estadoCuenta: (id: string, isActive: boolean) => api.patch<CuentaPortal>(`/customer-accounts/${id}/status`, { isActive }),
+  restablecerCuenta: (id: string, newPassword: string) => api.post<{ passwordReset: boolean }>(`/customer-accounts/${id}/reset-password`, { newPassword }),
+  cerrarSesionesCuenta: (id: string) => api.post<{ sessionsRevoked: boolean }>(`/customer-accounts/${id}/revoke-sessions`),
+
+  /** Una página de la bitácora; `pagination.total` sirve también para contar. */
+  actividad: (f: FiltroActividad) =>
+    request<Evento[]>('GET', '/audit', { query: { limit: 25, ...f } }).then((r) => ({ items: r.data ?? [], pagination: r.pagination as Pagination })),
 
   roles: () => api.get<RolAdmin[]>('/roles'),
 

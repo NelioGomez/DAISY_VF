@@ -20,17 +20,11 @@ type Sent = Extract<RequestResetResponse, { ok: true }>;
 interface CodeState {
   expiresAt: number;
   resendAt: number;
-  devCode?: string;
-  devNoAccount?: boolean;
-  simulated?: boolean;
 }
 
 const toCodeState = (r: Sent): CodeState => ({
-  simulated: r.simulated,
   expiresAt: Date.now() + r.expiresIn * 1000,
   resendAt: Date.now() + r.resendAfter * 1000,
-  devCode: r.devCode,
-  devNoAccount: r.devNoAccount,
 });
 
 export function RecoverPage() {
@@ -103,9 +97,9 @@ export function RecoverPage() {
           resetToken={reset.token}
           username={reset.username}
           onExpired={restart}
-          onDone={(username, simulated) => {
-            toast(simulated ? 'Simulación completada' : 'Contraseña actualizada', 'ok');
-            const state: LoginRedirectState = { resetUsername: username, resetSimulated: simulated };
+          onDone={(username) => {
+            toast('Contraseña actualizada', 'ok');
+            const state: LoginRedirectState = { resetUsername: username };
             navigate('/login', { replace: true, state });
           }}
         />

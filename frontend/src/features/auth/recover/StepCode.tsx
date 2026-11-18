@@ -9,9 +9,6 @@ interface StepCodeProps {
   email: string;
   expiresAt: number;
   resendAt: number;
-  devCode?: string;
-  devNoAccount?: boolean;
-  simulated?: boolean;
   onVerified(resetToken: string, username: string): void;
   onResend(): Promise<string | null>;
   onAttemptsExhausted(): void;
@@ -20,7 +17,7 @@ interface StepCodeProps {
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const empty = () => Array.from({ length: RESET_CODE_LENGTH }, () => '');
 
-export function StepCode({ email, expiresAt, resendAt, devCode, devNoAccount, onVerified, onResend, onAttemptsExhausted }: StepCodeProps) {
+export function StepCode({ email, expiresAt, resendAt, onVerified, onResend, onAttemptsExhausted }: StepCodeProps) {
   const [digits, setDigits] = useState<string[]>(empty);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -112,22 +109,6 @@ export function StepCode({ email, expiresAt, resendAt, devCode, devNoAccount, on
         </button>
       </form>
 
-      {(devCode || devNoAccount) && (
-        <div className="auth-devbox" role="note">
-          <b>Simulación.</b> El servidor todavía no tiene recuperación por correo, así que no se envió nada: el código se muestra aquí y la
-          contraseña real no cambiará. Esta caja no aparece fuera de desarrollo.
-          {devCode ? (
-            <div className="auth-devbox-code">
-              <span>{devCode}</span>
-              <button type="button" onClick={() => void verify(devCode)} disabled={loading || expired}>
-                Usar código
-              </button>
-            </div>
-          ) : (
-            <p style={{ marginTop: 8 }}>Este correo no pertenece a ninguna cuenta de prueba, así que no se generó un código válido.</p>
-          )}
-        </div>
-      )}
     </>
   );
 }

@@ -80,14 +80,10 @@ export const INQUIRY_TO_API: Record<EstadoConsulta, ApiInquiryStatus> = {
 };
 
 const MOVEMENT_TYPE: Record<ApiMovementType, TipoMovimiento> = { ENTRY: 'Entrada', EXIT: 'Salida', ADJUSTMENT: 'Ajuste' };
-export const MOVEMENT_TO_API: Record<TipoMovimiento, ApiMovementType> = { Entrada: 'ENTRY', Salida: 'EXIT', Ajuste: 'ADJUSTMENT' };
 
 export type ApiPurchaseStatus = 'DRAFT' | 'ORDERED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED';
 export const PURCHASE_STATUS: Record<ApiPurchaseStatus, EstadoCompra> = {
   DRAFT: 'Borrador', ORDERED: 'Ordenada', PARTIALLY_RECEIVED: 'Parcial', RECEIVED: 'Recibida', CANCELLED: 'Cancelada',
-};
-export const PURCHASE_TO_API: Record<EstadoCompra, ApiPurchaseStatus> = {
-  Borrador: 'DRAFT', Ordenada: 'ORDERED', Parcial: 'PARTIALLY_RECEIVED', Recibida: 'RECEIVED', Cancelada: 'CANCELLED',
 };
 
 /** Ícono visual por categoría (el backend no guarda íconos). */

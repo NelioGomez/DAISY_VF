@@ -95,7 +95,6 @@ Tres pasos reales contra la API: correo → código de 6 dígitos → contraseñ
 10 min, admite 5 intentos y se reenvía cada 60 s; la contraseña nueva cumple la política de
 `utils/passwordPolicy.ts` (el servidor valida la misma). Al cambiarla se cierran las sesiones
 abiertas con la anterior. Sin SMTP configurado en el backend, el código aparece en su terminal.
-Si el backend no tuviera esas rutas (404), en desarrollo se usa una simulación y se avisa.
 
 ### Otros cambios ligados a la base de datos
 
@@ -131,7 +130,7 @@ src/
     modals/         Modal y gestor de modales
     tables/         Tag, EstadoTag, SearchToolbar
   config/
-    business.ts     Reglas configurables (IVA, categorías, flujo OPI…)
+    business.ts     Datos de respaldo del sitio público (WhatsApp)
     navigation.ts   Roles, permisos visuales, menú y títulos
   features/         Un folder por módulo de negocio (página + modales)
   layouts/          DashboardLayout (topbar) y Sidebar (menú por módulos desplegables)
@@ -140,7 +139,6 @@ src/
     api/mappers.ts  Traduce la respuesta de la API a los tipos del frontend
     auth/           Login, sesión y recuperación de contraseña
     realtime/       Cliente WebSocket (socket.io)
-    mock/users.ts   Solo para la simulación de recuperación
   store/            Carga de datos por permisos, acciones y hooks useAuth / useData
   styles/           CSS global (identidad visual original)
   types/            Tipos de dominio

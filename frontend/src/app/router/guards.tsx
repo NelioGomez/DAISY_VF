@@ -12,8 +12,6 @@ export interface LoginRedirectState {
   from?: string;
   /** Usuario que acaba de restablecer su contraseña (muestra aviso y lo precarga). */
   resetUsername?: string;
-  /** La recuperación se hizo en modo simulación: la contraseña real no cambió. */
-  resetSimulated?: boolean;
 }
 
 /** Exige sesión iniciada; si no, redirige al login recordando la ruta solicitada. */

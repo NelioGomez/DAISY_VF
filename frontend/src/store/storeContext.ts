@@ -16,7 +16,6 @@ import type {
   Result,
   SessionUser,
   SugerenciaReposicion,
-  TipoMovimiento,
   Venta,
 } from '../types';
 import type { Unidad } from '../utils/units';
@@ -74,19 +73,15 @@ export interface ProveedorInput extends ClienteInput {
   pais: string;
 }
 
-export interface MovimientoInput {
-  tipo: TipoMovimiento;
+/** Ajuste de inventario por conteo (las entradas y salidas llegan por compras, ventas y producción). */
+export interface AjusteInput {
   prodId: string;
-  /** Entrada y salida. */
-  cantidad?: number;
-  /** Solo entrada: costo unitario de compra. */
-  costo?: number;
-  /** Solo ajuste: existencia contada. */
-  nuevoStock?: number;
-  proveedorId?: string;
-  /** Dónde ocurre (1 = bodega, 2 = sucursal). En un ajuste, lo contado es de esa ubicación. */
+  /** Existencia contada en la ubicación. */
+  nuevoStock: number;
+  /** Dónde se contó (1 = bodega, 2 = sucursal). */
   ubicacionId: number;
   ref: string;
+  /** Motivo (el servidor exige al menos 5 caracteres). */
   nota: string;
 }
 
@@ -111,7 +106,7 @@ export interface DataActions {
   /** Sube la foto del producto o la quita (null). */
   fotoProducto(id: string, foto: Blob | null): Promise<Result>;
   cambiarEstadoProducto(id: string, activo: boolean): Promise<Result>;
-  registrarMovimiento(data: MovimientoInput): Promise<Result<{ sku: string; stock: number }>>;
+  registrarAjuste(data: AjusteInput): Promise<Result<{ sku: string; stock: number }>>;
   /** Devuelve el id del cliente (nuevo o editado). */
   guardarCliente(id: string | null, data: ClienteInput): Promise<Result<string>>;
   guardarProveedor(id: string | null, data: ProveedorInput): Promise<Result>;

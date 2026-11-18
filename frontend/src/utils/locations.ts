@@ -13,6 +13,4 @@ export const UBICACIONES: Array<{ id: UbicacionId; codigo: 'BOD' | 'SUC'; nombre
 ];
 
 export const nombreUbicacion = (id: number | null | undefined): string => UBICACIONES.find((u) => u.id === id)?.nombre ?? '';
-export const cortoUbicacion = (id: number | null | undefined): string => UBICACIONES.find((u) => u.id === id)?.corto ?? '';
 export const otraUbicacion = (id: UbicacionId): UbicacionId => (id === BODEGA ? SUCURSAL : BODEGA);
-export const isUbicacion = (v: unknown): v is UbicacionId => v === BODEGA || v === SUCURSAL;

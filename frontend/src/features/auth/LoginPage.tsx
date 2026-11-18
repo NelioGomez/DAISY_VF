@@ -67,9 +67,7 @@ export function LoginPage() {
   const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
   const [notice, setNotice] = useState<Notice>(() =>
     navState.resetUsername
-      ? navState.resetSimulated
-        ? { tone: 'info', text: 'Recuperación simulada completada. El servidor aún no tiene este proceso, así que su contraseña real no cambió.' }
-        : { tone: 'success', text: 'Contraseña actualizada. Inicie sesión con su nueva contraseña.' }
+      ? { tone: 'success', text: 'Contraseña actualizada. Inicie sesión con su nueva contraseña.' }
       : lastLogout?.reason === 'idle'
         ? { tone: 'info', text: 'Su sesión se cerró por inactividad. Inicie sesión para continuar donde estaba.' }
         : lastLogout?.reason === 'expired'

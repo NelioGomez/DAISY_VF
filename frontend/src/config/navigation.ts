@@ -18,12 +18,12 @@ export const ROLES: Record<RoleKey, RoleInfo> = {
 
 /** Módulos visibles por rol. El primero es la vista inicial al iniciar sesión. */
 export const ACCESS: Record<RoleKey, ModuleId[]> = {
-  admin: ['dashboard', 'productos', 'inventario', 'compras', 'produccion', 'clientes', 'proveedores', 'cotizaciones', 'ventas', 'pagos', 'ordenes', 'reportes', 'catalogo', 'consultas', 'auditoria'],
-  gerencia: ['dashboard', 'reportes', 'inventario', 'compras', 'produccion', 'ventas', 'auditoria'],
-  vendedor: ['dashboard', 'clientes', 'cotizaciones', 'ventas', 'catalogo', 'consultas'],
-  inventario: ['dashboard', 'productos', 'inventario', 'compras', 'produccion', 'proveedores'],
-  contabilidad: ['dashboard', 'ventas', 'pagos', 'compras', 'reportes'],
-  tecnico: ['dashboard', 'ordenes'],
+  admin: ['dashboard', 'productos', 'inventario', 'compras', 'produccion', 'clientes', 'proveedores', 'cotizaciones', 'ventas', 'pagos', 'ordenes', 'reportes', 'catalogo', 'consultas', 'auditoria', 'documentacion'],
+  gerencia: ['dashboard', 'reportes', 'inventario', 'compras', 'produccion', 'ventas', 'auditoria', 'documentacion'],
+  vendedor: ['dashboard', 'clientes', 'cotizaciones', 'ventas', 'catalogo', 'consultas', 'documentacion'],
+  inventario: ['dashboard', 'productos', 'inventario', 'compras', 'produccion', 'proveedores', 'documentacion'],
+  contabilidad: ['dashboard', 'ventas', 'pagos', 'compras', 'reportes', 'documentacion'],
+  tecnico: ['dashboard', 'ordenes', 'documentacion'],
 };
 
 /** Contadores (avisos) que puede mostrar una entrada del menú. */
@@ -119,6 +119,8 @@ export const MENU: MenuEntry[] = [
     ],
   },
   { id: 'auditoria', t: 'Auditoría', ic: 'history' },
+  // Manual de usuario (mejora n.° 64): todos los roles lo ven.
+  { id: 'documentacion', t: 'Documentación', ic: 'book-open' },
 ];
 
 export const TITLES: Record<ModuleId, [string, string]> = {
@@ -137,13 +139,14 @@ export const TITLES: Record<ModuleId, [string, string]> = {
   catalogo: ['Catálogo Web', 'Vista pública de productos'],
   auditoria: ['Auditoría', 'Bitácora de acciones del sistema'],
   consultas: ['Consultas Web', 'Solicitudes de clientes desde el sitio'],
+  documentacion: ['Documentación', 'Manual de usuario'],
 };
 
 
 export const isModuleId = (v: string | undefined): v is ModuleId => !!v && v in TITLES;
 
-/** Permiso del backend necesario para ver cada módulo. */
-export const MODULE_PERMISSION: Record<ModuleId, string> = {
+/** Permiso del backend necesario para ver cada módulo (null = cualquier usuario con sesión). */
+export const MODULE_PERMISSION: Record<ModuleId, string | null> = {
   dashboard: 'dashboard:read',
   productos: 'products:read',
   inventario: 'inventory:read',
@@ -159,6 +162,7 @@ export const MODULE_PERMISSION: Record<ModuleId, string> = {
   catalogo: 'catalog:read',
   consultas: 'inquiries:read',
   auditoria: 'audit:read',
+  documentacion: null,
 };
 
 /** Colecciones del store que usa cada módulo: si alguna falla, la pantalla ofrece reintentar. */
@@ -178,6 +182,7 @@ export const MODULE_DATA: Record<ModuleId, RefreshKey[]> = {
   catalogo: ['productos', 'catalogos'],
   consultas: ['consultas'],
   auditoria: [],
+  documentacion: [],
 };
 
 /**
@@ -185,5 +190,8 @@ export const MODULE_DATA: Record<ModuleId, RefreshKey[]> = {
  * sus permisos reales (enviados por el servidor) le permiten abrir.
  */
 export function visibleModules(user: { role: RoleKey; permissions: string[] }): ModuleId[] {
-  return ACCESS[user.role].filter((m) => user.permissions.includes(MODULE_PERMISSION[m]));
+  return ACCESS[user.role].filter((m) => {
+    const perm = MODULE_PERMISSION[m];
+    return perm === null || user.permissions.includes(perm);
+  });
 }

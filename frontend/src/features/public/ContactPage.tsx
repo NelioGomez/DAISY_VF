@@ -176,8 +176,8 @@ export function ContactPage() {
                     </>
                   ) : (
                     <>
-                      ¿Olvidó su contraseña? Recupérela desde <Link to="/clientes/ingresar">Iniciar sesión</Link>. Con la sesión iniciada también puede cambiar su
-                      correo en Mi perfil.
+                      ¿Olvidó su contraseña? Escríbanos aquí con el correo de su cuenta y le ayudamos a recuperar el acceso. Si la recuerda,{' '}
+                      <Link to="/clientes/ingresar">inicie sesión</Link>: en Mi perfil puede cambiar usted mismo su correo y su contraseña.
                     </>
                   )}
                 </div>

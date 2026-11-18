@@ -11,7 +11,7 @@ const DEMO_USERS: Array<{ username: string; role: RoleKey; password: string | nu
   { username: 'jflores', role: 'vendedor', password: DEMO_PASSWORD },
   { username: 'ngomez', role: 'inventario', password: DEMO_PASSWORD },
   { username: 'eurcuyo', role: 'contabilidad', password: DEMO_PASSWORD },
-  { username: 'tlopez', role: 'tecnico', password: DEMO_PASSWORD },
+  { username: 'joporta', role: 'tecnico', password: DEMO_PASSWORD },
 ];
 
 interface DemoAccountsProps {

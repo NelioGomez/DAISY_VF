@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useModal } from './useModal';
 
 interface ModalProps {
@@ -10,6 +10,12 @@ interface ModalProps {
 
 export function Modal({ title, children, footer, wide }: ModalProps) {
   const { close } = useModal();
+  // Esc cierra la ventana (atajo de teclado, mejora n.° 31).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [close]);
   return (
     <div className="modal-bg" onClick={(e) => e.target === e.currentTarget && close()}>
       <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>

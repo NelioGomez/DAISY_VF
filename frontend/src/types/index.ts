@@ -216,6 +216,30 @@ export interface ResumenReposicion {
   diasDemanda: number;
 }
 
+/* ---------- Ficha detallada de producto ---------- */
+
+export type Rotacion = 'ALTA' | 'MEDIA' | 'BAJA' | 'SIN_MOVIMIENTO';
+
+/** GET /products/:id/detail. Cada sección es null si el rol no puede verla. */
+export interface FichaProducto {
+  producto: Producto;
+  estadoStock: 'Agotado' | 'Bajo' | 'Disponible';
+  stats: {
+    vendidas30: number;
+    vendidas90: number;
+    ingresos90: number;
+    margen90: number;
+    ultimaVenta: string | null;
+    diasCobertura: number | null;
+    rotacion: Rotacion;
+  } | null;
+  enCamino: { unidades: number; compras: Array<{ id: string; codigo: string; proveedor: string; esperada: string | null; pendiente: number }> } | null;
+  movimientos: Array<Movimiento & { ubicacion: string }> | null;
+  ventas: Array<{ ventaId: string; factura: string; fecha: string; anulada: boolean; cliente: string; cant: number; precio: number; sub: number }> | null;
+  proveedores: Array<{ id: string; nombre: string; pais: string; codigo: string; ultimoCosto: number | null; moneda: Moneda; plazo: number | null; preferente: boolean }> | null;
+  precios: PrecioHistorial[] | null;
+}
+
 /* ---------- Trazabilidad documental ---------- */
 
 export type TipoDocumento = 'SOLICITUD' | 'COTIZACION' | 'VENTA' | 'PAGO' | 'COMPRA' | 'RECEPCION' | 'MOVIMIENTO';
@@ -238,6 +262,8 @@ export interface LineaDocumento {
   precio: number;
   sub: number;
   disponible?: number;
+  /** Stock mínimo del producto (para advertir si la venta lo deja en nivel crítico). */
+  minimo?: number;
 }
 
 /** Línea en edición dentro del editor de líneas. */
@@ -267,6 +293,9 @@ export interface Venta {
   vencida: boolean;
   motivoAnulacion: string | null;
   cotizacion: string | null;
+  cotizacionId: string | null;
+  /** Solicitud web que originó la cotización (cadena SOL → COT → FAC). */
+  solicitud: { id: string; codigo: string } | null;
   /** Solo en el detalle (GET /sales/:id). */
   items?: LineaDocumento[];
   pagos?: Pago[];
@@ -285,9 +314,15 @@ export interface Cotizacion {
   iva: number;
   total: number;
   estado: EstadoCotizacion;
+  /** Desde cuándo está en el estado actual (para "Pendiente, hace N días"). */
+  estadoDesde: string;
   notas: string;
+  motivoRechazo: string;
   vendedor: string;
   factura: string | null;
+  facturaId: string | null;
+  /** Solicitud web de origen, si la hubo. */
+  solicitud: { id: string; codigo: string } | null;
   items?: LineaDocumento[];
 }
 
@@ -351,6 +386,13 @@ export interface ConsultaWeb {
   producto: string;
   msg: string;
   estado: EstadoConsulta;
+  estadoDesde: string;
+  /** PORTAL = lista de solicitud de un cliente con cuenta; WEB = formulario de contacto. */
+  origen: 'PORTAL' | 'WEB';
+  cliente: { id: string; nombre: string } | null;
+  asignado: string;
+  items: Array<{ prod: string; sku: string; prodN: string; cant: number; nota: string; precio: number; stock: number; minimo: number; activo: boolean }>;
+  cotizacion: { id: string; codigo: string; estado: EstadoCotizacion; total: number; factura: { id: string; codigo: string } | null } | null;
 }
 
 export interface RegistroAuditoria {

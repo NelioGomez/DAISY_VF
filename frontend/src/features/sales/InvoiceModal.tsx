@@ -1,6 +1,7 @@
 /* Factura: se carga el detalle real desde GET /sales/:id. */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { DocChain } from '../../components/common/DocChain';
 import { Logo } from '../../components/common/Logo';
 import { ViewLoader } from '../../components/feedback/FullScreenLoader';
 import { CancelButton, Modal } from '../../components/modals/Modal';
@@ -9,12 +10,14 @@ import { EstadoTag } from '../../components/tables/Tag';
 import { useAuth, useData } from '../../store/hooks';
 import type { Venta } from '../../types';
 import { fmtDate, fmtDateTime, money } from '../../utils/format';
+import { useOpenDocument } from '../documents/useOpenDocument';
 import { VoidSaleModal } from './VoidSaleModal';
 
 export function InvoiceModal({ ventaId }: { ventaId: string }) {
   const { obtenerVenta } = useData();
   const { can } = useAuth();
   const modal = useModal();
+  const doc = useOpenDocument();
   const navigate = useNavigate();
   const [v, setV] = useState<Venta | null>(null);
   const [error, setError] = useState('');
@@ -78,6 +81,20 @@ export function InvoiceModal({ ventaId }: { ventaId: string }) {
             </div>
           </div>
 
+          <DocChain
+            items={[
+              ...(v.solicitud
+                ? [{ tipo: 'SOLICITUD' as const, id: v.solicitud.id, codigo: v.solicitud.codigo, onOpen: doc.canOpen({ tipo: 'SOLICITUD' }) ? () => doc.open({ tipo: 'SOLICITUD', ...v.solicitud! }) : undefined }]
+                : []),
+              ...(v.cotizacionId && v.cotizacion
+                ? [{ tipo: 'COTIZACION' as const, id: v.cotizacionId, codigo: v.cotizacion, onOpen: doc.canOpen({ tipo: 'COTIZACION' }) ? () => doc.open({ tipo: 'COTIZACION', id: v.cotizacionId!, codigo: v.cotizacion! }) : undefined }]
+                : []),
+              { tipo: 'VENTA' as const, id: v.id, codigo: v.factura, actual: true },
+              ...(v.pagos?.length ? [{ tipo: 'PAGO' as const, id: 'pagos', codigo: `${v.pagos.length} pago(s)`, detalle: money(v.pagos.reduce((a, p) => a + p.monto, 0)) }] : []),
+              ...(v.items?.length ? [{ tipo: 'MOVIMIENTO' as const, id: 'salidas', codigo: `${v.items.length} salida(s) de inventario` }] : []),
+            ]}
+          />
+
           {v.estado === 'Anulada' && (
             <div className="note" style={{ marginBottom: 14, background: 'var(--red-soft)', borderColor: '#f5c2bd', color: '#9c241b' }}>
               <span className="ic">⛔</span>
@@ -93,7 +110,6 @@ export function InvoiceModal({ ventaId }: { ventaId: string }) {
             <span className="mono" style={{ fontSize: 12 }}>
               RUC: {v.ruc || '—'}
             </span>
-            {v.cotizacion && <span style={{ fontSize: 12, color: 'var(--muted)' }}> · Origen: {v.cotizacion}</span>}
           </div>
 
           <table style={{ border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>

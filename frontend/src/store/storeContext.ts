@@ -4,7 +4,9 @@ import type { RealtimeStatus } from '../services/realtime/realtime';
 import type {
   CartLine,
   Compra,
+  ConsultaWeb,
   Cotizacion,
+  FichaProducto,
   Database,
   EstadoConsulta,
   MetodoPago,
@@ -100,7 +102,7 @@ export interface DataActions {
   registrarMovimiento(data: MovimientoInput): Promise<Result<{ sku: string; stock: number }>>;
   guardarCliente(id: string | null, data: ClienteInput): Promise<Result>;
   guardarProveedor(id: string | null, data: ProveedorInput): Promise<Result>;
-  crearCotizacion(cliId: string, lines: CartLine[], notas: string): Promise<Result<string>>;
+  crearCotizacion(cliId: string, lines: CartLine[], notas: string): Promise<Result<{ id: string; codigo: string }>>;
   cambiarEstadoCotizacion(id: string, accion: 'submit' | 'approve' | 'reject', motivo?: string): Promise<Result>;
   obtenerCotizacion(id: string): Promise<Result<Cotizacion>>;
   convertirCotizacion(id: string, terms: CondicionesPago): Promise<Result<{ ventaId: string; factura: string }>>;
@@ -120,6 +122,12 @@ export interface DataActions {
   /** Devuelve el código de la solicitud (SOL-000001). */
   crearConsulta(nombre: string, contacto: string, producto: string, msg: string): Promise<Result<string | undefined>>;
   cambiarEstadoConsulta(id: string, estado: EstadoConsulta): Promise<Result>;
+  obtenerConsulta(id: string): Promise<Result<ConsultaWeb>>;
+  /** Solicitud web → cotización precargada (la solicitud pasa a Cotizada y se conserva). */
+  cotizarConsulta(id: string, data: { cliId?: string; lineas?: CartLine[]; notas?: string; borrador?: boolean }): Promise<Result<{ id: string; codigo: string }>>;
+
+  /* ---------- Ficha de producto ---------- */
+  fichaProducto(id: string): Promise<Result<FichaProducto>>;
 
   /* ---------- Compras y reabastecimiento ---------- */
   /** Crea (id null) o modifica un borrador; con ordenar=true queda pendiente de recibir. */

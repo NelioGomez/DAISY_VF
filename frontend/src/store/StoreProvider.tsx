@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { ApiError, api, errorMessage, getAll, request, setAuthToken, setUnauthorizedHandler } from '../services/api/client';
 import {
   DEFAULT_CONFIG, INQUIRY_TO_API, METHOD_TO_API, MOVEMENT_TO_API, PURCHASE_STATUS, mapAuditoria, mapCatalogo, mapCliente, mapCompra,
-  mapConsulta, mapCotizacion, mapConfig, mapCxc, mapDashboard, mapMovimiento, mapOrden, mapPago, mapProducto, mapProveedor,
+  mapConsulta, mapCotizacion, mapConfig, mapCxc, mapDashboard, mapFichaProducto, mapMovimiento, mapOrden, mapPago, mapProducto, mapProveedor,
   mapResumenCompras, mapResumenReposicion, mapSugerencia, mapTecnico, mapVenta, type ApiPurchaseStatus,
 } from '../services/api/mappers';
 import * as authService from '../services/auth/authService';
@@ -377,7 +377,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       crearCotizacion: (cliId, lines, notas) =>
         run(async () => {
           const q = await api.post<Json>('/quotations', { customerId: cliId, items: toItems(lines), ...(notas.trim() ? { notes: notas.trim() } : {}) });
-          return String(q.code);
+          return { id: String(q.id), codigo: String(q.code) };
         }, ['cotizaciones', 'dashboard', 'auditoria']),
 
       cambiarEstadoCotizacion: (id, accion, motivo) =>
@@ -468,6 +468,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       cambiarEstadoConsulta: (id, estado) =>
         run(() => api.patch(`/inquiries/${id}/status`, { status: INQUIRY_TO_API[estado] }).then(() => undefined), ['consultas', 'dashboard', 'auditoria']),
+
+      obtenerConsulta: async (id) => {
+        try {
+          return ok(mapConsulta(await api.get<Json>(`/inquiries/${id}`)));
+        } catch (e) {
+          return fail(errorMessage(e));
+        }
+      },
+
+      cotizarConsulta: (id, d) =>
+        run(async () => {
+          const q = await api.post<Json>(`/inquiries/${id}/quotation`, {
+            ...(d.cliId ? { customerId: d.cliId } : {}),
+            ...(d.lineas ? { items: toItems(d.lineas) } : {}),
+            ...(d.notas?.trim() ? { notes: d.notas.trim() } : {}),
+            ...(d.borrador ? { asDraft: true } : {}),
+          });
+          return { id: String(q.id), codigo: String(q.code) };
+        }, ['consultas', 'cotizaciones', 'dashboard', 'auditoria']),
+
+      fichaProducto: async (id) => {
+        try {
+          return ok(mapFichaProducto(await api.get<Json>(`/products/${id}/detail`)));
+        } catch (e) {
+          return fail(errorMessage(e));
+        }
+      },
 
       /* ---------- Compras y reabastecimiento ---------- */
       guardarCompra: (id, d, ordenar) =>

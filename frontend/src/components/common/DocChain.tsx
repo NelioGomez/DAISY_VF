@@ -2,7 +2,7 @@
    —SOL › COT › FAC › Pago, o OC › REC › Entradas— y permite abrir cada uno. */
 import type { TipoDocumento } from '../../types';
 
-export const DOC_LABEL: Record<TipoDocumento, string> = {
+const DOC_LABEL: Record<TipoDocumento, string> = {
   SOLICITUD: 'Solicitud',
   COTIZACION: 'Cotización',
   VENTA: 'Factura',

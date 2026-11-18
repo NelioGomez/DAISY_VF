@@ -51,6 +51,20 @@ problemas de CORS. Si la API corre en otro puerto o equipo, definir `VITE_BACKEN
 Variables (`.env.example`): `VITE_API_URL` (por defecto `/api/v1`), `VITE_BACKEND_URL` (destino
 del proxy) y `VITE_DEMO_ACCOUNTS` (muestra el panel de cuentas de prueba fuera de `npm run dev`).
 
+## Tiempo real
+
+Al iniciar sesión el frontend abre un WebSocket con la API (`services/realtime/realtime.ts`).
+Cuando otro usuario cambia algo que usted puede ver (una venta, un movimiento de stock, una
+consulta del catálogo público…), la vista se actualiza sola, sin recargar la página.
+
+- En la barra superior, **En vivo** indica que el canal está activo. Si se cae la conexión
+  muestra *Reconectando…*; al volver, recarga los datos por si se perdió algún aviso.
+- Los cambios de otros usuarios se anuncian con un aviso. Un clic en *En vivo* los silencia
+  (🔕); los datos se siguen actualizando igual. La preferencia queda guardada en el navegador.
+- Los avisos de cambios propios no se repiten, y nadie recibe detalles de módulos que su rol no puede ver.
+- En desarrollo Vite reenvía `/socket.io` al backend. Si el WebSocket está en otro servidor,
+  definir `VITE_WS_URL`.
+
 ## Cuentas de prueba
 
 | Usuario    | Rol            | Contraseña                         |
@@ -117,6 +131,7 @@ src/
     api/client.ts   Cliente HTTP (token, errores, paginación)
     api/mappers.ts  Traduce la respuesta de la API a los tipos del frontend
     auth/           Login, sesión y recuperación de contraseña
+    realtime/       Cliente WebSocket (socket.io)
     mock/users.ts   Solo para la simulación de recuperación
   store/            Carga de datos por permisos, acciones y hooks useAuth / useData
   styles/           CSS global (identidad visual original)

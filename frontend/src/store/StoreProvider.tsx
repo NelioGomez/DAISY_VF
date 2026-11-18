@@ -16,6 +16,7 @@ import {
   mapCxc, mapDashboard, mapMovimiento, mapOrden, mapPago, mapProducto, mapProveedor, mapTecnico, mapVenta,
 } from '../services/api/mappers';
 import * as authService from '../services/auth/authService';
+import { connectRealtime, disconnectRealtime, type ChangeEvent, type RealtimeStatus } from '../services/realtime/realtime';
 import type { CartLine, Database, Result, SessionUser } from '../types';
 import {
   StoreContext, type CondicionesPago, type DataActions, type LoadStatus, type LogoutInfo, type LogoutReason,
@@ -23,6 +24,24 @@ import {
 } from './storeContext';
 
 const ALL_KEYS: RefreshKey[] = ['productos', 'catalogos', 'movimientos', 'clientes', 'proveedores', 'ventas', 'cotizaciones', 'pagos', 'cxc', 'ordenes', 'consultas', 'auditoria', 'dashboard'];
+
+/** Qué colecciones recargar cuando el servidor avisa que cambió un módulo. */
+const CHANGE_KEYS: Record<string, RefreshKey[]> = {
+  products: ['productos', 'dashboard'],
+  categories: ['catalogos', 'productos'],
+  brands: ['catalogos', 'productos'],
+  inventory: ['productos', 'movimientos', 'dashboard'],
+  customers: ['clientes'],
+  suppliers: ['proveedores'],
+  quotations: ['cotizaciones', 'dashboard'],
+  sales: ['ventas', 'productos', 'movimientos', 'pagos', 'cxc', 'clientes', 'cotizaciones', 'ordenes', 'dashboard'],
+  payments: ['pagos', 'cxc', 'ventas', 'clientes', 'dashboard'],
+  'service-orders': ['ordenes', 'dashboard'],
+  inquiries: ['consultas', 'dashboard'],
+};
+
+/** Espera breve para juntar varios avisos seguidos en una sola recarga. */
+const REFRESH_DEBOUNCE_MS = 350;
 
 const SESSION_KEY = 'siven.session';
 
@@ -85,8 +104,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastLogout, setLastLogout] = useState<LogoutInfo | null>(null);
 
+  const [realtime, setRealtime] = useState<RealtimeStatus>('off');
+
   const userRef = useRef<SessionUser | null>(null);
   const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tiempo real: colecciones pendientes de recargar y acciones propias en curso.
+  const pendingKeys = useRef(new Set<RefreshKey>());
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ownActions = useRef({ running: 0, lastEnd: 0 });
 
   const can = useCallback((p: string) => !!userRef.current?.permissions.includes(p), []);
 
@@ -157,6 +182,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [loaders]);
 
+  /** Junta avisos del servidor y recarga una sola vez lo afectado. */
+  const queueRefresh = useCallback(
+    (keys: RefreshKey[]) => {
+      keys.forEach((k) => pendingKeys.current.add(k));
+      if (flushTimer.current) return;
+      flushTimer.current = setTimeout(() => {
+        flushTimer.current = null;
+        const batch = [...pendingKeys.current];
+        pendingKeys.current.clear();
+        if (userRef.current && batch.length) void refresh(batch);
+      }, REFRESH_DEBOUNCE_MS);
+    },
+    [refresh],
+  );
+
+  const onRemoteChange = useCallback(
+    (e: ChangeEvent) => {
+      const me = userRef.current;
+      if (!me) return;
+      // Lo que hizo este mismo usuario ya se recargó al terminar su acción.
+      const own = ownActions.current;
+      if (e.userId === me.id && (own.running > 0 || Date.now() - own.lastEnd < 3_000)) return;
+      const keys = CHANGE_KEYS[e.module];
+      if (keys) queueRefresh([...keys, 'auditoria']);
+    },
+    [queueRefresh],
+  );
+
   /* ---------- Sesión ---------- */
   const endSession = useCallback((reason: LogoutReason) => {
     const current = userRef.current;
@@ -164,6 +217,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     expiryTimer.current = null;
     if (current) setLastLogout({ reason, username: current.user });
     userRef.current = null;
+    disconnectRealtime();
+    setRealtime('off');
+    if (flushTimer.current) clearTimeout(flushTimer.current);
+    flushTimer.current = null;
+    pendingKeys.current.clear();
     setAuthToken(null);
     writeSession(null);
     setUser(null);
@@ -181,8 +239,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (expiryTimer.current) clearTimeout(expiryTimer.current);
       expiryTimer.current = setTimeout(() => endSession('expired'), Math.max(0, expiresAt - Date.now()));
       void loadAll();
+      connectRealtime(token, {
+        onChange: onRemoteChange,
+        onStatus: setRealtime,
+        onReconnect: () => queueRefresh(ALL_KEYS), // pudo perderse algún aviso durante la caída
+        onSessionEnded: () => {
+          if (userRef.current) endSession('expired');
+        },
+      });
     },
-    [endSession, loadAll],
+    [endSession, loadAll, onRemoteChange, queueRefresh],
   );
 
   // Si el servidor rechaza el token (vencido o usuario desactivado), se cierra la sesión.
@@ -213,12 +279,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   /* ---------- Acciones de negocio ---------- */
   const actions = useMemo<DataActions>(() => {
     const run = async <T,>(fn: () => Promise<T>, keys: RefreshKey[]): Promise<Result<T>> => {
+      ownActions.current.running++;
       try {
         const data = await fn();
         await refresh(keys);
         return ok(data);
       } catch (e) {
         return fail(errorMessage(e));
+      } finally {
+        ownActions.current.running--;
+        ownActions.current.lastEnd = Date.now();
       }
     };
 
@@ -353,6 +423,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       status,
       loadError,
       lastLogout,
+      realtime,
       actions,
       can,
       reload: loadAll,
@@ -369,7 +440,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
     }),
     // `user` se incluye para que `can` (estable) se reevalúe en los componentes al cambiar de sesión.
-    [db, user, booting, status, loadError, lastLogout, actions, can, loadAll, startSession, endSession],
+    [db, user, booting, status, loadError, lastLogout, realtime, actions, can, loadAll, startSession, endSession],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

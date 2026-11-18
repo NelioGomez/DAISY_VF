@@ -15,6 +15,6 @@ export function useAuth() {
 
 /** Datos cargados desde la API y operaciones de negocio. */
 export function useData() {
-  const { db, actions, status, loadError, reload } = useStore();
-  return { db, ...actions, status, loadError, reload };
+  const { db, actions, status, loadError, reload, realtime } = useStore();
+  return { db, ...actions, status, loadError, reload, realtime };
 }

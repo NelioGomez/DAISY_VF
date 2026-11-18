@@ -4,7 +4,9 @@ import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-route
 import { Logo } from '../components/common/Logo';
 import { MENU, TITLES, isModuleId, visibleModules } from '../config/navigation';
 import { ViewLoader } from '../components/feedback/FullScreenLoader';
+import { RealtimeIndicator } from '../components/feedback/RealtimeIndicator';
 import { SESSION_IDLE_MINUTES } from '../config/security';
+import { readNoticesEnabled, storeNoticesEnabled, useRealtimeNotices } from '../features/realtime/useRealtimeNotices';
 import { useIdleTimeout } from '../hooks/useIdleTimeout';
 import { useAuth, useData } from '../store/hooks';
 import type { ModuleId } from '../types';
@@ -21,12 +23,14 @@ function useClock(): string {
 
 export function DashboardLayout() {
   const { user, logout } = useAuth();
-  const { db, status, loadError, reload } = useData();
+  const { db, status, loadError, reload, realtime } = useData();
   const navigate = useNavigate();
   const location = useLocation();
   const match = useMatch('/app/:module');
   const clock = useClock();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notices, setNotices] = useState(readNoticesEnabled);
+  useRealtimeNotices(notices);
 
   // Igual que go() del prototipo: al cambiar de vista se sube al inicio de la página.
   useEffect(() => {
@@ -96,6 +100,16 @@ export function DashboardLayout() {
             <div className="crumb">NORCOR · {crumb}</div>
           </div>
           <div className="spacer" />
+          <RealtimeIndicator
+            status={realtime}
+            notices={notices}
+            onToggleNotices={() =>
+              setNotices((on) => {
+                storeNoticesEnabled(!on);
+                return !on;
+              })
+            }
+          />
           <div className="clock">{clock}</div>
           <button className="icon-btn" title="Catálogo público" aria-label="Catálogo público" onClick={() => navigate('/catalogo')}>
             🌐

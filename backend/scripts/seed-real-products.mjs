@@ -57,10 +57,43 @@ async function call(method, path, body, { allowConflict = false } = {}) {
     await sleep(wait * 1000);
   }
   const json = await res.json().catch(() => ({}));
-  if (res.status === 409 && allowConflict) return null;
-  if (!res.ok) {
-    throw new Error(`${method} ${path} → ${res.status}: ${json.message ?? 'Error'} ${JSON.stringify(json.errors ?? [])}`);
+
+  if (res.status === 409 && allowConflict) {
+    return null;
   }
+
+  // Si NestJS activa el Throttler, esperamos y reintentamos.
+  if (res.status === 429 && retry < 5) {
+    const retryAfterHeader = Number(
+      res.headers.get('retry-after'),
+    );
+
+    const retryAfterMs =
+      Number.isFinite(retryAfterHeader) &&
+      retryAfterHeader > 0
+        ? retryAfterHeader * 1000
+        : 10_000;
+
+    console.log(
+      `⏳ Límite de peticiones alcanzado. Reintentando ${method} ${path}...`,
+    );
+
+    await sleep(retryAfterMs);
+
+    return call(method, path, body, {
+      allowConflict,
+      retry: retry + 1,
+    });
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      `${method} ${path} → ${res.status}: ${
+        json.message ?? 'Error'
+      } ${JSON.stringify(json.errors ?? [])}`,
+    );
+  }
+
   return json.data;
 }
 
@@ -87,7 +120,7 @@ function productBody(p, brandIds, categoryIds) {
     sku: skuOf(p),
     name: p.name,
     description: p.description || undefined,
-    unit: p.unit ?? 'UNIT',
+    unit: p.unit ?? 'UNIT', 
     brandId: brandIds[p.brand] ?? null,
     categoryId: categoryIds[p.category] ?? null,
     imageUrl: p.imageUrl ?? null,

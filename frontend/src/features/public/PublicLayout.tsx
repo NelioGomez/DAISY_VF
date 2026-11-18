@@ -166,9 +166,9 @@ export function PublicLayout() {
         </div>
         <div className="pub-foot-bottom">
           <span>© {YEAR} NORCOR Fueling System</span>
-          <Link to="/login" className="pub-staff">
+          <a href="/login" className="pub-staff">
             Acceso de colaboradores
-          </Link>
+          </a>
         </div>
       </footer>
 

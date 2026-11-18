@@ -14,6 +14,7 @@ import '@fontsource/barlow-semi-condensed/600.css';
 import '@fontsource/barlow-semi-condensed/700.css';
 import '../auth/auth.css';
 import './public.css';
+import { ThemeToggle } from '../../components/common/ThemeToggle';
 
 const NAV = [
   { to: '/', label: 'Inicio', end: true },
@@ -80,6 +81,7 @@ export function PublicLayout() {
           </nav>
 
           <div className="pub-head-actions">
+            <ThemeToggle className="pub-themebtn" />
             {cuenta ? (
               <Link to="/clientes/cuenta" className="pub-account" title={`${cuenta.cliente.nombre} (${cuenta.email})`}>
                 <span className="pub-account-dot" aria-hidden="true">

@@ -11,7 +11,7 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: 7fr minmax(440px, 5fr);
-  background: #fff;
+  background: var(--card);
 }
 
 /* ---------- Panel de marca ---------- */
@@ -211,10 +211,10 @@
   animation: auth-pop .2s ease-out;
 }
 .auth-notice svg { flex-shrink: 0; margin-top: 1px; }
-.auth-notice.is-error { background: var(--red-soft); color: #9c241b; }
-.auth-notice.is-warning { background: #fff2d6; color: #7a4f00; }
-.auth-notice.is-info { background: var(--blue-soft); color: #1f486f; }
-.auth-notice.is-success { background: var(--green-soft); color: #11603a; }
+.auth-notice.is-error { background: var(--red-soft); color: var(--red-ink); }
+.auth-notice.is-warning { background: var(--amber-tint); color: var(--amber-ink); }
+.auth-notice.is-info { background: var(--blue-soft); color: var(--blue-ink); }
+.auth-notice.is-success { background: var(--green-soft); color: var(--green-ink); }
 @keyframes auth-pop {
   from { opacity: 0; transform: translateY(-4px); }
 }
@@ -234,18 +234,18 @@
   padding: 0 46px 0 44px;
   border: 1.5px solid var(--line);
   border-radius: 11px;
-  background: #fff;
+  background: var(--input-bg);
   color: var(--ink);
   font-size: 15px;
   transition: border-color .15s, box-shadow .15s;
 }
-.auth-input input:hover:not(:disabled) { border-color: #c3d0da; }
+.auth-input input:hover:not(:disabled) { border-color: var(--line-strong); }
 .auth-input input:focus {
   outline: none;
   border-color: var(--amber);
   box-shadow: 0 0 0 4px rgba(245, 166, 35, .18);
 }
-.auth-input input:disabled { background: #f6f8fa; }
+.auth-input input:disabled { background: var(--row-hover); }
 .auth-input-icon {
   position: absolute;
   left: 14px;
@@ -277,12 +277,12 @@
   padding-top: 5px;
   font-size: 13px;
 }
-.auth-error-text { color: #b32a20; }
+.auth-error-text { color: var(--red-ink); }
 .auth-caps {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #8a5a00;
+  color: var(--amber-ink);
 }
 .auth-caps svg { width: 15px; height: 15px; }
 
@@ -337,7 +337,7 @@
 .auth-submit:hover:not(:disabled) { background: var(--amber-bright); }
 .auth-submit:active:not(:disabled) { transform: translateY(1px); }
 .auth-submit:disabled { cursor: not-allowed; }
-.auth-submit[aria-busy="false"]:disabled { background: #e9edf1; color: var(--muted); box-shadow: none; }
+.auth-submit[aria-busy="false"]:disabled { background: var(--track); color: var(--muted); box-shadow: none; }
 .auth-spinner {
   width: 18px;
   height: 18px;
@@ -423,7 +423,7 @@
   font-size: 28px;
   font-weight: 600;
   color: var(--ink);
-  background: #fff;
+  background: var(--input-bg);
   caret-color: var(--amber-deep);
   transition: border-color .15s, box-shadow .15s;
 }
@@ -432,7 +432,7 @@
   border-color: var(--amber);
   box-shadow: 0 0 0 4px rgba(245, 166, 35, .18);
 }
-.auth-otp input:not(:placeholder-shown) { border-color: #9fb0bd; }
+.auth-otp input:not(:placeholder-shown) { border-color: var(--line-strong); }
 .auth-otp.has-error input { border-color: var(--red); }
 .auth-otp-meta {
   display: flex;
@@ -493,7 +493,7 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  border: 1.5px solid #c3d0da;
+  border: 1.5px solid var(--line-strong);
   flex-shrink: 0;
 }
 .auth-rules li.ok { color: var(--ink); }
@@ -506,7 +506,7 @@
 /* ---------- Cuentas de prueba (solo desarrollo) ---------- */
 .auth-demo {
   margin-top: 26px;
-  border: 1.5px dashed #c9d5df;
+  border: 1.5px dashed var(--line-strong);
   border-radius: 12px;
   padding: 0 14px;
   font-size: 13px;
@@ -544,9 +544,9 @@
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--card);
 }
-.auth-demo button:hover { border-color: var(--amber); background: #fffaf0; }
+.auth-demo button:hover { border-color: var(--amber); background: var(--amber-wash); }
 .auth-demo-dot { width: 8px; height: 8px; border-radius: 50%; grid-row: span 2; }
 .auth-demo-role { font-weight: 600; color: var(--ink); font-size: 13px; }
 .auth-demo-user { color: var(--muted); font-size: 12px; }

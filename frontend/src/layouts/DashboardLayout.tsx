@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStor
 import { Link, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { MODULE_DATA, TITLES, isModuleId, visibleModules, type MenuBadge } from '../config/navigation';
 import { Icon } from '../components/common/Icon';
+import { ThemeToggle } from '../components/common/ThemeToggle';
 import { LoadErrors } from '../components/feedback/LoadErrors';
 import { SkeletonPage } from '../components/feedback/Skeleton';
 import { RealtimeIndicator } from '../components/feedback/RealtimeIndicator';
@@ -223,6 +224,7 @@ export function DashboardLayout() {
           </button>
           <NotificationBell />
           <div className="clock">{clock}</div>
+          <ThemeToggle />
           <a className="icon-btn tb-site" href="/catalogo" target="_blank" rel="noreferrer" title="Sitio público (se abre en otra pestaña)" aria-label="Sitio público, se abre en otra pestaña">
             <Icon name="globe" />
           </a>

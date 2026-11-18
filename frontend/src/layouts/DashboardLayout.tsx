@@ -2,6 +2,10 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/common/Logo';
+import { MENU, TITLES, isModuleId, visibleModules } from '../config/navigation';
+import { ViewLoader } from '../components/feedback/FullScreenLoader';
+import { SESSION_IDLE_MINUTES } from '../config/security';
+import { useIdleTimeout } from '../hooks/useIdleTimeout';
 import { ACCESS, MENU, TITLES, isModuleId } from '../config/navigation';
 import { SESSION_IDLE_MINUTES } from '../config/security';
 import { useIdleTimeout } from '../hooks/useIdleTimeout';
@@ -20,7 +24,7 @@ function useClock(): string {
 
 export function DashboardLayout() {
   const { user, logout } = useAuth();
-  const { db } = useData();
+  const { db, status, loadError, reload } = useData();
   const navigate = useNavigate();
   const location = useLocation();
   const match = useMatch('/app/:module');
@@ -38,7 +42,7 @@ export function DashboardLayout() {
 
   if (!user) return null;
 
-  const allowed = ACCESS[user.role];
+  const allowed = visibleModules(user);
   const param = match?.params.module;
   const moduleId: ModuleId = isModuleId(param) ? param : 'dashboard';
   const [title, crumb] = TITLES[moduleId];
@@ -47,7 +51,8 @@ export function DashboardLayout() {
     inventario: db.productos.filter((p) => p.stock <= p.stockMin).length,
     productos: db.productos.filter((p) => p.stock <= p.stockMin).length,
     consultas: db.consultas.filter((c) => c.estado === 'Nueva').length,
-    pagos: db.ventas.filter((v) => v.saldo > 0).length,
+    pagos: db.cxc.length,
+    cotizaciones: db.cotizaciones.filter((c) => c.estado === 'Pendiente').length,
   };
 
   const handleLogout = () => {
@@ -103,8 +108,8 @@ export function DashboardLayout() {
               {user.name[0]}
             </div>
             <div>
-              <b>{user.name}</b>
-              <span>@{user.user}</span>
+              <b>{user.fullName}</b>
+              <span>{user.name}</span>
             </div>
           </div>
           <button className="icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={handleLogout}>
@@ -112,7 +117,20 @@ export function DashboardLayout() {
           </button>
         </header>
         <main className="view">
-          <Outlet />
+          {status === 'loading' || status === 'idle' ? (
+            <ViewLoader text="Cargando datos del servidor…" />
+          ) : status === 'error' ? (
+            <div className="card conn-error" role="alert">
+              <div style={{ fontSize: 36 }}>⚠️</div>
+              <h2>No se pudieron cargar los datos</h2>
+              <p>{loadError}</p>
+              <button className="b b-amber" onClick={() => void reload()}>
+                Reintentar
+              </button>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </section>

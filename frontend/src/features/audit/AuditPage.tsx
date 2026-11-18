@@ -7,26 +7,25 @@ import { SearchToolbar } from '../../components/tables/SearchToolbar';
 import { Tag } from '../../components/tables/Tag';
 import { useData } from '../../store/hooks';
 import { exportCSV } from '../../utils/csv';
-import { matches } from '../../utils/format';
+import { fmtDateTime, matches } from '../../utils/format';
 
 export function AuditPage() {
-  const { db, registrarAuditoria } = useData();
+  const { db } = useData();
   const toast = useToast();
   const [q, setQ] = useState('');
-  const rows = db.auditoria.filter((l) => matches(q, l.fecha, '@' + l.usuario, l.modulo, l.detalle));
+  const rows = db.auditoria.filter((l) => matches(q, fmtDateTime(l.fecha), '@' + l.usuario, l.modulo, l.accion, l.detalle, l.ip));
 
   const exportar = () => {
     const file = 'auditoria_norcor.csv';
-    exportCSV(file, [['Fecha', 'Usuario', 'Modulo', 'Detalle'], ...db.auditoria.map((l) => [l.fecha, l.usuario, l.modulo, l.detalle])]);
+    exportCSV(file, [['Fecha', 'Usuario', 'Modulo', 'Accion', 'Detalle', 'IP'], ...db.auditoria.map((l) => [l.fecha, l.usuario, l.modulo, l.accion, l.detalle, l.ip])]);
     toast('Exportado: ' + file, 'ok');
-    registrarAuditoria('Reportes', 'Exportación CSV — ' + file);
   };
 
   return (
     <>
       <ViewHead
         title="Auditoría"
-        desc="Bitácora de acciones críticas: fecha, usuario, módulo y detalle (RNF-09)."
+        desc="Bitácora que registra el servidor: fecha, usuario, módulo, acción e IP (RNF-09). Se muestran los 100 eventos más recientes."
         actions={
           <button className="b b-out" onClick={exportar}>
             ⬇ Exportar CSV
@@ -49,13 +48,20 @@ export function AuditPage() {
             {rows.map((l) => (
               <tr key={l.id}>
                 <td className="mono" style={{ fontSize: 12 }}>
-                  {l.fecha}
+                  {fmtDateTime(l.fecha)}
                 </td>
                 <td className="mono">@{l.usuario}</td>
                 <td>
                   <Tag>{l.modulo}</Tag>
                 </td>
-                <td>{l.detalle}</td>
+                <td>
+                  {l.detalle}
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--soft)' }}>
+                    {' '}
+                    {l.accion}
+                    {l.ip && ` · ${l.ip}`}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

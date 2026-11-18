@@ -1,18 +1,25 @@
-/* MÓDULO: CONSULTAS WEB (RF-17) */
+/* MÓDULO: CONSULTAS WEB (RF-17) — solicitudes enviadas desde el catálogo público. */
+import { useState } from 'react';
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useToast } from '../../components/feedback/useToast';
-import { EstadoTag, Tag } from '../../components/tables/Tag';
-import { useData } from '../../store/hooks';
+import { EstadoTag } from '../../components/tables/Tag';
+import { useAuth, useData } from '../../store/hooks';
+import type { ConsultaWeb, EstadoConsulta } from '../../types';
 import { fmtDate } from '../../utils/format';
 
 export function WebInquiriesPage() {
-  const { db, atenderConsulta } = useData();
+  const { db, cambiarEstadoConsulta } = useData();
+  const { can } = useAuth();
   const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const atender = (id: string) => {
-    atenderConsulta(id);
-    toast('Consulta atendida', 'ok');
+  const cambiar = async (c: ConsultaWeb, estado: EstadoConsulta) => {
+    setBusy(c.id);
+    const r = await cambiarEstadoConsulta(c.id, estado);
+    setBusy(null);
+    if (!r.ok) return toast(r.error, 'err');
+    toast(`Consulta de ${c.nombre}: ${estado.toLowerCase()}`, 'ok');
   };
 
   return (
@@ -25,13 +32,14 @@ export function WebInquiriesPage() {
               <th>Fecha</th>
               <th>Cliente / Empresa</th>
               <th>Contacto</th>
+              <th>Producto de interés</th>
               <th>Mensaje</th>
               <th>Estado</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {!db.consultas.length && <EmptyRow cols={6} msg="Sin consultas" />}
+            {!db.consultas.length && <EmptyRow cols={7} msg="Sin consultas" />}
             {db.consultas.map((c) => (
               <tr key={c.id}>
                 <td className="mono">{fmtDate(c.fecha)}</td>
@@ -39,17 +47,21 @@ export function WebInquiriesPage() {
                   <b>{c.nombre}</b>
                 </td>
                 <td className="mono">{c.contacto}</td>
+                <td>{c.producto || '—'}</td>
                 <td style={{ maxWidth: 280 }}>{c.msg}</td>
                 <td>
                   <EstadoTag estado={c.estado} />
                 </td>
-                <td>
-                  {c.estado === 'Nueva' ? (
-                    <button className="b b-green b-sm" onClick={() => atender(c.id)}>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {can('inquiries:write') && c.estado === 'Nueva' && (
+                    <button className="b b-green b-sm" disabled={busy === c.id} onClick={() => cambiar(c, 'Atendida')}>
                       Marcar atendida
                     </button>
-                  ) : (
-                    <Tag tone="t-green">✓</Tag>
+                  )}
+                  {can('inquiries:write') && c.estado === 'Atendida' && (
+                    <button className="b b-out b-sm" disabled={busy === c.id} onClick={() => cambiar(c, 'Cerrada')}>
+                      Cerrar
+                    </button>
                   )}
                 </td>
               </tr>

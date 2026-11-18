@@ -9,7 +9,7 @@ import { PasswordStrength } from './PasswordStrength';
 interface StepPasswordProps {
   resetToken: string;
   username: string;
-  onDone(username: string): void;
+  onDone(username: string, simulated: boolean): void;
   onExpired(message: string): void;
 }
 
@@ -35,7 +35,7 @@ export function StepPassword({ resetToken, username, onDone, onExpired }: StepPa
     setError('');
     const res = await resetPassword(resetToken, password);
     setLoading(false);
-    if (res.ok) return onDone(res.username);
+    if (res.ok) return onDone(res.username, !!res.simulated);
     if (res.code === 'TOKEN_EXPIRED') return onExpired(res.message);
     setError(res.message);
   };

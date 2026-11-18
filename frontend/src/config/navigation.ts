@@ -86,3 +86,28 @@ export const ROLE_KEYS = Object.keys(ROLES) as RoleKey[];
 export const MODULE_COUNT = MENU.reduce((n, g) => n + g.items.length, 0);
 
 export const isModuleId = (v: string | undefined): v is ModuleId => !!v && v in TITLES;
+
+/** Permiso del backend necesario para ver cada módulo. */
+export const MODULE_PERMISSION: Record<ModuleId, string> = {
+  dashboard: 'dashboard:read',
+  productos: 'products:read',
+  inventario: 'inventory:read',
+  clientes: 'customers:read',
+  proveedores: 'suppliers:read',
+  cotizaciones: 'quotations:read',
+  ventas: 'sales:read',
+  pagos: 'payments:read',
+  ordenes: 'service-orders:read',
+  reportes: 'reports:read',
+  catalogo: 'catalog:read',
+  consultas: 'inquiries:read',
+  auditoria: 'audit:read',
+};
+
+/**
+ * Módulos que ve un usuario: el menú diseñado para su rol, limitado a lo que
+ * sus permisos reales (enviados por el servidor) le permiten abrir.
+ */
+export function visibleModules(user: { role: RoleKey; permissions: string[] }): ModuleId[] {
+  return ACCESS[user.role].filter((m) => user.permissions.includes(MODULE_PERMISSION[m]));
+}

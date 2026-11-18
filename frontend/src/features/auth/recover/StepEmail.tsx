@@ -30,7 +30,7 @@ export function StepEmail({ initialEmail, onSent }: StepEmailProps) {
     const res = await requestPasswordReset(email);
     setLoading(false);
     if (!res.ok) {
-      if (res.code === 'INVALID_EMAIL') return setError(res.message);
+      if (res.code !== 'RATE_LIMITED') return setError(res.message);
       return setNotice(res.message + (res.retryAfter ? ` Podrá intentarlo en ${fmt(res.retryAfter)}.` : ''));
     }
     onSent(email.trim().toLowerCase(), res);

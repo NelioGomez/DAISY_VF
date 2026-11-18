@@ -7,14 +7,14 @@ function useStore(): StoreValue {
   return ctx;
 }
 
-/** Sesión del usuario (simulada; luego se reemplaza por JWT desde NestJS). */
+/** Sesión del usuario (JWT emitido por NestJS) y sus permisos. */
 export function useAuth() {
-  const { user, login, logout, lastLogout } = useStore();
-  return { user, login, logout, lastLogout };
+  const { user, login, logout, lastLogout, booting, can } = useStore();
+  return { user, login, logout, lastLogout, booting, can };
 }
 
-/** Datos y operaciones de negocio. */
+/** Datos cargados desde la API y operaciones de negocio. */
 export function useData() {
-  const { db, actions } = useStore();
-  return { db, ...actions };
+  const { db, actions, status, loadError, reload } = useStore();
+  return { db, ...actions, status, loadError, reload };
 }

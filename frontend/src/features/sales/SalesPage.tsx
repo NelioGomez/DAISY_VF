@@ -5,7 +5,7 @@ import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
 import { SearchToolbar } from '../../components/tables/SearchToolbar';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
-import { useData } from '../../store/hooks';
+import { useAuth, useData } from '../../store/hooks';
 import { fmtDate, matches, money } from '../../utils/format';
 import { InvoiceModal } from './InvoiceModal';
 import { SaleFormModal } from './SaleFormModal';
@@ -13,24 +13,28 @@ import { useExportVentas } from './useExportVentas';
 
 export function SalesPage() {
   const { db } = useData();
+  const { can } = useAuth();
+  const canSell = can('sales:write') && can('customers:read') && can('products:read');
   const modal = useModal();
   const exportVentas = useExportVentas();
   const [q, setQ] = useState('');
-  const rows = [...db.ventas].reverse().filter((v) => matches(q, v.factura, fmtDate(v.fecha), v.cliN, v.metodo, v.estado));
+  const rows = db.ventas.filter((v) => matches(q, v.factura, fmtDate(v.fecha), v.cliN, v.metodo, v.estado));
 
   return (
     <>
       <ViewHead
         title="Ventas y Facturación"
-        desc="Registra ventas, calcula IVA, genera factura y descuenta inventario automáticamente."
+        desc="Registra ventas: el servidor calcula el IVA, genera la factura, descuenta el inventario y crea la cuenta por cobrar."
         actions={
           <>
             <button className="b b-out" onClick={exportVentas}>
               ⬇ Exportar CSV
             </button>
-            <button className="b b-amber" onClick={() => modal.open(<SaleFormModal />)}>
-              + Nueva venta
-            </button>
+            {canSell && (
+              <button className="b b-amber" onClick={() => modal.open(<SaleFormModal />)}>
+                + Nueva venta
+              </button>
+            )}
           </>
         }
       />
@@ -60,8 +64,9 @@ export function SalesPage() {
                   <Tag>{v.metodo}</Tag>
                 </td>
                 <td className="num">{money(v.total)}</td>
-                <td className="num" style={v.saldo > 0 ? { color: 'var(--red)', fontWeight: 700 } : undefined}>
-                  {money(v.saldo)}
+                <td className="num" style={v.saldo > 0 && v.estado !== 'Anulada' ? { color: 'var(--red)', fontWeight: 700 } : undefined}>
+                  {v.estado === 'Anulada' ? '—' : money(v.saldo)}
+                  {v.vencida && v.estado !== 'Anulada' && ' ⚠'}
                 </td>
                 <td>
                   <EstadoTag estado={v.estado} />

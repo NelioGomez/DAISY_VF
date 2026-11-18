@@ -11,14 +11,18 @@ export function CustomerFormModal({ cliente }: { cliente?: Cliente }) {
   const toast = useToast();
   const { close } = useModal();
   const c = cliente;
+  const [saving, setSaving] = useState(false);
   const [f, setF] = useState({
     nombre: c?.nombre ?? '', ruc: c?.ruc ?? '', contacto: c?.contacto ?? '',
     tel: c?.tel ?? '', correo: c?.correo ?? '', dir: c?.dir ?? '',
   });
   const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }));
 
-  const save = () => {
-    const r = guardarCliente(c?.id ?? null, f);
+  const save = async () => {
+    if (!f.nombre.trim()) return toast('El nombre es obligatorio', 'err');
+    setSaving(true);
+    const r = await guardarCliente(c?.id ?? null, f);
+    setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
     toast('Cliente guardado', 'ok');
     close();
@@ -30,8 +34,8 @@ export function CustomerFormModal({ cliente }: { cliente?: Cliente }) {
       footer={
         <>
           <CancelButton />
-          <button className="b b-amber" onClick={save}>
-            Guardar
+          <button className="b b-amber" onClick={save} disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar'}
           </button>
         </>
       }
@@ -41,7 +45,7 @@ export function CustomerFormModal({ cliente }: { cliente?: Cliente }) {
         <InputField label="RUC / Cédula" value={f.ruc} onChange={set('ruc')} />
         <InputField label="Contacto" value={f.contacto} onChange={set('contacto')} />
         <InputField label="Teléfono" value={f.tel} onChange={set('tel')} />
-        <InputField label="Correo" value={f.correo} onChange={set('correo')} />
+        <InputField label="Correo" type="email" value={f.correo} onChange={set('correo')} />
         <InputField label="Dirección" value={f.dir} onChange={set('dir')} full />
       </div>
     </Modal>

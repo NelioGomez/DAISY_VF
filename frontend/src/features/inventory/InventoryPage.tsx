@@ -4,16 +4,17 @@ import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
 import { Tag, TipoMovTag } from '../../components/tables/Tag';
-import { useData } from '../../store/hooks';
+import { useAuth, useData } from '../../store/hooks';
 import type { TipoMovimiento } from '../../types';
-import { fmtDate, money } from '../../utils/format';
+import { fmtDateTime, money } from '../../utils/format';
 import { stockCritico } from '../dashboard/kpis';
 import { MovementFormModal } from './MovementFormModal';
 
 export function InventoryPage() {
   const { db } = useData();
+  const { can } = useAuth();
   const modal = useModal();
-  const valor = db.productos.reduce((a, p) => a + p.stock * p.costo, 0);
+  const valor = db.inventarioValor || db.productos.reduce((a, p) => a + p.stock * p.costo, 0);
   const criticos = stockCritico(db).length;
   const abrir = (tipo: TipoMovimiento) => modal.open(<MovementFormModal tipo={tipo} />);
 
@@ -21,8 +22,9 @@ export function InventoryPage() {
     <>
       <ViewHead
         title="Inventario"
-        desc="Entradas, salidas y ajustes. El costo promedio móvil se recalcula con cada entrada (RF-08)."
+        desc="Entradas, salidas y ajustes. El servidor recalcula el costo promedio móvil con cada entrada (RF-08)."
         actions={
+          can('inventory:write') && (
           <>
             <button className="b b-out" onClick={() => abrir('Entrada')}>
               ↧ Entrada
@@ -34,12 +36,13 @@ export function InventoryPage() {
               ⚖ Ajuste
             </button>
           </>
+          )
         }
       />
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
         <KpiCard lbl="Valor de inventario" val={money(valor)} sub={db.productos.length + ' SKU'} ic="◰" />
         <KpiCard lbl="Productos críticos" val={criticos} sub="requieren compra" ic="▼" tone={criticos ? 'warn' : 'good'} />
-        <KpiCard lbl="Movimientos" val={db.movimientos.length} sub="registrados" ic="⇅" />
+        <KpiCard lbl="Movimientos" val={db.movimientos.length} sub="más recientes" ic="⇅" />
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -85,25 +88,27 @@ export function InventoryPage() {
                 <th>Producto</th>
                 <th className="num">Cant.</th>
                 <th className="num">Costo unit.</th>
+                <th className="num">Stock final</th>
                 <th>Referencia</th>
                 <th>Responsable</th>
               </tr>
             </thead>
             <tbody>
-              {!db.movimientos.length && <EmptyRow cols={7} msg="Sin movimientos" />}
-              {[...db.movimientos].reverse().map((m) => (
+              {!db.movimientos.length && <EmptyRow cols={8} msg="Sin movimientos" />}
+              {db.movimientos.map((m) => (
                 <tr key={m.id}>
-                  <td className="mono">{fmtDate(m.fecha)}</td>
+                  <td className="mono" style={{ fontSize: 12 }}>{fmtDateTime(m.fecha)}</td>
                   <td>
                     <TipoMovTag tipo={m.tipo} />
                   </td>
                   <td>{m.prodN}</td>
                   <td className="num">
-                    {m.tipo === 'Salida' ? '-' : '+'}
+                    {m.tipo === 'Ajuste' ? (m.stockDespues >= m.stockAntes ? '+' : '-') : m.tipo === 'Salida' ? '-' : '+'}
                     {m.cant}
                   </td>
                   <td className="num">{m.costo ? money(m.costo) : '—'}</td>
-                  <td>{m.ref}</td>
+                  <td className="num">{m.stockDespues}</td>
+                  <td title={m.nota}>{m.ref || m.nota || '—'}</td>
                   <td className="mono">@{m.resp}</td>
                 </tr>
               ))}

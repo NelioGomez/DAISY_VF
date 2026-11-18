@@ -5,12 +5,14 @@ import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
 import { SearchToolbar } from '../../components/tables/SearchToolbar';
 import { Tag } from '../../components/tables/Tag';
-import { useData } from '../../store/hooks';
+import { useAuth, useData } from '../../store/hooks';
 import { matches } from '../../utils/format';
 import { SupplierFormModal } from './SupplierFormModal';
 
 export function SuppliersPage() {
   const { db } = useData();
+  const { can } = useAuth();
+  const canWrite = can('suppliers:write');
   const modal = useModal();
   const [q, setQ] = useState('');
   const rows = db.proveedores.filter((p) => matches(q, p.nombre, p.ruc, p.pais, p.contacto, p.tel, p.correo));
@@ -21,9 +23,11 @@ export function SuppliersPage() {
         title="Proveedores"
         desc="Proveedores nacionales e internacionales."
         actions={
-          <button className="b b-amber" onClick={() => modal.open(<SupplierFormModal />)}>
-            + Nuevo proveedor
-          </button>
+          canWrite && (
+            <button className="b b-amber" onClick={() => modal.open(<SupplierFormModal />)}>
+              + Nuevo proveedor
+            </button>
+          )
         }
       />
       <SearchToolbar value={q} onChange={setQ} placeholder="Buscar proveedor…" />
@@ -49,15 +53,17 @@ export function SuppliersPage() {
                 </td>
                 <td className="mono">{p.ruc}</td>
                 <td>
-                  <Tag>{p.pais}</Tag>
+                  <Tag tone={p.internacional ? 't-blue' : 't-gray'}>{p.pais || '—'}</Tag>
                 </td>
                 <td>{p.contacto}</td>
                 <td className="mono">{p.tel}</td>
                 <td>{p.correo}</td>
                 <td>
-                  <button className="b b-out b-sm" onClick={() => modal.open(<SupplierFormModal proveedor={p} />)}>
-                    Editar
-                  </button>
+                  {canWrite && (
+                    <button className="b b-out b-sm" onClick={() => modal.open(<SupplierFormModal proveedor={p} />)}>
+                      Editar
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

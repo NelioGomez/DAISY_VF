@@ -13,9 +13,14 @@ export function PublicInquiryModal({ producto }: { producto?: string }) {
   const [contacto, setContacto] = useState('');
   const [prod, setProd] = useState(producto ?? '');
   const [msg, setMsg] = useState(producto ? 'Solicito cotización de: ' + producto : '');
+  const [sending, setSending] = useState(false);
 
-  const send = () => {
-    const r = crearConsulta(nombre, contacto, msg);
+  const send = async () => {
+    if (!nombre.trim()) return toast('Indique su nombre o empresa', 'err');
+    if (!contacto.trim()) return toast('Indique un teléfono o correo de contacto', 'err');
+    setSending(true);
+    const r = await crearConsulta(nombre, contacto, prod, msg);
+    setSending(false);
     if (!r.ok) return toast(r.error, 'err');
     close();
     toast('¡Solicitud enviada! Le contactaremos pronto.', 'ok');
@@ -27,8 +32,8 @@ export function PublicInquiryModal({ producto }: { producto?: string }) {
       footer={
         <>
           <CancelButton />
-          <button className="b b-amber" onClick={send}>
-            Enviar solicitud
+          <button className="b b-amber" onClick={send} disabled={sending}>
+            {sending ? 'Enviando…' : 'Enviar solicitud'}
           </button>
         </>
       }

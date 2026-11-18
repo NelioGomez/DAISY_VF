@@ -13,6 +13,8 @@ export interface MovementContext {
   note?: string | null;
   /** Venta que origina el movimiento (salida al vender o entrada al anular). */
   saleId?: string | null;
+  /** Línea de recepción de compra que origina la entrada (relación 1:1). */
+  purchaseReceiptItemId?: string | null;
   /** Dónde ocurrió; por defecto la bodega principal (valor por defecto de la columna). */
   locationId?: number;
 }
@@ -183,6 +185,7 @@ export class StockService {
         userId: ctx.userId,
         supplierId: ctx.supplierId ?? null,
         saleId: ctx.saleId ?? null,
+        purchaseReceiptItemId: ctx.purchaseReceiptItemId ?? null,
         ...(ctx.locationId !== undefined && { locationId: ctx.locationId }),
       },
     });

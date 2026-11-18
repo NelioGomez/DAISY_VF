@@ -36,6 +36,8 @@ const PRODUCT_SELECT = {
   salePrice: true,
   stock: true,
   minStock: true,
+  maxStock: true,
+  restockPostponedUntil: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,
@@ -54,6 +56,8 @@ interface ProductRow {
   salePrice: { toString(): string };
   stock: number;
   minStock: number;
+  maxStock?: number | null;
+  restockPostponedUntil?: Date | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -136,6 +140,7 @@ export class ProductsService {
   async create(dto: CreateProductDto, actor: AuthUser, ip?: string) {
     await this.assertSkuFree(dto.sku);
     await this.assertRelations(dto.categoryId, dto.brandId);
+    this.assertStockLimits(dto.minStock ?? 0, dto.maxStock ?? null);
     if (dto.salePrice !== undefined && dto.salePrice > 0) this.assertCanPrice(actor);
 
     try {
@@ -152,6 +157,7 @@ export class ProductsService {
             brandId: dto.brandId ?? null,
             salePrice: dto.salePrice ?? 0,
             minStock: dto.minStock ?? 0,
+            maxStock: dto.maxStock ?? null,
             isActive: dto.isActive ?? true,
           },
           select: PRODUCT_SELECT,
@@ -169,6 +175,9 @@ export class ProductsService {
     const existing = await this.findOne(id);
     if (dto.sku && dto.sku !== existing.sku) await this.assertSkuFree(dto.sku, id);
     await this.assertRelations(dto.categoryId, dto.brandId);
+    if (dto.minStock !== undefined || dto.maxStock !== undefined) {
+      this.assertStockLimits(dto.minStock ?? existing.minStock, dto.maxStock !== undefined ? dto.maxStock : existing.maxStock);
+    }
 
     const priceChanges = dto.salePrice !== undefined && dto.salePrice !== existing.salePrice;
     if (priceChanges) this.assertCanPrice(actor);
@@ -185,6 +194,7 @@ export class ProductsService {
           ...(dto.brandId !== undefined && { brandId: dto.brandId }),
           ...(priceChanges && { salePrice: dto.salePrice }),
           ...(dto.minStock !== undefined && { minStock: dto.minStock }),
+          ...(dto.maxStock !== undefined && { maxStock: dto.maxStock }),
         },
         select: PRODUCT_SELECT,
       });
@@ -289,6 +299,16 @@ export class ProductsService {
     }
   }
 
+  /** Mismo criterio que el CHECK chk_products_max_stock: el tope no puede quedar debajo del mínimo. */
+  private assertStockLimits(minStock: number, maxStock: number | null | undefined) {
+    if (maxStock !== null && maxStock !== undefined && maxStock < minStock) {
+      throw new BadRequestException({
+        message: 'Datos de producto inválidos',
+        errors: [{ field: 'maxStock', message: `El stock máximo (${maxStock}) no puede ser menor que el mínimo (${minStock})` }],
+      });
+    }
+  }
+
   private inUse() {
     return new ConflictException(
       'El producto tiene movimientos, cotizaciones o ventas y no puede eliminarse. Desactívelo en su lugar.',
@@ -383,6 +403,8 @@ export class ProductsService {
       salePrice: decimalToNumber(p.salePrice),
       stock: p.stock,
       minStock: p.minStock,
+      maxStock: p.maxStock ?? null,
+      restockPostponedUntil: p.restockPostponedUntil ?? null,
       lowStock: p.stock <= p.minStock,
       isActive: p.isActive,
       createdAt: p.createdAt,

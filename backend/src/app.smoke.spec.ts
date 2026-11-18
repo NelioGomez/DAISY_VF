@@ -317,6 +317,34 @@ describe('API (smoke)', () => {
     expect(res.text).toContain('CONVERTED');
   });
 
+  // ───────────── Compras y reabastecimiento ─────────────
+
+  it('compras: sin purchases:read → 403; "restock" no se confunde con un :id', async () => {
+    asUser('SELLER', ['sales:read']);
+    await request(server()).get('/api/v1/purchases').set(auth()).expect(403);
+    asUser('SELLER', ['sales:read']);
+    await request(server()).get('/api/v1/purchases/restock').set(auth()).expect(403);
+  });
+
+  it('compras: recibir exige purchases:write Y inventory:write', async () => {
+    asUser('INVENTORY_MANAGER', ['purchases:write']);
+    await request(server())
+      .post('/api/v1/purchases/11111111-1111-4111-8111-111111111111/receive')
+      .set(auth())
+      .send({ items: [{ purchaseItemId: '11111111-1111-4111-8111-111111111111', quantity: 1 }] })
+      .expect(403);
+  });
+
+  it('compras: cuerpo inválido → 422 (cantidad 0, costo negativo)', async () => {
+    asUser('INVENTORY_MANAGER', ['purchases:write']);
+    const res = await request(server())
+      .post('/api/v1/purchases')
+      .set(auth())
+      .send({ supplierId: '11111111-1111-4111-8111-111111111111', items: [{ productId: '11111111-1111-4111-8111-111111111111', quantity: 0, unitCost: -1 }] })
+      .expect(422);
+    expect(res.body.errors.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('dashboard: /dashboard/summary con datos del servidor, por permisos', async () => {
     prismaMock.$queryRaw.mockResolvedValue([]);
     asUser('TECHNICIAN', ['dashboard:read', 'service-orders:read']);

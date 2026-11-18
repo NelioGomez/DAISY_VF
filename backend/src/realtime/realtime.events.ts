@@ -17,6 +17,8 @@ export const CHANGE_AUDIENCE: Record<string, { primary: string[]; related: strin
   inventory: { primary: ['inventory:read'], related: ['products:read', 'catalog:read', 'dashboard:read'] },
   customers: { primary: ['customers:read'], related: ['sales:read', 'quotations:read', 'service-orders:read'] },
   suppliers: { primary: ['suppliers:read'], related: ['inventory:read'] },
+  // Una recepción mueve stock y costo promedio: inventario, productos y catálogo también recargan.
+  purchases: { primary: ['purchases:read'], related: ['inventory:read', 'products:read', 'catalog:read', 'dashboard:read'] },
   quotations: { primary: ['quotations:read'], related: ['dashboard:read'] },
   sales: {
     primary: ['sales:read'],

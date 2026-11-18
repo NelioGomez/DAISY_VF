@@ -23,6 +23,8 @@ const MODULE_LABEL: Record<string, string> = {
   categories: 'Categorías',
   brands: 'Marcas',
   inventory: 'Inventario',
+  purchases: 'Compras',
+  portal: 'Portal de clientes',
   customers: 'Clientes',
   suppliers: 'Proveedores',
   quotations: 'Cotizaciones',

@@ -56,6 +56,8 @@ export interface Producto {
   codigoBarras: string;
   nombre: string;
   descripcion: string;
+  /** Imagen del producto; puede ser ruta pública (/product-images/...) o URL absoluta. */
+  imagen: string;
   /** Unidad en que se controla el stock (código de la API: UNIT, FOOT…). */
   unidad: Unidad;
   marca: string;

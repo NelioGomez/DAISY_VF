@@ -100,7 +100,14 @@ export function ProductsPage() {
                 <tr key={p.id} className="row-link" onClick={() => modal.open(<ProductDrawer productoId={p.id} />)}>
                   <td className="mono">{p.sku}</td>
                   <td>
-                    {p.ic} {p.nombre}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      {p.imagen ? (
+                        <img src={p.imagen} alt="" loading="lazy" style={{ width: 34, height: 34, objectFit: 'contain', borderRadius: 6, background: '#fff' }} />
+                      ) : (
+                        <span>{p.ic}</span>
+                      )}
+                      <span>{p.nombre}</span>
+                    </span>
                   </td>
                   <td>{p.marca}</td>
                   <td>

@@ -66,6 +66,20 @@ export class CreateProductDto {
   description?: string;
 
   @ApiPropertyOptional({
+    example: '/product-images/catalogo/image2.png',
+    nullable: true,
+    description: 'URL absoluta o ruta pública del frontend; vacío = sin imagen',
+  })
+  @Transform(emptyToNull)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  @Matches(/^(https?:\/\/|\/)[^\s]+$/i, {
+    message: 'La imagen debe ser una URL http(s) o una ruta pública que comience con /',
+  })
+  imageUrl?: string | null;
+
+  @ApiPropertyOptional({
     enum: UnitOfMeasure,
     default: UnitOfMeasure.UNIT,
     description: 'Unidad en que se controla el stock (p. ej. FOOT para manguera a granel que se consume por pie)',

@@ -441,7 +441,8 @@ Opción **Documentación** del menú (`/app/documentacion`), visible para todos 
 ni cambios en el backend. Es el manual de usuario completo, en lenguaje sencillo y con capturas del sistema:
 25 capítulos agrupados como el menú (primeros pasos, cada módulo interno, sitio web, portal de clientes,
 preguntas frecuentes y glosario). Tiene índice, búsqueda sin tildes en todo el manual, "En este capítulo",
-anterior / siguiente, imágenes que se amplían con un clic e impresión del capítulo (o PDF). Los capítulos de
+anterior / siguiente, imágenes que se amplían con un clic, e impresión del capítulo o del manual completo
+(con portada y contenido; también sirve para guardarlo en PDF). Los capítulos de
 módulos que el rol no abre se marcan con un candado, pero se pueden leer. El botón **?** de la barra superior
 abre el capítulo de la pantalla en que se está, y la dirección lleva el capítulo y la sección
 (`/app/documentacion?cap=ordenes#facturar-la-orden`), así que se puede compartir.

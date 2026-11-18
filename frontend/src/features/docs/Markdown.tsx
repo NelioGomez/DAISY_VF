@@ -76,7 +76,8 @@ export function Inline({ text }: { text: string }) {
   return <>{inline(text)}</>;
 }
 
-export function Markdown({ blocks, onZoom }: { blocks: Block[]; onZoom?: (img: { src: string; alt: string }) => void }) {
+/** eager: carga todas las imágenes de una vez (para imprimir el manual completo). */
+export function Markdown({ blocks, onZoom, eager = false }: { blocks: Block[]; onZoom?: (img: { src: string; alt: string }) => void; eager?: boolean }) {
   return (
     <>
       {blocks.map((b, i) => {
@@ -122,7 +123,7 @@ export function Markdown({ blocks, onZoom }: { blocks: Block[]; onZoom?: (img: {
             return (
               <figure key={i} className="md-fig">
                 <button type="button" className="md-fig-btn" onClick={() => onZoom?.({ src: b.src, alt: b.alt })} title="Ampliar la imagen">
-                  <img src={b.src} alt={b.alt} width={w} height={h} loading="lazy" decoding="async" />
+                  <img src={b.src} alt={b.alt} width={w} height={h} loading={eager ? 'eager' : 'lazy'} decoding="async" />
                 </button>
                 {b.alt && <figcaption>{inline(b.alt)}</figcaption>}
               </figure>

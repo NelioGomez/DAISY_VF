@@ -1,66 +1,86 @@
-/* Venta nueva o conversión de una cotización aprobada.
-   El servidor valida stock, calcula impuestos, descuenta inventario,
-   registra el pago inicial y crea la cuenta por cobrar si es a crédito. */
+/* Conversión de una cotización aprobada en venta (las ventas nuevas se hacen en la pantalla POS).
+   Dos pasos: condiciones de pago → resumen con advertencias de stock → confirmar (mejora n.° 26).
+   El servidor valida stock, calcula impuestos, descuenta inventario y registra el pago inicial. */
 import { useState } from 'react';
-import { Field } from '../../components/forms/Field';
-import { LineEditor } from '../../components/forms/LineEditor';
 import { useToast } from '../../components/feedback/useToast';
 import { CancelButton, Modal } from '../../components/modals/Modal';
 import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
-import type { CartLine, Cotizacion } from '../../types';
-import { cartTotals } from '../../utils/documents';
+import type { CondicionesPago } from '../../store/storeContext';
+import type { Cotizacion } from '../../types';
 import { money } from '../../utils/format';
 import { InvoiceModal } from './InvoiceModal';
 import { PaymentTermsFields } from './PaymentTermsFields';
 import { buildTerms, initialTerms } from './paymentTerms';
+import { SaleSummary } from './SaleSummary';
+import { stockWarnings, type SummaryLine } from './stockWarnings';
 
-interface SaleFormModalProps {
-  /** Si viene, la venta se crea convirtiendo esta cotización (con sus líneas y precios). */
-  cotizacion?: Cotizacion;
-}
-
-export function SaleFormModal({ cotizacion }: SaleFormModalProps) {
-  const { db, confirmarVenta, convertirCotizacion } = useData();
+export function SaleFormModal({ cotizacion }: { cotizacion: Cotizacion }) {
+  const { convertirCotizacion } = useData();
   const toast = useToast();
   const modal = useModal();
-  const activos = db.clientes.filter((c) => c.activo);
-  const [cliId, setCliId] = useState(activos[0]?.id ?? '');
-  const [lines, setLines] = useState<CartLine[]>([{ prod: '', cant: 1 }]);
   const [terms, setTerms] = useState(initialTerms);
+  const [resumen, setResumen] = useState<CondicionesPago | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const total = cotizacion ? cotizacion.total : cartTotals(db.productos, lines, db.config.taxRate).total;
+  const lines: SummaryLine[] = (cotizacion.items ?? []).map((i) => ({
+    prod: i.prod,
+    nombre: i.prodN,
+    sku: i.sku ?? '',
+    cant: i.cant,
+    precio: i.precio,
+    sub: i.sub,
+    stock: i.disponible,
+    min: i.minimo,
+  }));
+  const totals = { sub: cotizacion.sub, iva: cotizacion.iva, total: cotizacion.total };
+  const bloqueada = stockWarnings(lines).some((w) => w.tipo === 'falta');
 
-  const confirm = async () => {
-    if (!cotizacion && !cliId) return toast('Seleccione un cliente', 'err');
-    if (!cotizacion && !lines.some((l) => l.prod && l.cant > 0)) return toast('Agregue al menos un producto', 'err');
-    const t = buildTerms(terms, total);
+  const revisar = () => {
+    const t = buildTerms(terms, cotizacion.total);
     if (typeof t === 'string') return toast(t, 'err');
+    setResumen(t);
+  };
+
+  const confirmar = async () => {
+    if (!resumen) return;
     setSaving(true);
-    const r = cotizacion ? await convertirCotizacion(cotizacion.id, t) : await confirmarVenta(cliId, lines, t);
+    const r = await convertirCotizacion(cotizacion.id, resumen);
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
-    toast(`Venta ${r.data.factura} registrada`, 'ok');
+    toast(`Venta ${r.data.factura} registrada desde ${cotizacion.codigo}`, 'ok');
     modal.open(<InvoiceModal ventaId={r.data.ventaId} />);
   };
 
   return (
     <Modal
-      title={cotizacion ? `Convertir ${cotizacion.codigo} en venta` : 'Nueva venta'}
+      title={`Convertir ${cotizacion.codigo} en venta`}
       wide
       footer={
-        <>
-          <CancelButton />
-          <button className="b b-amber" onClick={confirm} disabled={saving}>
-            {saving ? 'Registrando…' : 'Confirmar venta'}
-          </button>
-        </>
+        resumen ? (
+          <>
+            <button className="b b-out" onClick={() => setResumen(null)}>
+              ← Cambiar forma de pago
+            </button>
+            <button className="b b-amber" onClick={confirmar} disabled={saving || bloqueada}>
+              {saving ? 'Registrando…' : 'Confirmar venta'}
+            </button>
+          </>
+        ) : (
+          <>
+            <CancelButton />
+            <button className="b b-amber" onClick={revisar} disabled={bloqueada}>
+              Revisar y confirmar · {money(cotizacion.total)}
+            </button>
+          </>
+        )
       }
     >
-      {cotizacion ? (
+      {resumen ? (
+        <SaleSummary cliente={cotizacion.cliN} lines={lines} totals={totals} terms={resumen} />
+      ) : (
         <>
-          <div className="card" style={{ background: 'var(--panel)', padding: 12, marginBottom: 14 }}>
+          <div className="card soft-card" style={{ marginBottom: 14 }}>
             <b>Cliente:</b> {cotizacion.cliN}
           </div>
           <table style={{ border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden', marginBottom: 6 }}>
@@ -107,30 +127,16 @@ export function SaleFormModal({ cotizacion }: SaleFormModalProps) {
               <span>{money(cotizacion.total)}</span>
             </div>
           </div>
-        </>
-      ) : (
-        <>
-          <Field label="Cliente">
-            <select value={cliId} onChange={(e) => setCliId(e.target.value)}>
-              {activos.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <LineEditor lines={lines} onChange={setLines} />
+          {bloqueada && (
+            <div className="note note-danger" style={{ marginTop: 12 }} role="alert">
+              <span className="ic">✕</span>
+              <div>No hay existencia suficiente para facturar toda la cotización. Registre la entrada o ajuste la cotización.</div>
+            </div>
+          )}
+          <h4 className="section-title">Forma de pago</h4>
+          <PaymentTermsFields value={terms} onChange={setTerms} total={cotizacion.total} />
         </>
       )}
-
-      <div style={{ marginTop: 16 }}>
-        <PaymentTermsFields value={terms} onChange={setTerms} total={total} />
-      </div>
-
-      <div className="note" style={{ marginTop: 12 }}>
-        <span className="ic">⚠️</span>
-        <div>Al confirmar, el servidor valida el stock, genera la factura, descuenta el inventario y —si es a crédito— crea la cuenta por cobrar.</div>
-      </div>
     </Modal>
   );
 }

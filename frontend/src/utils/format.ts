@@ -56,3 +56,6 @@ export function ago(s: string | null | undefined): string {
   if (d < 60) return `hace ${d} días`;
   return `hace ${Math.floor(d / 30)} meses`;
 }
+
+/** Fecha ISO de hoy + N días (vencimiento previsto de un crédito). */
+export const isoInDays = (days: number): string => new Date(Date.now() + days * 86_400_000).toISOString();

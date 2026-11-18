@@ -15,7 +15,7 @@ import 'dotenv/config';
 const API = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 3000}/api/v1`;
 const ADMIN_USER = process.env.SEED_ADMIN_USERNAME ?? 'admin';
 const ADMIN_PASS = process.env.SEED_ADMIN_PASSWORD;
-const DEMO_PASSWORD = 'Siven2026demo';
+const DEMO_PASSWORD = 'Siven2026demo!';
 
 let token = '';
 

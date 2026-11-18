@@ -585,4 +585,4 @@ export class ReportsService {
       truncated,
     };
   }
-} //Casi 600 líneas de código.
+}

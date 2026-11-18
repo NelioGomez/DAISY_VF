@@ -204,7 +204,10 @@ CREATE TABLE "sales" (
     "payment_method" "PaymentMethod" NOT NULL,
     "payment_status" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
     "balance" DECIMAL(14,2) NOT NULL,
+    "due_date" TIMESTAMP(3),
     "status" "SaleStatus" NOT NULL DEFAULT 'ACTIVE',
+    "voided_at" TIMESTAMP(3),
+    "void_reason" VARCHAR(500),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -253,6 +256,14 @@ CREATE TABLE "service_orders" (
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "service_orders_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "document_sequences" (
+    "key" VARCHAR(40) NOT NULL,
+    "last_value" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "document_sequences_pkey" PRIMARY KEY ("key")
 );
 
 -- CreateTable

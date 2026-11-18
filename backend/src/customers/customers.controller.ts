@@ -17,7 +17,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { SetStatusDto } from '../common/dto/set-status.dto';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
-import { CustomersService } from './customer.service';
+import { CustomersService } from './customers.service';
 import { CreateCustomerDto, FilterCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 
 @ApiTags('Customers')

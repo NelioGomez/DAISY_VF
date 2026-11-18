@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
-import { DashboardService } from './dashboard.service'; //Suele ocurrir un error al momento de referenciar a otro archivo, al final se solucionó solo dandole espacio y después borrando el espacio XD
+import { DashboardService } from './dashboard.service';
 
 @ApiTags('Dashboard')
 @ApiBearerAuth()

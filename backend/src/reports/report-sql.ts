@@ -1,10 +1,10 @@
 import { Prisma } from '../generated/prisma/client';
 
-/** Zona horaria del negocio: los cortes por día/mes se hacen en hora de Nicaragua, obviamente. */
+/** Zona horaria del negocio: los cortes por día/mes se hacen en hora de Nicaragua. */
 export const BUSINESS_TZ = 'America/Managua';
 
 /**
- * Las columnas "timestamp" se guardan en UTC sin zona. Esto convierte un instante ISO en ese
+ * Las columnas `timestamp` se guardan en UTC sin zona. Esto convierte un instante ISO en ese
  * mismo formato, de modo que la comparación no dependa de la zona del servidor ni del driver.
  */
 export const ts = (d: Date): Prisma.Sql =>
@@ -37,4 +37,4 @@ export function where(conds: Prisma.Sql[]): Prisma.Sql {
 
 /** numeric (llegado como texto) → número con 2 decimales. */
 export const money = (v: unknown): number => Math.round(Number(v ?? 0) * 100) / 100;
-export const int = (v: unknown): number => Number(v ?? 0); // Bueno, aquí termina esto, exportante el int.
+export const int = (v: unknown): number => Number(v ?? 0);

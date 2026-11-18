@@ -1,4 +1,4 @@
-import Decimal from "decimal.js";
+import Decimal from 'decimal.js';
 
 /** Redondeo comercial (mitad hacia arriba) a 2 decimales para montos en córdobas. */
 export const money = (v: Decimal.Value): Decimal => new Decimal(v).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);

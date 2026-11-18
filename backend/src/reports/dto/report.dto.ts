@@ -103,4 +103,4 @@ export class ReportQueryDto {
   @Min(1)
   @Max(10000)
   limit?: number;
-} //Ya tengo sueño, aquí lo dejo por ahora, talvez, quién sabe
+}

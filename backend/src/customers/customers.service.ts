@@ -189,6 +189,7 @@ export class CustomersService {
     if (!ids.length) return map;
     const groups = (await this.prisma.sale.groupBy({
       by: ['customerId'],
+      orderBy: { customerId: 'asc' },
       where: { customerId: { in: ids }, status: 'ACTIVE' },
       _count: { _all: true },
       _sum: { total: true, balance: true },

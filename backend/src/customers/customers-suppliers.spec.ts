@@ -1,10 +1,10 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { CustomersService } from './customer.service';
+import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/customer.dto';
 import { CreateSupplierDto } from '../suppliers/dto/supplier.dto';
-import { inferInternational, SuppliersService } from '../suppliers/dto/suppliers.service';
+import { inferInternational, SuppliersService } from '../suppliers/suppliers.service';
 
 const actor = { id: 'u1', username: 'admin', role: 'ADMIN', permissions: [] } as never;
 const audit = { log: jest.fn() };

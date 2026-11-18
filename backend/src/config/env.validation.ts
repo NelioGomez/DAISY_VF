@@ -51,7 +51,9 @@ export class EnvironmentVariables {
   @IsIn(['off', 'changes', 'all'])
   LOG_HTTP: 'off' | 'changes' | 'all' = 'changes';
 
-  // Correo (recuperación de contraseña). Sin SMTP_HOST, en desarrollo el código sale en la terminal.
+  // Correo (recuperación de contraseña). Con BREVO_API_KEY se usa la API HTTP de Brevo; si no, SMTP.
+  // Sin ninguno de los dos, en desarrollo el código sale en la terminal.
+  @IsOptional() @IsString() BREVO_API_KEY?: string;
   @IsOptional() @IsString() SMTP_HOST?: string;
   @IsOptional() @IsInt() @Min(1) @Max(65535) SMTP_PORT?: number;
   @IsOptional() @IsIn(['true', 'false']) SMTP_SECURE?: string;

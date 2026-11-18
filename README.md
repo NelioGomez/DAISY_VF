@@ -435,6 +435,30 @@ público y en el login. La preferencia se guarda en el navegador (`siven.tema`) 
 de pintar. Los colores de las hojas de estilo son tokens (`--card`, `--line`, `--amber-tint`, `--green-ink`…):
 el modo oscuro solo redefine sus valores en `:root[data-theme="dark"]`. Al imprimir se usan los colores claros.
 
+## Documentación: manual de usuario (mejora 64)
+
+Opción **Documentación** del menú (`/app/documentacion`), visible para todos los roles. No necesita migración
+ni cambios en el backend. Es el manual de usuario completo, en lenguaje sencillo y con capturas del sistema:
+25 capítulos agrupados como el menú (primeros pasos, cada módulo interno, sitio web, portal de clientes,
+preguntas frecuentes y glosario). Tiene índice, búsqueda sin tildes en todo el manual, "En este capítulo",
+anterior / siguiente, imágenes que se amplían con un clic e impresión del capítulo (o PDF). Los capítulos de
+módulos que el rol no abre se marcan con un candado, pero se pueden leer. El botón **?** de la barra superior
+abre el capítulo de la pantalla en que se está, y la dirección lleva el capítulo y la sección
+(`/app/documentacion?cap=ordenes#facturar-la-orden`), así que se puede compartir.
+
+Para corregir o ampliar el manual no hay que tocar código:
+
+- Cada capítulo es un archivo Markdown en `frontend/src/features/docs/manual/` (`NN-id.md`; el número da el
+  orden). La cabecera lleva `id` (el del módulo, para que funcione el botón de ayuda), `titulo`, `grupo`,
+  `modulo` (para saber qué roles lo usan; vacío si no es un módulo) y `resumen`.
+- Las imágenes van en `frontend/public/manual/` (WebP) y se citan como `![pie de imagen](/manual/nombre.webp)`
+  en una línea propia. `frontend/src/features/docs/imagenes.ts` guarda su tamaño para que la página no salte
+  mientras cargan; una imagen nueva que no esté ahí se muestra igual.
+- Se admite: `##` y `###`, párrafos, listas (`-` y `1.`, con viñetas sangradas debajo de un paso), tablas,
+  `---`, **negrita**, *cursiva*, `código`, teclas `[[Ctrl + K]]`, íconos del menú `:ic-wallet:`, avisos
+  `> **Nota:**`, `> **Importante:**` y `> **Consejo:**`, y enlaces a otro capítulo o sección
+  (`[texto](?cap=pagos#registrar-un-pago)`).
+
 ## Inventario (Fase 9)
 
 | Método | Ruta | Permiso |

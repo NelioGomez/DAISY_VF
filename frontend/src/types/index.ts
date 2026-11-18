@@ -10,6 +10,7 @@ export type ModuleId =
   | 'dashboard'
   | 'productos'
   | 'inventario'
+  | 'compras'
   | 'clientes'
   | 'proveedores'
   | 'cotizaciones'
@@ -58,6 +59,8 @@ export interface Producto {
   precio: number;
   stock: number;
   stockMin: number;
+  /** Tope de reposición (null = sin definir). */
+  stockMax: number | null;
   ic: string;
   activo: boolean;
 }
@@ -105,6 +108,125 @@ export interface Movimiento {
   nota: string;
   resp: string;
   proveedor: string;
+  /** Documento que originó el movimiento (venta o recepción de compra), si lo hay. */
+  origen: DocumentoRef | null;
+}
+
+/* ---------- Compras y reabastecimiento ---------- */
+
+export type EstadoCompra = 'Borrador' | 'Ordenada' | 'Parcial' | 'Recibida' | 'Cancelada';
+export type Moneda = 'NIO' | 'USD';
+
+export interface CompraLinea {
+  id: string;
+  prod: string;
+  sku: string;
+  prodN: string;
+  cant: number;
+  /** En la moneda de la compra. */
+  costo: number;
+  sub: number;
+  recibido: number;
+  pendiente: number;
+  /** Costo unitario en C$ con gastos prorrateados (el que entra al costo promedio). */
+  costoBodega: number;
+  stockActual: number;
+}
+
+export interface Recepcion {
+  id: string;
+  codigo: string;
+  fecha: string;
+  usuario: string;
+  ubicacion: string;
+  notas: string;
+  unidades: number;
+  items: Array<{ id: string; prod: string; sku: string; prodN: string; cant: number; costo: number; movimientoId: string | null }>;
+}
+
+export interface Compra {
+  id: string;
+  codigo: string;
+  estado: EstadoCompra;
+  proveedorId: string;
+  proveedor: string;
+  internacional: boolean;
+  moneda: Moneda;
+  tipoCambio: number;
+  fecha: string;
+  ordenada: string | null;
+  esperada: string | null;
+  sub: number;
+  gastos: number;
+  total: number;
+  totalNio: number;
+  notas: string;
+  motivoCancelacion: string;
+  usuario: string;
+  lineas: number;
+  unidades: number;
+  recibidas: number;
+  recepciones: number;
+  atrasada: boolean;
+  /** Solo en el detalle (GET /purchases/:id). */
+  items?: CompraLinea[];
+  detalleRecepciones?: Recepcion[];
+}
+
+export interface ResumenCompras {
+  porEstado: Record<EstadoCompra, number>;
+  pendientes: number;
+  comprado30: { monto: number; compras: number };
+}
+
+export type ReglaReposicion = 'MAX_STOCK' | 'TWICE_MIN' | 'MIN_PLUS_DEMAND';
+
+export interface SugerenciaReposicion {
+  prod: string;
+  sku: string;
+  prodN: string;
+  categoria: string;
+  stock: number;
+  stockMin: number;
+  stockMax: number | null;
+  costoProm: number;
+  vendido30: number;
+  diasCobertura: number | null;
+  enCamino: number;
+  enBorrador: number;
+  objetivo: number;
+  regla: ReglaReposicion;
+  sugerido: number;
+  cubierto: boolean;
+  sinRegla: boolean;
+  explicacion: string;
+  agotado: boolean;
+  proveedor: { id: string; nombre: string; ultimoCosto: number | null; moneda: Moneda | null; plazo: number | null } | null;
+  costoEstimado: number;
+  pospuestoHasta: string | null;
+}
+
+export interface ResumenReposicion {
+  productos: number;
+  porPedir: number;
+  unidades: number;
+  cubiertos: number;
+  pospuestos: number;
+  costoEstimado: number;
+  diasDemanda: number;
+}
+
+/* ---------- Trazabilidad documental ---------- */
+
+export type TipoDocumento = 'SOLICITUD' | 'COTIZACION' | 'VENTA' | 'PAGO' | 'COMPRA' | 'RECEPCION' | 'MOVIMIENTO';
+
+/** Referencia navegable a un documento relacionado. */
+export interface DocumentoRef {
+  tipo: TipoDocumento;
+  id: string;
+  codigo: string;
+  /** Para movimientos de recepción: la compra a la que pertenece. */
+  compraId?: string;
 }
 
 /** Línea de un documento comercial (cotización o venta). */
@@ -288,6 +410,8 @@ export interface Database {
   proveedores: Proveedor[];
   movimientos: Movimiento[];
   inventarioValor: number;
+  compras: Compra[];
+  comprasResumen: ResumenCompras | null;
   ventas: Venta[];
   cotizaciones: Cotizacion[];
   pagos: Pago[];

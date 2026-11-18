@@ -23,7 +23,8 @@ import { resolveTerms, SaleTermsInput } from './sale-terms';
 const SALE_INCLUDE = {
   customer: { select: { id: true, name: true, ruc: true } },
   seller: { select: { id: true, username: true, firstName: true, lastName: true } },
-  quotation: { select: { id: true, code: true } },
+  // Cotización de origen y, si la hubo, la solicitud web que la originó (cadena SOL → COT → FAC → Pago).
+  quotation: { select: { id: true, code: true, inquiry: { select: { id: true, code: true } } } },
   items: { include: { product: { select: { sku: true, name: true } } }, orderBy: { id: 'asc' as const } },
   payments: { orderBy: { paidAt: 'asc' as const } },
 } as const;
@@ -49,7 +50,7 @@ interface SaleRow {
   voidReason: string | null;
   customer?: { id: string; name: string; ruc: string | null };
   seller?: { id: string; username: string; firstName: string; lastName: string };
-  quotation?: { id: string; code: string } | null;
+  quotation?: { id: string; code: string; inquiry?: { id: string; code: string } | null } | null;
   items?: {
     id: string;
     productId: string;

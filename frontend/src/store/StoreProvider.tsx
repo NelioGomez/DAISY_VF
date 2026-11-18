@@ -10,20 +10,21 @@
      resultado confirmado.
    ===================================================================== */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ApiError, api, errorMessage, getAll, setAuthToken, setUnauthorizedHandler } from '../services/api/client';
+import { ApiError, api, errorMessage, getAll, request, setAuthToken, setUnauthorizedHandler } from '../services/api/client';
 import {
-  DEFAULT_CONFIG, INQUIRY_TO_API, METHOD_TO_API, MOVEMENT_TO_API, mapAuditoria, mapCatalogo, mapCliente, mapConsulta, mapCotizacion,
-  mapConfig, mapCxc, mapDashboard, mapMovimiento, mapOrden, mapPago, mapProducto, mapProveedor, mapTecnico, mapVenta,
+  DEFAULT_CONFIG, INQUIRY_TO_API, METHOD_TO_API, MOVEMENT_TO_API, PURCHASE_STATUS, mapAuditoria, mapCatalogo, mapCliente, mapCompra,
+  mapConsulta, mapCotizacion, mapConfig, mapCxc, mapDashboard, mapMovimiento, mapOrden, mapPago, mapProducto, mapProveedor,
+  mapResumenCompras, mapResumenReposicion, mapSugerencia, mapTecnico, mapVenta, type ApiPurchaseStatus,
 } from '../services/api/mappers';
 import * as authService from '../services/auth/authService';
 import { connectRealtime, disconnectRealtime, type ChangeEvent, type RealtimeStatus } from '../services/realtime/realtime';
 import type { CartLine, Database, Result, SessionUser } from '../types';
 import {
-  StoreContext, type CondicionesPago, type DataActions, type LoadStatus, type LogoutInfo, type LogoutReason,
+  StoreContext, type CompraInput, type CondicionesPago, type DataActions, type LoadStatus, type LogoutInfo, type LogoutReason,
   type RefreshKey, type StoreValue,
 } from './storeContext';
 
-const ALL_KEYS: RefreshKey[] = ['config', 'productos', 'catalogos', 'movimientos', 'clientes', 'proveedores', 'ventas', 'cotizaciones', 'pagos', 'cxc', 'ordenes', 'consultas', 'auditoria', 'dashboard'];
+const ALL_KEYS: RefreshKey[] = ['config', 'productos', 'catalogos', 'movimientos', 'compras', 'clientes', 'proveedores', 'ventas', 'cotizaciones', 'pagos', 'cxc', 'ordenes', 'consultas', 'auditoria', 'dashboard'];
 
 /** Qué colecciones recargar cuando el servidor avisa que cambió un módulo. */
 const CHANGE_KEYS: Record<string, RefreshKey[]> = {
@@ -31,6 +32,8 @@ const CHANGE_KEYS: Record<string, RefreshKey[]> = {
   categories: ['catalogos', 'productos'],
   brands: ['catalogos', 'productos'],
   inventory: ['productos', 'movimientos', 'dashboard'],
+  // Una recepción mueve stock y costo promedio.
+  purchases: ['compras', 'productos', 'movimientos', 'dashboard'],
   customers: ['clientes'],
   suppliers: ['proveedores'],
   quotations: ['cotizaciones', 'dashboard'],
@@ -48,9 +51,23 @@ const SESSION_KEY = 'siven.session';
 
 const EMPTY_DB: Database = {
   productos: [], categorias: [], marcas: [], clientes: [], proveedores: [], movimientos: [], inventarioValor: 0,
+  compras: [], comprasResumen: null,
   ventas: [], cotizaciones: [], pagos: [], cxc: [], ordenes: [], tecnicos: [], consultas: [], auditoria: [], dashboard: null,
   config: DEFAULT_CONFIG,
 };
+
+/** Cuerpo de POST/PATCH /purchases a partir del formulario. */
+function compraToApi(d: CompraInput) {
+  return {
+    supplierId: d.proveedorId,
+    currency: d.moneda,
+    ...(d.moneda === 'USD' ? { exchangeRate: d.tipoCambio } : {}),
+    expectedAt: d.esperada || null,
+    additionalCosts: d.gastos ?? 0,
+    notes: d.notas?.trim() || null,
+    items: d.lineas.filter((l) => l.prod && l.cant > 0).map((l) => ({ productId: l.prod, quantity: l.cant, unitCost: l.costo })),
+  };
+}
 
 interface StoredSession {
   token: string;
@@ -134,6 +151,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...(has('brands:read') ? { marcas: (await getAll<Json>('/brands')).items.map(mapCatalogo) } : {}),
       }),
       movimientos: async () => (has('inventory:read') ? { movimientos: (await getAll<Json>('/inventory/movements', {}, 2)).items.map(mapMovimiento) } : {}),
+      compras: async () => {
+        if (!has('purchases:read')) return {};
+        const r = await getAll<Json>('/purchases', {}, 5);
+        return { compras: r.items.map(mapCompra), comprasResumen: mapResumenCompras(r.summary) };
+      },
       clientes: async () => (has('customers:read') ? { clientes: (await getAll<Json>('/customers')).items.map(mapCliente) } : {}),
       proveedores: async () => (has('suppliers:read') ? { proveedores: (await getAll<Json>('/suppliers')).items.map(mapProveedor) } : {}),
       ventas: async () => (has('sales:read') ? { ventas: (await getAll<Json>('/sales')).items.map(mapVenta) } : {}),
@@ -297,6 +319,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const SALE_KEYS: RefreshKey[] = ['ventas', 'productos', 'movimientos', 'pagos', 'cxc', 'clientes', 'cotizaciones', 'dashboard', 'auditoria'];
+    const PURCHASE_KEYS: RefreshKey[] = ['compras', 'productos', 'movimientos', 'dashboard', 'auditoria'];
 
     return {
       refresh,
@@ -308,7 +331,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         run(async () => {
           const body = {
             sku: d.sku, name: d.nombre, description: d.descripcion || undefined,
-            categoryId: d.categoriaId, brandId: d.marcaId, minStock: d.stockMin,
+            categoryId: d.categoriaId, brandId: d.marcaId, minStock: d.stockMin, maxStock: d.stockMax,
           };
           if (id) {
             await api.patch(`/products/${id}`, body);
@@ -445,6 +468,63 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       cambiarEstadoConsulta: (id, estado) =>
         run(() => api.patch(`/inquiries/${id}/status`, { status: INQUIRY_TO_API[estado] }).then(() => undefined), ['consultas', 'dashboard', 'auditoria']),
+
+      /* ---------- Compras y reabastecimiento ---------- */
+      guardarCompra: (id, d, ordenar) =>
+        run(async () => {
+          const body = compraToApi(d);
+          let c: Json;
+          if (id) {
+            c = await api.patch<Json>(`/purchases/${id}`, body);
+            if (ordenar) c = await api.post<Json>(`/purchases/${id}/order`);
+          } else {
+            c = await api.post<Json>('/purchases', { ...body, expectedAt: body.expectedAt ?? undefined, order: ordenar });
+          }
+          return { id: String(c.id), codigo: String(c.code) };
+        }, PURCHASE_KEYS),
+
+      actualizarSeguimientoCompra: (id, esperada, notas) =>
+        run(() => api.patch(`/purchases/${id}`, { expectedAt: esperada || null, notes: notas.trim() || null }).then(() => undefined), PURCHASE_KEYS),
+
+      ordenarCompra: (id) => run(() => api.post(`/purchases/${id}/order`).then(() => undefined), PURCHASE_KEYS),
+
+      recibirCompra: (id, lineas, notas) =>
+        run(async () => {
+          const c = await api.post<Json>(`/purchases/${id}/receive`, {
+            items: lineas.filter((l) => l.cant > 0).map((l) => ({ purchaseItemId: l.lineaId, quantity: l.cant })),
+            ...(notas.trim() ? { notes: notas.trim() } : {}),
+          });
+          return { recepcion: String(c.lastReceipt?.code ?? ''), estado: PURCHASE_STATUS[c.status as ApiPurchaseStatus] ?? 'Parcial' };
+        }, PURCHASE_KEYS),
+
+      cancelarCompra: (id, motivo) => run(() => api.post(`/purchases/${id}/cancel`, { reason: motivo }).then(() => undefined), PURCHASE_KEYS),
+
+      eliminarCompra: (id) => run(() => api.del(`/purchases/${id}`).then(() => undefined), PURCHASE_KEYS),
+
+      obtenerCompra: async (id) => {
+        try {
+          return ok(mapCompra(await api.get<Json>(`/purchases/${id}`)));
+        } catch (e) {
+          return fail(errorMessage(e));
+        }
+      },
+
+      sugerenciasReposicion: async (incluirPospuestos) => {
+        try {
+          const r = await request<Json[]>('GET', '/purchases/restock', { query: { includePostponed: incluirPospuestos || undefined } });
+          return ok({ items: (r.data ?? []).map(mapSugerencia), resumen: mapResumenReposicion(r.summary) });
+        } catch (e) {
+          return fail(errorMessage(e));
+        }
+      },
+
+      posponerReposicion: (productoId, dias, motivo) =>
+        run(
+          () => api.post(`/purchases/restock/${productoId}/postpone`, { days: dias, ...(motivo.trim() ? { reason: motivo.trim() } : {}) }).then(() => undefined),
+          ['auditoria'],
+        ),
+
+      reactivarReposicion: (productoId) => run(() => api.del(`/purchases/restock/${productoId}/postpone`).then(() => undefined), ['auditoria']),
     };
   }, [refresh]);
 

@@ -3,16 +3,17 @@ import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { dateRange } from '../common/utils/dates';
 import { decimalToNumber } from '../common/utils/decimal';
-import { lockQuotation, TX_OPTIONS } from '../common/utils/locks';
+import { lockInquiry, lockQuotation, TX_OPTIONS } from '../common/utils/locks';
 import { fixed2 } from '../common/utils/money';
 import { buildPagination } from '../common/utils/pagination';
+import { isUniqueViolation } from '../common/utils/prisma-errors';
 import { DocumentLinesService, lineToData } from '../documents/document-lines.service';
 import { DocumentSequenceService } from '../documents/document-sequence.service';
 import { calculateTotals, TaxService } from '../documents/tax.service';
-import { QuotationStatus } from '../generated/prisma/client';
+import { InquiryStatus, QuotationStatus } from '../generated/prisma/client';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateQuotationDto, FilterQuotationDto, UpdateQuotationDto } from './dto/quotation.dto';
+import { CreateQuotationDto, CreateQuotationFromInquiryDto, FilterQuotationDto, UpdateQuotationDto } from './dto/quotation.dto';
 import { expireOverdueQuotations } from './quotation-expiry';
 import { canTransition, isEditable } from './quotation-status';
 import { resolveValidUntil } from './validity';
@@ -20,8 +21,10 @@ import { resolveValidUntil } from './validity';
 const QUOTATION_INCLUDE = {
   customer: { select: { id: true, name: true, ruc: true } },
   seller: { select: { id: true, username: true, firstName: true, lastName: true } },
-  sale: { select: { id: true, invoiceNumber: true } },
-  items: { include: { product: { select: { sku: true, name: true, stock: true } } }, orderBy: { id: 'asc' as const } },
+  sale: { select: { id: true, invoiceNumber: true, status: true } },
+  // Solicitud web de origen: la cadena SOL → COT → FAC queda navegable.
+  inquiry: { select: { id: true, code: true } },
+  items: { include: { product: { select: { sku: true, name: true, stock: true, minStock: true } } }, orderBy: { id: 'asc' as const } },
 } as const;
 
 type Dec = { toString(): string };
@@ -44,14 +47,15 @@ interface QuotationRow {
   notes: string | null;
   customer?: { id: string; name: string; ruc: string | null };
   seller?: { id: string; username: string; firstName: string; lastName: string };
-  sale?: { id: string; invoiceNumber: string } | null;
+  sale?: { id: string; invoiceNumber: string; status?: string } | null;
+  inquiry?: { id: string; code: string } | null;
   items?: {
     id: string;
     productId: string;
     quantity: number;
     unitPrice: Dec;
     subtotal: Dec;
-    product: { sku: string; name: string; stock: number };
+    product: { sku: string; name: string; stock: number; minStock?: number };
   }[];
 }
 
@@ -85,7 +89,12 @@ export class QuotationsService {
       this.prisma.quotation.count({ where }),
       this.prisma.quotation.findMany({
         where,
-        include: { customer: QUOTATION_INCLUDE.customer, seller: QUOTATION_INCLUDE.seller, sale: QUOTATION_INCLUDE.sale },
+        include: {
+          customer: QUOTATION_INCLUDE.customer,
+          seller: QUOTATION_INCLUDE.seller,
+          sale: QUOTATION_INCLUDE.sale,
+          inquiry: QUOTATION_INCLUDE.inquiry,
+        },
         orderBy: [{ issuedAt: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
@@ -131,6 +140,100 @@ export class QuotationsService {
     }, TX_OPTIONS)) as QuotationRow;
 
     await this.log(actor, 'CREATE', created, `Cotización ${created.code} creada (${created.status})`, ip);
+    return this.toDto(created);
+  }
+
+  /**
+   * Solicitud web → cotización (mejora n.° 45). Precarga el cliente y los productos de la solicitud;
+   * el vendedor ajusta lo que haga falta. La solicitud NO se borra: pasa a COTIZADA, queda asignada a
+   * quien cotizó y enlazada 1:1 con la cotización (quotations.inquiry_id, único).
+   */
+  async createFromInquiry(inquiryId: string, dto: CreateQuotationFromInquiryDto, actor: AuthUser, ip?: string) {
+    const validUntil = resolveValidUntil(dto.validUntil);
+    let inquiryCode = '';
+    let created: QuotationRow;
+    try {
+      created = (await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        await lockInquiry(tx, inquiryId);
+        const inquiry = await tx.webInquiry.findUnique({
+          where: { id: inquiryId },
+          select: {
+            code: true,
+            status: true,
+            customerId: true,
+            items: { select: { productId: true, quantity: true }, orderBy: { id: 'asc' } },
+            quotation: { select: { code: true } },
+          },
+        });
+        if (!inquiry) throw new NotFoundException('Solicitud no encontrada');
+        inquiryCode = inquiry.code;
+        if (inquiry.quotation) throw new ConflictException(`La solicitud ya tiene la cotización ${inquiry.quotation.code}`);
+        if (inquiry.status !== InquiryStatus.NEW && inquiry.status !== InquiryStatus.IN_REVIEW) {
+          throw new ConflictException(`Una solicitud ${inquiry.status} ya no se puede cotizar`);
+        }
+
+        const customerId = dto.customerId ?? inquiry.customerId;
+        if (!customerId) {
+          throw new BadRequestException({
+            message: 'Datos de cotización inválidos',
+            errors: [{ field: 'customerId', message: 'Seleccione o registre el cliente de esta solicitud' }],
+          });
+        }
+        await this.assertCustomer(tx, customerId);
+
+        const items = dto.items ?? inquiry.items.map((i: { productId: string; quantity: number }) => ({ productId: i.productId, quantity: i.quantity }));
+        if (!items.length) {
+          throw new BadRequestException({
+            message: 'Datos de cotización inválidos',
+            errors: [{ field: 'items', message: 'La solicitud no indica productos: agréguelos a la cotización' }],
+          });
+        }
+        const lines = await this.lines.prepare(items, tx);
+        const rate = await this.tax.getRate(tx);
+        const totals = calculateTotals(lines.map((l) => l.subtotal), rate);
+        const code = await this.sequence.next(tx, 'QUOTATION', 'COT');
+        const now = new Date();
+        const quotation = await tx.quotation.create({
+          data: {
+            code,
+            customerId,
+            sellerId: actor.id,
+            inquiryId,
+            validUntil,
+            subtotal: fixed2(totals.subtotal),
+            taxRate: rate.toFixed(4),
+            tax: fixed2(totals.tax),
+            total: fixed2(totals.total),
+            status: dto.asDraft ? QuotationStatus.DRAFT : QuotationStatus.PENDING,
+            notes: dto.notes || null,
+            items: { create: lines.map(lineToData) },
+          },
+          include: QUOTATION_INCLUDE,
+        });
+        // La solicitud se conserva como evidencia: cambia de estado y queda ligada al cliente y al vendedor.
+        await tx.webInquiry.update({
+          where: { id: inquiryId },
+          data: { status: InquiryStatus.QUOTED, statusChangedAt: now, assignedToId: actor.id, customerId },
+        });
+        return quotation;
+      }, TX_OPTIONS)) as QuotationRow;
+    } catch (error) {
+      // Dos vendedores cotizando la misma solicitud a la vez: la restricción única lo detiene.
+      if (isUniqueViolation(error)) throw new ConflictException('La solicitud ya fue cotizada por otra persona');
+      throw error;
+    }
+
+    await this.log(actor, 'CREATE', created, `Cotización ${created.code} creada desde la solicitud ${inquiryCode} (${created.status})`, ip);
+    await this.audit.log({
+      userId: actor.id,
+      username: actor.username,
+      module: 'inquiries',
+      action: 'QUOTE',
+      entity: 'WebInquiry',
+      entityId: inquiryId,
+      description: `Solicitud ${inquiryCode} cotizada en ${created.code}`,
+      ip,
+    });
     return this.toDto(created);
   }
 
@@ -189,12 +292,19 @@ export class QuotationsService {
   async remove(id: string, actor: AuthUser, ip?: string): Promise<void> {
     const code = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await lockQuotation(tx, id);
-      const q = await tx.quotation.findUnique({ where: { id }, select: { code: true, status: true } });
+      const q = await tx.quotation.findUnique({ where: { id }, select: { code: true, status: true, inquiryId: true } });
       if (!q) throw new NotFoundException('Cotización no encontrada');
       if (q.status !== QuotationStatus.DRAFT) {
         throw new ConflictException('Solo se pueden eliminar borradores; las demás cotizaciones se rechazan');
       }
       await tx.quotation.delete({ where: { id } });
+      // Si el borrador venía de una solicitud web, la solicitud vuelve a revisión (puede cotizarse de nuevo).
+      if (q.inquiryId) {
+        await tx.webInquiry.updateMany({
+          where: { id: q.inquiryId, status: InquiryStatus.QUOTED },
+          data: { status: InquiryStatus.IN_REVIEW, statusChangedAt: new Date() },
+        });
+      }
       return q.code;
     }, TX_OPTIONS);
     await this.audit.log({
@@ -274,6 +384,7 @@ export class QuotationsService {
       statusChangedAt: q.statusChangedAt,
       rejectionReason: q.rejectionReason,
       inquiryId: q.inquiryId,
+      inquiry: q.inquiry ?? null,
       notes: q.notes,
       sale: q.sale ?? null,
       ...(q.items && {
@@ -287,6 +398,7 @@ export class QuotationsService {
           subtotal: decimalToNumber(i.subtotal),
           // Orientativo: ayuda al vendedor a ver si podrá facturar; el stock se valida al convertir.
           availableStock: i.product.stock,
+          minStock: i.product.minStock ?? 0,
         })),
       }),
     };

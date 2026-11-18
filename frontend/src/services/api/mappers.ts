@@ -6,23 +6,30 @@
 import type {
   Catalogo,
   Cliente,
+  Compra,
   ConsultaWeb,
   Cotizacion,
   CuentaPorCobrar,
   DashboardResumen,
+  DocumentoRef,
+  EstadoCompra,
   EstadoConsulta,
   EstadoCotizacion,
   EstadoOrden,
   EstadoVenta,
   LineaDocumento,
   MetodoPago,
+  Moneda,
   Movimiento,
   OrdenServicio,
   Pago,
   Producto,
   Proveedor,
   RegistroAuditoria,
+  ResumenCompras,
+  ResumenReposicion,
   RoleKey,
+  SugerenciaReposicion,
   Tecnico,
   TipoMovimiento,
   Venta,
@@ -71,6 +78,14 @@ export const INQUIRY_TO_API: Record<EstadoConsulta, ApiInquiryStatus> = {
 const MOVEMENT_TYPE: Record<ApiMovementType, TipoMovimiento> = { ENTRY: 'Entrada', EXIT: 'Salida', ADJUSTMENT: 'Ajuste' };
 export const MOVEMENT_TO_API: Record<TipoMovimiento, ApiMovementType> = { Entrada: 'ENTRY', Salida: 'EXIT', Ajuste: 'ADJUSTMENT' };
 
+export type ApiPurchaseStatus = 'DRAFT' | 'ORDERED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED';
+export const PURCHASE_STATUS: Record<ApiPurchaseStatus, EstadoCompra> = {
+  DRAFT: 'Borrador', ORDERED: 'Ordenada', PARTIALLY_RECEIVED: 'Parcial', RECEIVED: 'Recibida', CANCELLED: 'Cancelada',
+};
+export const PURCHASE_TO_API: Record<EstadoCompra, ApiPurchaseStatus> = {
+  Borrador: 'DRAFT', Ordenada: 'ORDERED', Parcial: 'PARTIALLY_RECEIVED', Recibida: 'RECEIVED', Cancelada: 'CANCELLED',
+};
+
 /** Ícono visual por categoría (el backend no guarda íconos). */
 const CATEGORY_ICON: Record<string, string> = {
   Boquillas: '⛽', Mangueras: '🧵', Filtros: '🛢️', Eléctrico: '📟', Bombas: '⚙️', Conectores: '🔩', Dispensadores: '🔌', Sellos: '🧷',
@@ -102,6 +117,7 @@ export const mapProducto = (p: Json): Producto => ({
   precio: n(p.salePrice),
   stock: n(p.stock),
   stockMin: n(p.minStock),
+  stockMax: p.maxStock === null || p.maxStock === undefined ? null : n(p.maxStock),
   ic: iconFor(p.category?.name),
   activo: p.isActive !== false,
 });
@@ -147,6 +163,129 @@ export const mapMovimiento = (m: Json): Movimiento => ({
   nota: s(m.note),
   resp: s(m.user?.username),
   proveedor: s(m.supplier?.name),
+  origen: mapOrigen(m.origin),
+});
+
+/** Origen de un movimiento según la API: venta o recepción de compra. */
+export function mapOrigen(o: Json): DocumentoRef | null {
+  if (!o) return null;
+  if (o.type === 'SALE') return { tipo: 'VENTA', id: s(o.id), codigo: s(o.code) };
+  if (o.type === 'RECEIPT') return { tipo: 'RECEPCION', id: s(o.id), codigo: s(o.code), compraId: s(o.purchaseId) };
+  return null;
+}
+
+/* ---------- Compras ---------- */
+
+export const mapCompra = (c: Json): Compra => ({
+  id: c.id,
+  codigo: s(c.code),
+  estado: PURCHASE_STATUS[c.status as ApiPurchaseStatus] ?? 'Borrador',
+  proveedorId: s(c.supplier?.id),
+  proveedor: s(c.supplier?.name),
+  internacional: !!c.supplier?.isInternational,
+  moneda: (c.currency === 'USD' ? 'USD' : 'NIO') as Moneda,
+  tipoCambio: n(c.exchangeRate) || 1,
+  fecha: s(c.createdAt),
+  ordenada: c.orderedAt ?? null,
+  esperada: c.expectedAt ?? null,
+  sub: n(c.subtotal),
+  gastos: n(c.additionalCosts),
+  total: n(c.total),
+  totalNio: n(c.totalNio),
+  notas: s(c.notes),
+  motivoCancelacion: s(c.cancellationReason),
+  usuario: s(c.createdBy?.username),
+  lineas: n(c.lines),
+  unidades: n(c.unitsOrdered),
+  recibidas: n(c.unitsReceived),
+  recepciones: n(c.receiptsCount),
+  atrasada: !!c.isOverdue,
+  items: Array.isArray(c.items)
+    ? c.items.map((i: Json) => ({
+        id: s(i.id),
+        prod: s(i.productId),
+        sku: s(i.sku),
+        prodN: s(i.name),
+        cant: n(i.quantity),
+        costo: n(i.unitCost),
+        sub: n(i.subtotal),
+        recibido: n(i.receivedQuantity),
+        pendiente: n(i.pendingQuantity),
+        costoBodega: n(i.landedUnitCost),
+        stockActual: n(i.currentStock),
+      }))
+    : undefined,
+  detalleRecepciones: Array.isArray(c.receipts)
+    ? c.receipts.map((r: Json) => ({
+        id: s(r.id),
+        codigo: s(r.code),
+        fecha: s(r.receivedAt),
+        usuario: s(r.receivedBy?.username),
+        ubicacion: s(r.location?.name),
+        notas: s(r.notes),
+        unidades: n(r.units),
+        items: (r.items ?? []).map((it: Json) => ({
+          id: s(it.id),
+          prod: s(it.productId),
+          sku: s(it.sku),
+          prodN: s(it.name),
+          cant: n(it.quantity),
+          costo: n(it.unitCost),
+          movimientoId: it.movementId ?? null,
+        })),
+      }))
+    : undefined,
+});
+
+export const mapResumenCompras = (x: Json): ResumenCompras => ({
+  porEstado: Object.fromEntries(
+    (Object.keys(PURCHASE_STATUS) as ApiPurchaseStatus[]).map((k) => [PURCHASE_STATUS[k], n(x?.byStatus?.[k])]),
+  ) as Record<EstadoCompra, number>,
+  pendientes: n(x?.pendingReceipt),
+  comprado30: { monto: n(x?.orderedLast30Days?.amount), compras: n(x?.orderedLast30Days?.purchases) },
+});
+
+export const mapSugerencia = (r: Json): SugerenciaReposicion => ({
+  prod: s(r.productId),
+  sku: s(r.sku),
+  prodN: s(r.name),
+  categoria: s(r.category),
+  stock: n(r.stock),
+  stockMin: n(r.minStock),
+  stockMax: r.maxStock === null || r.maxStock === undefined ? null : n(r.maxStock),
+  costoProm: n(r.avgCost),
+  vendido30: n(r.soldLast30Days),
+  diasCobertura: r.daysOfCover === null || r.daysOfCover === undefined ? null : n(r.daysOfCover),
+  enCamino: n(r.incoming),
+  enBorrador: n(r.drafted),
+  objetivo: n(r.target),
+  regla: r.rule,
+  sugerido: n(r.suggestedQuantity),
+  cubierto: !!r.coveredByIncoming,
+  sinRegla: !!r.needsRule,
+  explicacion: s(r.explanation),
+  agotado: r.status === 'OUT_OF_STOCK',
+  proveedor: r.preferredSupplier
+    ? {
+        id: s(r.preferredSupplier.id),
+        nombre: s(r.preferredSupplier.name),
+        ultimoCosto: r.preferredSupplier.lastCost === null ? null : n(r.preferredSupplier.lastCost),
+        moneda: r.preferredSupplier.currency === 'USD' ? 'USD' : r.preferredSupplier.currency === 'NIO' ? 'NIO' : null,
+        plazo: r.preferredSupplier.leadTimeDays === null ? null : n(r.preferredSupplier.leadTimeDays),
+      }
+    : null,
+  costoEstimado: n(r.estimatedUnitCost),
+  pospuestoHasta: r.postponedUntil ?? null,
+});
+
+export const mapResumenReposicion = (x: Json): ResumenReposicion => ({
+  productos: n(x?.products),
+  porPedir: n(x?.toOrder),
+  unidades: n(x?.unitsSuggested),
+  cubiertos: n(x?.coveredByIncoming),
+  pospuestos: n(x?.postponed),
+  costoEstimado: n(x?.estimatedCost),
+  diasDemanda: n(x?.demandDays) || 30,
 });
 
 const mapLinea = (i: Json): LineaDocumento => ({
@@ -251,7 +390,7 @@ export const mapConsulta = (c: Json): ConsultaWeb => ({
 });
 
 const MODULE_LABEL: Record<string, string> = {
-  auth: 'Seguridad', users: 'Usuarios', products: 'Productos', inventory: 'Inventario', customers: 'Clientes',
+  auth: 'Seguridad', users: 'Usuarios', products: 'Productos', inventory: 'Inventario', purchases: 'Compras', portal: 'Portal clientes', customers: 'Clientes',
   suppliers: 'Proveedores', quotations: 'Cotizaciones', sales: 'Ventas', payments: 'Pagos', 'service-orders': 'OPI',
   inquiries: 'Consultas', categories: 'Categorías', brands: 'Marcas', roles: 'Roles', reports: 'Reportes',
 };

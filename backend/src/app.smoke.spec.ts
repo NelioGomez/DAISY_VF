@@ -317,6 +317,23 @@ describe('API (smoke)', () => {
     expect(res.text).toContain('CONVERTED');
   });
 
+  // ───────────── Portal de clientes ─────────────
+
+  it('portal: sin token → 401; un token del personal no abre el portal', async () => {
+    await request(server()).get('/api/v1/portal/me').expect(401);
+    await request(server()).get('/api/v1/portal/inquiries').set(auth()).expect(401);
+  });
+
+  it('portal: un token de cliente no abre la API interna', async () => {
+    const customerToken = app.get(JwtService).sign({ sub: 'acc1', cid: 'c1', typ: 'customer' });
+    await request(server()).get('/api/v1/products').set('Authorization', `Bearer ${customerToken}`).expect(401);
+  });
+
+  it('portal: registro con datos inválidos → 422 (sin tocar la base)', async () => {
+    const res = await request(server()).post('/api/v1/portal/auth/register').send({ email: 'no-es-correo', password: 'x' }).expect(422);
+    expect(res.body.errors.length).toBeGreaterThan(1);
+  });
+
   // ───────────── Compras y reabastecimiento ─────────────
 
   it('compras: sin purchases:read → 403; "restock" no se confunde con un :id', async () => {

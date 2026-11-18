@@ -28,6 +28,11 @@ export class EnvironmentVariables {
   @IsNotEmpty()
   JWT_EXPIRES_IN: string = '15m';
 
+  /** Duración de la sesión del portal de clientes (formato de jsonwebtoken: 2h, 30m…). */
+  @IsOptional()
+  @IsString()
+  PORTAL_JWT_EXPIRES_IN?: string;
+
   @IsString()
   @IsNotEmpty()
   CORS_ORIGIN: string = 'http://localhost:5173';

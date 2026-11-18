@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ClientIp } from '../common/decorators/client-ip.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
+import { CreateQuotationFromInquiryDto } from '../quotations/dto/quotation.dto';
+import { QuotationsService } from '../quotations/quotations.service';
 import { FilterInquiryDto, SetInquiryStatusDto } from './dto/inquiry.dto';
 import { InquiriesService } from './inquiries.service';
 
@@ -11,7 +13,25 @@ import { InquiriesService } from './inquiries.service';
 @ApiBearerAuth()
 @Controller('inquiries')
 export class InquiriesController {
-  constructor(private readonly inquiries: InquiriesService) {}
+  constructor(
+    private readonly inquiries: InquiriesService,
+    private readonly quotations: QuotationsService,
+  ) {}
+
+  @Post(':id/quotation')
+  @Permissions('inquiries:write', 'quotations:write')
+  @ApiOperation({
+    summary: 'Crea la cotización a partir de la solicitud (precarga cliente y productos); la solicitud pasa a COTIZADA',
+  })
+  @ApiResponse({ status: 409, description: 'La solicitud ya fue cotizada, cerrada o cancelada' })
+  createQuotation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateQuotationFromInquiryDto,
+    @CurrentUser() actor: AuthUser,
+    @ClientIp() ip?: string,
+  ) {
+    return this.quotations.createFromInquiry(id, dto, actor, ip);
+  }
 
   @Get()
   @Permissions('inquiries:read')

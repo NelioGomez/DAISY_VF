@@ -76,6 +76,16 @@ export class ProductsController {
     return this.products.setPrice(id, dto, actor, ip);
   }
 
+  @Get(':id/detail')
+  @Permissions('products:read')
+  @ApiOperation({
+    summary: 'Ficha detallada: existencias, rotación, movimientos, ventas, proveedores, compras en camino y precios (según permisos)',
+  })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
+  detail(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.products.detail(id, actor);
+  }
+
   @Get(':id/prices')
   @Permissions('prices:read')
   @ApiOperation({ summary: 'Historial de precios del producto (quién, cuándo y por qué)' })

@@ -15,6 +15,7 @@ import { DashboardPage } from '../../features/dashboard/DashboardPage';
 import { InventoryPage } from '../../features/inventory/InventoryPage';
 import { PaymentsPage } from '../../features/payments/PaymentsPage';
 import { ProductsPage } from '../../features/products/ProductsPage';
+import { PurchasesPage } from '../../features/purchases/PurchasesPage';
 import { QuotationsPage } from '../../features/quotations/QuotationsPage';
 import { ReportsPage } from '../../features/reports/ReportsPage';
 import { SalesPage } from '../../features/sales/SalesPage';
@@ -30,6 +31,7 @@ const MODULE_PAGES: Record<ModuleId, ReactElement> = {
   dashboard: <DashboardPage />,
   productos: <ProductsPage />,
   inventario: <InventoryPage />,
+  compras: <PurchasesPage />,
   clientes: <CustomersPage />,
   proveedores: <SuppliersPage />,
   cotizaciones: <QuotationsPage />,

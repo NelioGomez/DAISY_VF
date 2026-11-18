@@ -16,11 +16,11 @@ export const ROLES: Record<RoleKey, RoleInfo> = {
 
 /** Módulos visibles por rol. El primero es la vista inicial al iniciar sesión. */
 export const ACCESS: Record<RoleKey, ModuleId[]> = {
-  admin: ['dashboard', 'productos', 'inventario', 'clientes', 'proveedores', 'cotizaciones', 'ventas', 'pagos', 'ordenes', 'reportes', 'catalogo', 'consultas', 'auditoria'],
-  gerencia: ['dashboard', 'reportes', 'inventario', 'ventas', 'auditoria'],
+  admin: ['dashboard', 'productos', 'inventario', 'compras', 'clientes', 'proveedores', 'cotizaciones', 'ventas', 'pagos', 'ordenes', 'reportes', 'catalogo', 'consultas', 'auditoria'],
+  gerencia: ['dashboard', 'reportes', 'inventario', 'compras', 'ventas', 'auditoria'],
   vendedor: ['dashboard', 'clientes', 'cotizaciones', 'ventas', 'catalogo', 'consultas'],
-  inventario: ['dashboard', 'productos', 'inventario', 'proveedores'],
-  contabilidad: ['dashboard', 'ventas', 'pagos', 'reportes'],
+  inventario: ['dashboard', 'productos', 'inventario', 'compras', 'proveedores'],
+  contabilidad: ['dashboard', 'ventas', 'pagos', 'compras', 'reportes'],
   tecnico: ['dashboard', 'ordenes'],
 };
 
@@ -42,6 +42,7 @@ export const MENU: MenuGroup[] = [
       { id: 'dashboard', t: 'Dashboard', ic: '▦' },
       { id: 'productos', t: 'Productos', ic: '▣' },
       { id: 'inventario', t: 'Inventario', ic: '▤' },
+      { id: 'compras', t: 'Compras', ic: '⇩' },
       { id: 'cotizaciones', t: 'Cotizaciones', ic: '▥' },
       { id: 'ventas', t: 'Ventas y Facturación', ic: '▧' },
       { id: 'pagos', t: 'Pagos y CxC', ic: '▨' },
@@ -70,6 +71,7 @@ export const TITLES: Record<ModuleId, [string, string]> = {
   dashboard: ['Dashboard', 'Panel de control gerencial'],
   productos: ['Productos', 'Catálogo interno de repuestos'],
   inventario: ['Inventario', 'Movimientos y control de existencias'],
+  compras: ['Compras', 'Órdenes de compra, recepción y reabastecimiento'],
   clientes: ['Clientes', 'Cartera de clientes'],
   proveedores: ['Proveedores', 'Proveedores nacionales e internacionales'],
   cotizaciones: ['Cotizaciones', 'Proformas y conversión a venta'],
@@ -92,6 +94,7 @@ export const MODULE_PERMISSION: Record<ModuleId, string> = {
   dashboard: 'dashboard:read',
   productos: 'products:read',
   inventario: 'inventory:read',
+  compras: 'purchases:read',
   clientes: 'customers:read',
   proveedores: 'suppliers:read',
   cotizaciones: 'quotations:read',

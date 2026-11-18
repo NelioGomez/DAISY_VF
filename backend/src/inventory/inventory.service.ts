@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FilterProductDto } from '../products/dto/product.dto';
 import { ProductsService } from '../products/products.service';
 import { CreateMovementDto, FilterMovementDto } from './dto/inventory.dto';
+import { MOVEMENT_ORIGIN_INCLUDE, movementOrigin, type MovementOriginRow } from './movement-origin';
 import { rememberSupplierCost } from './product-suppliers';
 import { MovementResult, StockService } from './stock.service';
 
@@ -17,6 +18,8 @@ const MOVEMENT_INCLUDE = {
   product: { select: { id: true, sku: true, name: true } },
   user: { select: { id: true, username: true } },
   supplier: { select: { id: true, name: true } },
+  // Documento de origen (trazabilidad navegable): la venta o la recepción de compra.
+  ...MOVEMENT_ORIGIN_INCLUDE,
 } as const;
 
 interface MovementRow {
@@ -36,6 +39,8 @@ interface MovementRow {
   product?: { id: string; sku: string; name: string };
   user?: { id: string; username: string };
   supplier?: { id: string; name: string } | null;
+  sale?: MovementOriginRow['sale'];
+  purchaseReceiptItem?: MovementOriginRow['purchaseReceiptItem'];
 }
 
 @Injectable()
@@ -227,6 +232,7 @@ export class InventoryService {
       user: m.user,
       saleId: m.saleId ?? null,
       purchaseReceiptItemId: m.purchaseReceiptItemId ?? null,
+      origin: movementOrigin(m),
       locationId: m.locationId,
       createdAt: m.createdAt,
     };

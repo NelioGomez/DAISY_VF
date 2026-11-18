@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
 import { SortOrder } from '../../common/dto/sort-order.enum';
 import { trim } from '../../common/transformers/text.transformers';
 
@@ -13,6 +13,8 @@ export enum Availability {
 export enum PublicSortField {
   NAME = 'name',
   PRICE = 'price',
+  /** Más vendidos (cantidad de ventas en que aparece). */
+  POPULAR = 'popular',
 }
 
 export class PublicProductFilterDto {
@@ -52,6 +54,20 @@ export class PublicProductFilterDto {
   @IsOptional()
   @IsEnum(Availability)
   availability?: Availability;
+
+  @ApiPropertyOptional({ description: 'Precio mínimo (C$)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Precio máximo (C$)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  maxPrice?: number;
 
   @ApiPropertyOptional({ enum: PublicSortField, default: PublicSortField.NAME })
   @IsOptional()

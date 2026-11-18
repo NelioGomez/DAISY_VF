@@ -96,9 +96,6 @@ export function CustomerLoginPage() {
           ¿Olvidó su contraseña? Escríbanos desde <Link to="/contacto">Contacto</Link> o por WhatsApp y le ayudamos a recuperar el acceso.
         </p>
       </div>
-      <p className="pub-authstaff">
-        ¿Trabaja en NORCOR? <Link to="/login">Ingrese al sistema interno</Link>
-      </p>
     </div>
   );
 }

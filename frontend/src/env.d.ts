@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_BACKEND_URL?: string;
   /** Servidor de WebSocket si no es el mismo sitio (por defecto se usa el proxy /socket.io). */
   readonly VITE_WS_URL?: string;
+  readonly VITE_SITE_URL?: string;
+  readonly VITE_SYSTEM_URL?: string;
   /** "true" muestra las cuentas de prueba en el login fuera de desarrollo. */
   readonly VITE_DEMO_ACCOUNTS?: string;
 }

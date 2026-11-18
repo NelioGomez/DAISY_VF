@@ -9,6 +9,7 @@ import { useModal } from '../../components/modals/useModal';
 import { useAuth, useData } from '../../store/hooks';
 import type { Producto } from '../../types';
 import { money } from '../../utils/format';
+import { UNIDADES, type Unidad } from '../../utils/units';
 
 export function ProductFormModal({ producto }: { producto?: Producto }) {
   const { db, guardarProducto, cambiarEstadoProducto } = useData();
@@ -24,6 +25,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
     codigoBarras: p?.codigoBarras ?? '',
     nombre: p?.nombre ?? '',
     descripcion: p?.descripcion ?? '',
+    unidad: (p?.unidad ?? 'UNIT') as Unidad,
     categoriaId: p?.categoriaId ?? '',
     marcaId: p?.marcaId ?? '',
     precio: String(p?.precio ?? ''),
@@ -48,6 +50,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
       codigoBarras: f.codigoBarras.trim(),
       nombre: f.nombre.trim(),
       descripcion: f.descripcion.trim(),
+      unidad: f.unidad,
       categoriaId: f.categoriaId || null,
       marcaId: f.marcaId || null,
       ...(cambiaPrecio && { precio, motivoPrecio: f.motivoPrecio.trim() || undefined }),
@@ -119,6 +122,15 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
         {canPrice && p && f.precio !== '' && Number(f.precio) !== p.precio && (
           <InputField label="Motivo del cambio de precio" value={f.motivoPrecio} onChange={set('motivoPrecio')} placeholder="Ej: ajuste por tipo de cambio" full />
         )}
+        <Field label="Unidad de medida" htmlFor="pf-unidad" help="Cómo se cuenta el stock: la manguera a granel, por pie">
+          <select id="pf-unidad" value={f.unidad} onChange={(e) => setF((s) => ({ ...s, unidad: e.target.value as Unidad }))}>
+            {UNIDADES.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nombre}
+              </option>
+            ))}
+          </select>
+        </Field>
         <InputField label="Stock mínimo" type="number" value={f.stockMin} onChange={set('stockMin')} help="En este nivel o menos se marca como crítico" />
         <InputField
           label="Stock máximo (reposición)"

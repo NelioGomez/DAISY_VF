@@ -28,6 +28,17 @@ const ESTADO_TONES: Record<string, TagTone> = {
   Vencida: 't-gray',
   Ordenada: 't-amber',
   Recibida: 't-green',
+  // Producción y calidad
+  Liberada: 't-blue',
+  Terminada: 't-green',
+  'Por inspeccionar': 't-amber',
+  'En retrabajo': 't-violet',
+  Liberado: 't-green',
+  Desechado: 't-red',
+  Conforme: 't-green',
+  'No conforme': 't-red',
+  Vigente: 't-green',
+  Inactiva: 't-gray',
 };
 
 /** Ícono que acompaña al texto del estado: el estado no depende solo del color (WCAG). */
@@ -49,6 +60,15 @@ const ESTADO_ICONS: Record<string, string> = {
   Convertida: '→',
   Cotizada: '→',
   Facturada: '→',
+  Liberada: '▶',
+  Terminada: '✓',
+  'Por inspeccionar': '◷',
+  'En retrabajo': '↺',
+  Liberado: '✓',
+  Desechado: '✕',
+  Conforme: '✓',
+  'No conforme': '✕',
+  Vigente: '✓',
 };
 
 export function EstadoTag({ estado }: { estado: string }) {

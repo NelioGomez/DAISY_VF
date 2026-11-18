@@ -138,7 +138,7 @@ export function DashboardLayout() {
           <button className="icon-btn menu-toggle" onClick={() => setMenuOpen((o) => !o)} aria-label="Abrir menú">
             ☰
           </button>
-          <div>
+          <div className="tb-title">
             <h1>{sub ?? title}</h1>
             <nav className="crumb" aria-label="Ruta">
               {sub ? (
@@ -171,7 +171,7 @@ export function DashboardLayout() {
           </button>
           <NotificationBell />
           <div className="clock">{clock}</div>
-          <button className="icon-btn" title="Catálogo público" aria-label="Catálogo público" onClick={() => navigate('/catalogo')}>
+          <button className="icon-btn tb-site" title="Catálogo público" aria-label="Catálogo público" onClick={() => navigate('/catalogo')}>
             🌐
           </button>
           <div className="userchip">

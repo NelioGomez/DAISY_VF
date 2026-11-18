@@ -469,6 +469,16 @@ kbd{font-family:var(--mono);font-size:10.5px;background:var(--panel);border:1px 
 .drawer a:not(.b){color:var(--blue)}
 @media (max-width:1500px){.search-chip span{display:none}.search-chip{min-width:0}}
 @media (max-width:1100px){.search-chip kbd{display:none}}
+/* Barra superior en celulares: el título se recorta y se ocultan reloj, enlace al sitio y nombre. */
+.tb-title{min-width:0}
+@media (max-width:880px){
+  .topbar{padding:0 12px;gap:8px}
+  .topbar .spacer{display:none}
+  .tb-title{flex:1 1 auto}
+  .tb-title h1,.tb-title .crumb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar .clock,.userchip>div:last-child{display:none}
+}
+@media (max-width:560px){.tb-site,.userchip{display:none!important}}
 
 /* ---------- Pipeline de cotizaciones (n.° 14) ---------- */
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff;margin-left:auto}
@@ -502,6 +512,53 @@ kbd{font-family:var(--mono);font-size:10.5px;background:var(--panel);border:1px 
 .cash-change span{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
 .cash-change b{font-family:var(--mono);font-size:17px}
 .cash-change.is-short{background:var(--red-soft);color:#9c241b}
+/* ---------- Producción y calidad (entrega 2) ---------- */
+.op-flow{list-style:none;display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}
+.op-flow li{flex:1 1 0;min-width:96px;padding:7px 10px;background:var(--panel);border:1px solid var(--line);border-radius:9px;font-size:12px;color:var(--muted);font-weight:700}
+.op-flow li small{display:block;font-weight:400;font-size:10.5px;color:var(--soft);margin-top:1px}
+.op-flow li.done{background:var(--green-soft);border-color:#c5e6d3;color:#17663d}
+.op-flow li.now{background:#fff6e0;border-color:#f1dca6;color:#7a5200;box-shadow:0 0 0 1px #f1dca6 inset}
+.op-steps{list-style:none;display:grid;gap:8px;margin-bottom:6px}
+.op-steps li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
+.op-steps .seq{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:11.5px;font-weight:700;background:var(--panel);color:var(--muted);border:1px solid var(--line)}
+.op-steps .meta{font-size:11.5px;color:var(--soft);margin-top:1px}
+.op-steps li.done{background:#f5fbf7;border-color:#cfe9da}
+.op-steps li.done .seq{background:var(--green);border-color:var(--green);color:#fff}
+.op-steps li.next{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
+.op-steps li.next .seq{background:var(--amber);border-color:var(--amber);color:#2b1c00}
+.lot-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+.qc-disp{border:1px solid var(--line);border-radius:11px;padding:10px 12px 6px;margin:12px 0}
+.qc-disp legend{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:0 6px}
+.qc-disp label{display:flex;gap:10px;align-items:flex-start;padding:8px;border-radius:9px;cursor:pointer;font-size:13px}
+.qc-disp label:hover{background:var(--panel)}
+.qc-disp label.on{background:#fff6e0}
+.qc-disp label input{margin-top:3px}
+.qc-disp small{display:block;font-size:11.5px;color:var(--soft)}
+.li-row.li-bom,.li-head.li-bom{grid-template-columns:minmax(0,1fr) 150px 130px 110px 36px}
+.qty-unit{display:flex;align-items:center;gap:6px;min-width:0}
+.qty-unit input{width:100%;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px}
+.qty-unit span{font-size:12px;color:var(--muted);white-space:nowrap}
+.bom-items,.route-ops{list-style:none;display:grid;gap:2px;font-size:12.5px}
+.route-ops li small{color:var(--soft);margin-left:6px;font-size:11px}
+.route-ops li .mono{display:inline-block;min-width:22px;color:var(--soft);font-size:11px}
+.route-form{list-style:none;display:grid;gap:10px;margin-bottom:10px}
+.route-form li{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:10px;align-items:start;border:1px solid var(--line);border-radius:11px;padding:10px}
+.route-form .seq{display:grid;place-items:center;height:36px;border-radius:8px;background:var(--panel);color:var(--muted);font-size:12px;font-weight:700}
+.route-fields{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 130px;gap:8px;min-width:0}
+.route-fields input{padding:8px;border:1px solid var(--line);border-radius:8px;min-width:0}
+.route-fields .full{grid-column:1/-1}
+.route-btns{display:flex;gap:4px}
+.route-btns .icon-btn{width:30px;height:30px}
+.mfg-kpis{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:12px}
+.mfg-bar{display:flex;height:12px;border-radius:7px;overflow:hidden;background:#eef1f4}
+.mfg-bar i{display:block;height:100%}
+.mfg-bar .ok,.mfg-legend .ok:before{background:var(--green)}
+.mfg-bar .bad,.mfg-legend .bad:before{background:var(--red)}
+.mfg-bar .wait,.mfg-legend .wait:before{background:var(--amber)}
+.mfg-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:7px;font-size:12px;color:var(--muted);list-style:none}
+.mfg-legend li:before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+@media(max-width:880px){.lot-kpis,.mfg-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.route-fields{grid-template-columns:1fr}.li-row.li-bom,.li-head.li-bom{grid-template-columns:minmax(0,1fr) 120px 36px}.li-row.li-bom>input,.li-head.li-bom span:nth-child(3),.li-head.li-bom span:nth-child(4){display:none}.op-steps li{grid-template-columns:28px minmax(0,1fr)}.op-steps li>:last-child{grid-column:2}}
+
 /* Al imprimir con una factura abierta, solo sale la factura (sin la pantalla de fondo). */
 @media print{
   html:has(.modal.print-doc),body:has(.modal.print-doc){background:#fff!important}

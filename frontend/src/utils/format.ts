@@ -11,7 +11,8 @@ export function daysAgo(d: number): Date {
   return x;
 }
 
-export const iso = (dt: Date): string => dt.toISOString().slice(0, 10);
+/** Fecha local AAAA-MM-DD (no UTC: en Nicaragua, después de las 6 p. m. el UTC ya es "mañana"). */
+export const iso = (dt: Date): string => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 
 export const todayISO = (): string => iso(new Date());
 

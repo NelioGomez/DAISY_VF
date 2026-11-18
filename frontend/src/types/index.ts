@@ -4,6 +4,8 @@
    los construye a partir de las respuestas de la API NestJS.
    ===================================================================== */
 
+import type { Unidad } from '../utils/units';
+
 export type RoleKey = 'admin' | 'gerencia' | 'vendedor' | 'inventario' | 'contabilidad' | 'tecnico';
 
 export type ModuleId =
@@ -11,6 +13,7 @@ export type ModuleId =
   | 'productos'
   | 'inventario'
   | 'compras'
+  | 'produccion'
   | 'clientes'
   | 'proveedores'
   | 'cotizaciones'
@@ -53,6 +56,8 @@ export interface Producto {
   codigoBarras: string;
   nombre: string;
   descripcion: string;
+  /** Unidad en que se controla el stock (código de la API: UNIT, FOOT…). */
+  unidad: Unidad;
   marca: string;
   marcaId: string | null;
   categoria: string;
@@ -244,7 +249,7 @@ export interface FichaProducto {
 
 /* ---------- Trazabilidad documental ---------- */
 
-export type TipoDocumento = 'SOLICITUD' | 'COTIZACION' | 'VENTA' | 'PAGO' | 'COMPRA' | 'RECEPCION' | 'MOVIMIENTO';
+export type TipoDocumento = 'SOLICITUD' | 'COTIZACION' | 'VENTA' | 'PAGO' | 'COMPRA' | 'RECEPCION' | 'MOVIMIENTO' | 'PRODUCCION' | 'LOTE';
 
 /** Referencia navegable a un documento relacionado. */
 export interface DocumentoRef {
@@ -253,6 +258,8 @@ export interface DocumentoRef {
   codigo: string;
   /** Para movimientos de recepción: la compra a la que pertenece. */
   compraId?: string;
+  /** Para entradas de producción: el lote liberado por calidad. */
+  lote?: string;
 }
 
 /** Línea de un documento comercial (cotización o venta). */
@@ -409,7 +416,7 @@ export interface RegistroAuditoria {
 
 export interface DashboardResumen {
   /** Secciones que el servidor envió según los permisos del rol. */
-  secciones: { ventas: boolean; inventario: boolean; cxc: boolean; ordenes: boolean; cotizaciones: boolean; consultas: boolean; compras: boolean };
+  secciones: { ventas: boolean; inventario: boolean; cxc: boolean; ordenes: boolean; cotizaciones: boolean; consultas: boolean; compras: boolean; produccion: boolean };
   ventas30: { total: number; facturas: number };
   /** Los 30 días anteriores (tendencia, mejora n.° 9). */
   ventasPrevias: { total: number; facturas: number };
@@ -437,7 +444,31 @@ export interface DashboardResumen {
     conversion: { actual: { emitidas: number; convertidas: number }; previa: { emitidas: number; convertidas: number } };
   };
   consultasNuevas: number;
+  /** KPI de manufactura de los últimos 30 días (null si el rol no ve Producción). */
+  produccion: ResumenProduccion | null;
   alertas: Array<{ tipo: string; severidad: 'info' | 'warning' | 'critical' | string; mensaje: string; cantidad: number }>;
+}
+
+/** Indicadores de manufactura calculados por el servidor con sus propios datos. */
+export interface ResumenProduccion {
+  /** Órdenes liberadas que esperan iniciar. */
+  liberadas: number;
+  enProceso: number;
+  terminadas30: number;
+  planificadas30: number;
+  /** Unidades que calidad liberó al inventario. */
+  liberadasCalidad30: number;
+  desechadas30: number;
+  porInspeccionar30: number;
+  /** Rendimiento (yield): liberadas ÷ planificadas, en %. null = sin órdenes terminadas. */
+  rendimiento: number | null;
+  inspeccionadas30: number;
+  noConformes30: number;
+  /** No conformes ÷ inspeccionadas en la primera inspección, en %. */
+  noConformidad: number | null;
+  /** Promedio entre el inicio y el término de las órdenes terminadas. */
+  cicloHoras: number;
+  lotesPorInspeccionar: number;
 }
 
 /** Un registro del historial de precios (lo llena un trigger de la base de datos). */

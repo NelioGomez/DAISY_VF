@@ -3,6 +3,7 @@
    IMPORTANTE: ocultar módulos aquí solo mejora la experiencia; la
    autorización real debe aplicarse en NestJS con guards por rol.
    ===================================================================== */
+import type { IconName } from '../components/common/Icon';
 import type { RefreshKey } from '../store/storeContext';
 import type { ModuleId, RoleInfo, RoleKey } from '../types';
 
@@ -32,7 +33,8 @@ export interface MenuItem {
   /** Módulo de la pantalla: define el permiso y la ruta (/app/<id>). */
   id: ModuleId;
   t: string;
-  ic: string;
+  /** Ícono SVG del menú (mejora n.° 62). */
+  ic: IconName;
   /** Nombre cuando es la única pantalla visible de su módulo (se muestra como enlace directo). */
   solo?: string;
   /** Ruta propia dentro del módulo (p. ej. el punto de venta dentro de Ventas). */
@@ -53,7 +55,7 @@ export interface MenuItem {
 export interface MenuSection {
   key: string;
   t: string;
-  ic: string;
+  ic: IconName;
   items: MenuItem[];
 }
 
@@ -72,51 +74,51 @@ export const MENU: MenuEntry[] = [
   {
     key: 'dashboard',
     t: 'Dashboard',
-    ic: '▦',
+    ic: 'layout-dashboard',
     items: [
-      { id: 'dashboard', t: 'Panel e indicadores', solo: 'Dashboard', ic: '▦' },
-      { id: 'reportes', t: 'Reportes y KPIs', ic: '◩' },
+      { id: 'dashboard', t: 'Panel e indicadores', solo: 'Dashboard', ic: 'gauge' },
+      { id: 'reportes', t: 'Reportes y KPIs', ic: 'chart-column' },
     ],
   },
   {
     key: 'compras',
     t: 'Compras',
-    ic: '⇩',
+    ic: 'shopping-cart',
     items: [
-      { id: 'productos', t: 'Productos', ic: '▣' },
-      { id: 'compras', t: 'Pedidos de compra', ic: '⇩', tab: 'ordenes', tabDefault: true, badge: 'comprasPorRecibir' },
-      { id: 'compras', t: 'Reabastecimiento', ic: '↻', tab: 'reabastecimiento' },
-      { id: 'proveedores', t: 'Proveedores', ic: '◨' },
-      { id: 'inventario', t: 'Inventario', ic: '▤', badge: 'criticos' },
+      { id: 'productos', t: 'Productos', ic: 'package' },
+      { id: 'compras', t: 'Pedidos de compra', ic: 'clipboard-list', tab: 'ordenes', tabDefault: true, badge: 'comprasPorRecibir' },
+      { id: 'compras', t: 'Reabastecimiento', ic: 'refresh-cw', tab: 'reabastecimiento' },
+      { id: 'proveedores', t: 'Proveedores', ic: 'truck' },
+      { id: 'inventario', t: 'Inventario', ic: 'warehouse', badge: 'criticos' },
     ],
   },
   {
     key: 'ventas',
     t: 'Ventas',
-    ic: '▧',
+    ic: 'badge-dollar-sign',
     items: [
-      { id: 'clientes', t: 'Clientes', ic: '◧' },
-      { id: 'cotizaciones', t: 'Cotizaciones', ic: '▥', badge: 'cotizacionesPendientes' },
-      { id: 'ventas', t: 'Punto de venta', ic: '⊞', to: '/app/ventas/nueva', perm: 'sales:write' },
-      { id: 'ventas', t: 'Ventas y facturación', ic: '▧', end: true },
-      { id: 'ordenes', t: 'Órdenes de servicio (OPI)', ic: '▩' },
-      { id: 'consultas', t: 'Consultas web', ic: '◫', badge: 'consultasNuevas' },
-      { id: 'catalogo', t: 'Catálogo web', ic: '◪' },
+      { id: 'clientes', t: 'Clientes', ic: 'users' },
+      { id: 'cotizaciones', t: 'Cotizaciones', ic: 'file-text', badge: 'cotizacionesPendientes' },
+      { id: 'ventas', t: 'Punto de venta', ic: 'scan-barcode', to: '/app/ventas/nueva', perm: 'sales:write' },
+      { id: 'ventas', t: 'Ventas y facturación', ic: 'receipt', end: true },
+      { id: 'ordenes', t: 'Órdenes de servicio', ic: 'wrench' },
+      { id: 'consultas', t: 'Consultas web', ic: 'inbox', badge: 'consultasNuevas' },
+      { id: 'catalogo', t: 'Catálogo web', ic: 'globe' },
     ],
   },
-  { id: 'pagos', t: 'Pagos y CxC', ic: '▨', badge: 'cxc' },
+  { id: 'pagos', t: 'Pagos y CxC', ic: 'wallet', badge: 'cxc' },
   {
     key: 'produccion',
     t: 'Producción',
-    ic: '⚙',
+    ic: 'factory',
     items: [
-      { id: 'produccion', t: 'Órdenes de producción', ic: '⚙', tab: 'ordenes', tabDefault: true },
-      { id: 'produccion', t: 'Lotes y calidad', ic: '✓', tab: 'lotes' },
-      { id: 'produccion', t: 'Listas de materiales', ic: '☰', tab: 'bom' },
-      { id: 'produccion', t: 'Rutas de producción', ic: '⤳', tab: 'rutas' },
+      { id: 'produccion', t: 'Órdenes de producción', ic: 'cog', tab: 'ordenes', tabDefault: true },
+      { id: 'produccion', t: 'Lotes y calidad', ic: 'list-checks', tab: 'lotes' },
+      { id: 'produccion', t: 'Listas de materiales', ic: 'layers', tab: 'bom' },
+      { id: 'produccion', t: 'Rutas de producción', ic: 'route', tab: 'rutas' },
     ],
   },
-  { id: 'auditoria', t: 'Auditoría', ic: '◎' },
+  { id: 'auditoria', t: 'Auditoría', ic: 'history' },
 ];
 
 export const TITLES: Record<ModuleId, [string, string]> = {

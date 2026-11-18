@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { MODULE_DATA, TITLES, isModuleId, visibleModules, type MenuBadge } from '../config/navigation';
+import { Icon } from '../components/common/Icon';
 import { LoadErrors } from '../components/feedback/LoadErrors';
 import { SkeletonPage } from '../components/feedback/Skeleton';
 import { RealtimeIndicator } from '../components/feedback/RealtimeIndicator';
@@ -184,7 +185,7 @@ export function DashboardLayout() {
             aria-expanded={menuOpen}
             aria-controls="app-sidebar"
           >
-            ☰
+            <Icon name="menu" size={20} />
           </button>
           <div className="tb-title">
             <h1 title={desc}>{sub ?? title}</h1>
@@ -216,18 +217,15 @@ export function DashboardLayout() {
             }
           />
           <button className="search-chip" onClick={() => modal.open(<GlobalSearch />)} aria-label="Buscar en todo el sistema (Ctrl + K)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
+            <Icon name="search" size={15} />
             <span>Buscar…</span>
             <kbd>Ctrl K</kbd>
           </button>
           <NotificationBell />
           <div className="clock">{clock}</div>
-          <button className="icon-btn tb-site" title="Catálogo público" aria-label="Catálogo público" onClick={() => navigate('/catalogo')}>
-            🌐
-          </button>
+          <a className="icon-btn tb-site" href="/catalogo" target="_blank" rel="noreferrer" title="Sitio público (se abre en otra pestaña)" aria-label="Sitio público, se abre en otra pestaña">
+            <Icon name="globe" />
+          </a>
           <div className="userchip">
             <div className="av" style={{ background: `linear-gradient(160deg,${user.color},#1a2c3d)` }}>
               {user.name[0]}
@@ -238,7 +236,7 @@ export function DashboardLayout() {
             </div>
           </div>
           <button className="icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={handleLogout}>
-            ⎋
+            <Icon name="log-out" />
           </button>
         </header>
         <main className="view">

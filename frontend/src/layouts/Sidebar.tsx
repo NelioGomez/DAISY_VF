@@ -5,9 +5,12 @@
    - En escritorio se puede contraer a una barra de íconos que se despliega al pasar el mouse
      (o al llegar con Tab); la preferencia queda guardada en el navegador.
    - En celular es un panel deslizable sobre la página: se cierra con ×, con Esc, tocando el
-     fondo o al elegir una pantalla. Mientras está cerrado no recibe el foco. */
+     fondo o al elegir una pantalla. Mientras está cerrado no recibe el foco.
+   - Íconos SVG por módulo y por pantalla (mejora n.° 62): carrito para Compras, recibo para
+     Ventas y facturación, llave para las órdenes de servicio… */
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Icon } from '../components/common/Icon';
 import { Logo } from '../components/common/Logo';
 import { isSection, MENU, type MenuBadge, type MenuEntry, type MenuItem, type MenuSection } from '../config/navigation';
 import type { ModuleId } from '../types';
@@ -120,7 +123,7 @@ export function Sidebar({ id, allowed, can, badges, home, footer, mobile, open, 
         onClick={pick}
       >
         <span className="ic" aria-hidden="true">
-          {it.ic}
+          <Icon name={it.ic} size={sub ? 16 : 18} />
         </span>
         <span className="lbl">{it.t}</span>
         {it.badge && <Badge info={badges[it.badge]} />}
@@ -136,7 +139,7 @@ export function Sidebar({ id, allowed, can, badges, home, footer, mobile, open, 
             <Logo variant="sidebar" />
           </Link>
           <button ref={closeRef} type="button" className="nav-close" onClick={() => onClose(true)} aria-label="Cerrar menú">
-            ✕
+            <Icon name="x" size={20} />
           </button>
         </div>
         <nav className="nav" aria-label="Menú principal">
@@ -159,12 +162,12 @@ export function Sidebar({ id, allowed, can, badges, home, footer, mobile, open, 
                   onClick={() => setOpenKey((k) => (k === e.key ? null : e.key))}
                 >
                   <span className="ic" aria-hidden="true">
-                    {e.ic}
+                    <Icon name={e.ic} />
                   </span>
                   <span className="lbl">{e.t}</span>
                   {!!avisos && <Badge info={{ n: avisos, label: avisos === 1 ? `aviso (${detalle})` : `avisos (${detalle})` }} />}
                   <span className="chev" aria-hidden="true">
-                    ›
+                    <Icon name="chevron-right" size={16} />
                   </span>
                 </button>
                 <div id={`${id}-${e.key}`} className="nav-sub" inert={!isOpen}>
@@ -188,7 +191,7 @@ export function Sidebar({ id, allowed, can, badges, home, footer, mobile, open, 
             title={rail ? 'Mantener el menú abierto' : 'Contraer el menú a íconos'}
           >
             <span className="ic" aria-hidden="true">
-              {rail ? '»' : '«'}
+              <Icon name={rail ? 'panel-left-open' : 'panel-left-close'} size={16} />
             </span>
             <span className="lbl">{rail ? 'Fijar menú' : 'Contraer menú'}</span>
           </button>

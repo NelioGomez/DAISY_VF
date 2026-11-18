@@ -1,14 +1,23 @@
 import type { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { AccessDenied } from '../../components/common/AccessDenied';
 import { ACCESS } from '../../config/navigation';
 import { useAuth } from '../../store/hooks';
 import type { ModuleId } from '../../types';
 
-/** Exige sesión iniciada; si no, redirige al login. */
+/** Estado que viaja hacia /login: a dónde volver después de iniciar sesión. */
+export interface LoginRedirectState {
+  from?: string;
+}
+
+/** Exige sesión iniciada; si no, redirige al login recordando la ruta solicitada. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!user) {
+    const state: LoginRedirectState = { from: location.pathname };
+    return <Navigate to="/login" replace state={state} />;
+  }
   return <>{children}</>;
 }
 

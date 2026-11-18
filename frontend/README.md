@@ -29,11 +29,28 @@ npm run dev          # servidor de desarrollo → http://localhost:5173
 Variables de entorno: copiar `.env.example` como `.env`. `VITE_API_URL` apunta a la API NestJS
 (aún no se consume).
 
+## Inicio de sesión
+
+El rol lo define la cuenta, no se elige en pantalla. En desarrollo (`npm run dev`) el login muestra
+un panel **Cuentas de prueba** (contraseña `Siven#2026`); fuera de desarrollo solo aparece con
+`VITE_DEMO_ACCOUNTS=true` en `.env`.
+
+Medidas aplicadas en el cliente (`config/security.ts`, `services/auth/authService.ts`):
+
+- Mensaje genérico ante credenciales incorrectas, sin revelar si el usuario existe.
+- 5 intentos fallidos → bloqueo temporal de 60 s con cuenta regresiva.
+- Intentos fallidos, bloqueos y cierres de sesión quedan en Auditoría.
+- La contraseña se borra tras un fallo y nunca se recuerda; "Recordar mi usuario" guarda solo el nombre.
+- Cierre automático tras 15 min sin actividad, con aviso y regreso a la vista anterior.
+
+Pendiente en NestJS (lo que realmente protege): contraseñas con hash argon2/bcrypt, límite de
+intentos en el servidor (`@nestjs/throttler`), JWT en cookie `httpOnly` + `Secure` + `SameSite` y HTTPS.
+
 ## Rutas
 
 | Ruta            | Vista                                        |
 | --------------- | -------------------------------------------- |
-| `/login`        | Acceso interno con selección de rol          |
+| `/login`        | Inicio de sesión del personal                |
 | `/catalogo`     | Catálogo público (sin sesión)                |
 | `/app/<módulo>` | Panel interno (dashboard, productos, ventas…) |
 

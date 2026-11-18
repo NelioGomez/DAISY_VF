@@ -1,5 +1,5 @@
 /* Layout del panel interno: sidebar por rol + topbar + área de vista. */
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useSyncExternalStore } from 'react';
 import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/common/Logo';
 import { MENU, MODULE_DATA, TITLES, isModuleId, visibleModules } from '../config/navigation';
@@ -9,10 +9,13 @@ import { RealtimeIndicator } from '../components/feedback/RealtimeIndicator';
 import { SESSION_IDLE_MINUTES } from '../config/security';
 import { readNoticesEnabled, storeNoticesEnabled, useRealtimeNotices } from '../features/realtime/useRealtimeNotices';
 import { useIdleTimeout } from '../hooks/useIdleTimeout';
+import { recordStore } from '../components/modals/recordStore';
 import { useModal } from '../components/modals/useModal';
 import { NotificationBell } from '../features/dashboard/NotificationBell';
 import { GlobalSearch } from '../features/search/GlobalSearch';
 import { QuotationFormModal } from '../features/quotations/QuotationFormModal';
+import { withRecordParam } from '../features/records/records';
+import { useRecordUrlSync } from '../features/records/useRecordUrlSync';
 import { useAuth, useData } from '../store/hooks';
 import type { ModuleId } from '../types';
 
@@ -42,6 +45,19 @@ export function DashboardLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notices, setNotices] = useState(readNoticesEnabled);
   useRealtimeNotices(notices);
+  // Registro abierto en el panel lateral: dirección propia y último tramo de la ruta (n.° 32 y 33).
+  useRecordUrlSync();
+  const record = useSyncExternalStore(recordStore.subscribe, recordStore.get);
+  // Título de la pestaña: el registro abierto o la pantalla (sirve también en el historial).
+  const modParam = match?.params.module;
+  const tabTitle = record.label ?? SUBPAGES[location.pathname] ?? TITLES[isModuleId(modParam) ? modParam : 'dashboard'][0];
+  useEffect(() => {
+    const prev = document.title;
+    document.title = `${tabTitle} · SIVEN NORCOR`;
+    return () => {
+      document.title = prev;
+    };
+  }, [tabTitle]);
 
   // Igual que go() del prototipo: al cambiar de vista se sube al inicio de la página.
   useEffect(() => {
@@ -81,9 +97,16 @@ export function DashboardLayout() {
   const allowed = visibleModules(user);
   const param = match?.params.module;
   const moduleId: ModuleId = isModuleId(param) ? param : 'dashboard';
-  const [title, crumb] = TITLES[moduleId];
-  // Ruta de navegación (breadcrumb) para pantallas dentro de un módulo, p. ej. Ventas › Nueva venta.
+  const [title, desc] = TITLES[moduleId];
+  // Ruta de navegación (mejora n.° 32): Inicio › Módulo › Subpantalla › Registro abierto,
+  // p. ej. Inicio › Ventas y Facturación › Factura FAC-000125. Cada tramo anterior es un enlace.
   const sub = SUBPAGES[location.pathname];
+  const home = allowed.includes('dashboard') ? '/app/dashboard' : `/app/${allowed[0] ?? 'dashboard'}`;
+  const here = location.pathname + withRecordParam(location.search, null);
+  const crumbs: Array<{ label: string; to: string }> = [{ label: 'Inicio', to: home }];
+  if (moduleId !== 'dashboard') crumbs.push({ label: title, to: `/app/${moduleId}` });
+  if (sub) crumbs.push({ label: sub, to: here });
+  if (record.key) crumbs.push({ label: record.label ?? 'Detalle', to: '' });
 
   const badges: Partial<Record<ModuleId, number>> = {
     inventario: db.productos.filter((p) => p.stock <= p.stockMin).length,
@@ -140,15 +163,21 @@ export function DashboardLayout() {
             ☰
           </button>
           <div className="tb-title">
-            <h1>{sub ?? title}</h1>
-            <nav className="crumb" aria-label="Ruta">
-              {sub ? (
-                <>
-                  NORCOR › <Link to={`/app/${moduleId}`}>{title}</Link> › {sub}
-                </>
-              ) : (
-                <>NORCOR · {crumb}</>
-              )}
+            <h1 title={desc}>{sub ?? title}</h1>
+            <nav className="crumb" aria-label="Ruta de navegación">
+              <ol>
+                {crumbs.map((c, i) =>
+                  i === crumbs.length - 1 ? (
+                    <li key={c.label + i} aria-current="page" title={c.label}>
+                      {c.label}
+                    </li>
+                  ) : (
+                    <li key={c.label + i}>
+                      <Link to={c.to}>{c.label}</Link>
+                    </li>
+                  ),
+                )}
+              </ol>
             </nav>
           </div>
           <div className="spacer" />

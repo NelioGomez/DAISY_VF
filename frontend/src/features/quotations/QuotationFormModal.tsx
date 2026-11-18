@@ -5,15 +5,14 @@ import { Field } from '../../components/forms/Field';
 import { LineEditor } from '../../components/forms/LineEditor';
 import { useToast } from '../../components/feedback/useToast';
 import { CancelButton, Modal } from '../../components/modals/Modal';
-import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { CartLine, ConsultaWeb } from '../../types';
-import { QuotationDetailModal } from './QuotationDetailModal';
+import { useRecords } from '../records/records';
 
 export function QuotationFormModal({ solicitud, clienteId }: { solicitud?: ConsultaWeb; clienteId?: string }) {
   const { db, crearCotizacion, cotizarConsulta } = useData();
   const toast = useToast();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const activos = db.clientes.filter((c) => c.activo);
   // Desde una solicitud sin cliente vinculado se exige elegirlo (no se adivina por el nombre).
   const [cliId, setCliId] = useState(solicitud ? (solicitud.cliente?.id ?? '') : (clienteId ?? activos[0]?.id ?? ''));
@@ -32,7 +31,7 @@ export function QuotationFormModal({ solicitud, clienteId }: { solicitud?: Consu
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
     toast(solicitud ? `Cotización ${r.data.codigo} creada desde ${solicitud.codigo}` : `Cotización ${r.data.codigo} generada`, 'ok');
-    modal.open(<QuotationDetailModal cotizacionId={r.data.id} />);
+    openRecord('cotizacion', r.data.id);
   };
 
   return (

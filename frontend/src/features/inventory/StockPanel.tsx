@@ -1,7 +1,11 @@
 /* Existencias por producto con su reparto entre bodega y sucursal (mejora n.° 23), filtros con
-   chips (n.° 18 y 19), paginación (n.° 20) y encabezado fijo (n.° 22). */
+   chips (n.° 18 y 19), paginación (n.° 20), encabezado fijo (n.° 22), columnas configurables
+   (n.° 21) y vista previa del producto al pasar el cursor (n.° 34). */
+import { ProductImage } from '../../components/common/ProductImage';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
+import { ColumnCells, ColumnHeads, ColumnsButton } from '../../components/tables/columns';
+import { useColumns, type Column } from '../../components/tables/useColumns';
 import { FilterBar } from '../../components/tables/FilterBar';
 import { Pagination } from '../../components/tables/Pagination';
 import { StockTag } from '../../components/tables/Tag';
@@ -13,7 +17,8 @@ import { exportCSV } from '../../utils/csv';
 import { money } from '../../utils/format';
 import { BODEGA, SUCURSAL } from '../../utils/locations';
 import { PriceModal } from '../products/PriceModal';
-import { ProductDrawer } from '../products/ProductDrawer';
+import { ProductRef } from '../products/ProductRef';
+import { useRecords } from '../records/records';
 import { TransferFormModal } from './TransferFormModal';
 
 const estadoDe = (p: Producto) => (p.stock <= 0 ? 'agotado' : p.stock <= p.stockMin ? 'critico' : 'ok');
@@ -54,7 +59,47 @@ export function StockPanel() {
   const activos = db.productos.filter((p) => p.activo);
   const f = useListFilters(activos, { search: (p) => [p.sku, p.nombre, p.marca, p.categoria, p.codigoBarras], selects });
   const pg = usePaged(f.filtered, f.key, 'inventario-existencias');
-  const ficha = (id: string) => modal.open(<ProductDrawer productoId={id} />);
+  const { openRecord } = useRecords();
+  const ficha = (id: string) => openRecord('producto', id);
+  const acciones = can('inventory:write') || can('prices:write');
+  const columns: Column<Producto>[] = [
+    { id: 'sku', label: 'SKU', required: true, cellClass: 'mono', cell: (p) => p.sku },
+    {
+      id: 'producto',
+      label: 'Producto',
+      required: true,
+      cell: (p) => (
+        <span className="prod-cell">
+          <ProductImage src={p.imagen} size={28} fallback={p.ic} />
+          <ProductRef id={p.id}>
+            <button className="link-btn" onClick={() => ficha(p.id)} title="Ver ficha del producto">
+              {p.nombre}
+            </button>
+          </ProductRef>
+        </span>
+      ),
+    },
+    { id: 'categoria', label: 'Categoría', cell: (p) => p.categoria || '—', hidden: true },
+    { id: 'marca', label: 'Marca', cell: (p) => p.marca || '—', hidden: true },
+    { id: 'bodega', label: 'Bodega', header: <span title="Bodega principal">Bodega</span>, className: 'num', cell: (p) => p.stockBodega },
+    {
+      id: 'sucursal',
+      label: 'Sucursal',
+      header: <span title="Sucursal principal (punto de venta)">Sucursal</span>,
+      className: 'num',
+      cell: (p) => p.stockSucursal,
+      tdProps: (p) => (p.stock > 0 && p.stockSucursal === 0 ? { style: { color: 'var(--amber-deep)', fontWeight: 700 } } : {}),
+    },
+    { id: 'total', label: 'Total', className: 'num', cell: (p) => <b>{p.stock}</b> },
+    { id: 'minimo', label: 'Mínimo', className: 'num', cell: (p) => p.stockMin },
+    { id: 'maximo', label: 'Máximo', className: 'num', cell: (p) => p.stockMax ?? '—', hidden: true },
+    { id: 'costo', label: 'Costo prom.', className: 'num', cell: (p) => money(p.costo) },
+    { id: 'valor', label: 'Valor', className: 'num', cell: (p) => money(p.stock * p.costo), hidden: true },
+    { id: 'precio', label: 'Precio', className: 'num', cell: (p) => (p.precio > 0 ? money(p.precio) : <span style={{ color: 'var(--muted)' }}>sin precio</span>) },
+    { id: 'estado', label: 'Estado', cell: (p) => <StockTag stock={p.stock} min={p.stockMin} /> },
+  ];
+  const cols = useColumns('inventario-existencias', columns);
+  const ncols = cols.visible.length + (acciones ? 1 : 0);
 
   const exportar = () =>
     exportCSV('existencias_por_ubicacion.csv', [
@@ -68,52 +113,23 @@ export function StockPanel() {
         <button className="b b-out" onClick={exportar} disabled={!f.filtered.length}>
           ⇩ CSV
         </button>
+        <ColumnsButton cols={cols} />
       </FilterBar>
       <div className="tablewrap">
         <table>
           <thead>
             <tr>
-              <th>SKU</th>
-              <th>Producto</th>
-              <th className="num" title="Bodega principal">
-                Bodega
-              </th>
-              <th className="num" title="Sucursal principal (punto de venta)">
-                Sucursal
-              </th>
-              <th className="num">Total</th>
-              <th className="num">Mínimo</th>
-              <th className="num">Costo prom.</th>
-              <th className="num">Precio</th>
-              <th>Estado</th>
-              {(can('inventory:write') || can('prices:write')) && <th />}
+              <ColumnHeads cols={cols} />
+              {acciones && <th />}
             </tr>
           </thead>
           <tbody>
-            {!activos.length && <EmptyRow cols={10} msg="Aún no hay productos activos" />}
-            {!!activos.length && !f.filtered.length && <EmptyRow cols={10} msg="Ningún producto coincide con los filtros" ic="🔍" />}
+            {!activos.length && <EmptyRow cols={ncols} msg="Aún no hay productos activos" />}
+            {!!activos.length && !f.filtered.length && <EmptyRow cols={ncols} msg="Ningún producto coincide con los filtros" ic="🔍" />}
             {pg.pageRows.map((p) => (
               <tr key={p.id}>
-                <td className="mono">{p.sku}</td>
-                <td>
-                  <button className="link-btn" onClick={() => ficha(p.id)} title="Ver ficha del producto">
-                    {p.ic} {p.nombre}
-                  </button>
-                </td>
-                <td className="num">{p.stockBodega}</td>
-                <td className="num" style={p.stock > 0 && p.stockSucursal === 0 ? { color: 'var(--amber-deep)', fontWeight: 700 } : undefined}>
-                  {p.stockSucursal}
-                </td>
-                <td className="num">
-                  <b>{p.stock}</b>
-                </td>
-                <td className="num">{p.stockMin}</td>
-                <td className="num">{money(p.costo)}</td>
-                <td className="num">{p.precio > 0 ? money(p.precio) : <span style={{ color: 'var(--muted)' }}>sin precio</span>}</td>
-                <td>
-                  <StockTag stock={p.stock} min={p.stockMin} />
-                </td>
-                {(can('inventory:write') || can('prices:write')) && (
+                <ColumnCells cols={cols} row={p} />
+                {acciones && (
                   <td className="row-actions">
                     {can('inventory:write') && p.stock > 0 && (
                       <button

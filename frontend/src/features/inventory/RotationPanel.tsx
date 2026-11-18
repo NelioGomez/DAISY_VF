@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonRows } from '../../components/feedback/Skeleton';
-import { useModal } from '../../components/modals/useModal';
 import { FilterBar } from '../../components/tables/FilterBar';
 import { Pagination } from '../../components/tables/Pagination';
 import { Tag } from '../../components/tables/Tag';
@@ -15,8 +14,9 @@ import { useData } from '../../store/hooks';
 import type { Rotacion } from '../../types';
 import { exportCSV } from '../../utils/csv';
 import { ago, fmtDate, money } from '../../utils/format';
-import { ProductDrawer } from '../products/ProductDrawer';
 import { cargarRotacion, CLASES, ROTACION, type FilaRotacion } from './rotation';
+import { ProductRef } from '../products/ProductRef';
+import { useRecords } from '../records/records';
 
 const MODULES = ['sales', 'inventory', 'purchases', 'production', 'products'] as const;
 const NO_ROWS: FilaRotacion[] = [];
@@ -30,7 +30,7 @@ const ORDEN: Record<Orden, { txt: string; cmp(a: FilaRotacion, b: FilaRotacion):
 
 export function RotationPanel() {
   const { db } = useData();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const { data, error, reload } = useRemoteData(cargarRotacion, MODULES);
   const [orden, setOrden] = useState<Orden>('dias');
   const selects: SelectFilter<FilaRotacion>[] = [
@@ -110,9 +110,11 @@ export function RotationPanel() {
             {pg.pageRows.map((r) => (
               <tr key={r.id}>
                 <td>
-                  <button className="link-btn" onClick={() => modal.open(<ProductDrawer productoId={r.id} />)}>
-                    {r.nombre}
-                  </button>
+                  <ProductRef id={r.id}>
+                    <button className="link-btn" onClick={() => openRecord('producto', r.id)}>
+                      {r.nombre}
+                    </button>
+                  </ProductRef>
                   <div className="sub-num mono">{r.sku}</div>
                 </td>
                 <td className="num">{r.stock}</td>

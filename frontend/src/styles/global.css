@@ -635,13 +635,98 @@ kbd{font-family:var(--mono);font-size:10.5px;background:var(--panel);border:1px 
   .li-row.li-transfer>input:nth-of-type(1),.li-head.li-transfer span:nth-child(2){display:none}
 }
 
-/* Al imprimir con una factura abierta, solo sale la factura (sin la pantalla de fondo). */
+/* Al imprimir con una factura abierta (ventana o panel lateral), solo sale la factura. */
 @media print{
-  html:has(.modal.print-doc),body:has(.modal.print-doc){background:#fff!important}
-  body:has(.modal.print-doc) #root>:not(#modalRoot){display:none!important}
-  body:has(.modal.print-doc) *{transition:none!important;animation:none!important}
-  .modal-bg:has(.print-doc){position:static;background:none;backdrop-filter:none;padding:0;display:block;overflow:visible}
+  html:has(.print-doc),body:has(.print-doc){background:#fff!important}
+  body:has(.print-doc) #root>:not(#modalRoot){display:none!important}
+  body:has(.print-doc) *{transition:none!important;animation:none!important}
+  .modal-bg:has(.print-doc),.drawer-bg:has(.print-doc){position:static;background:none;backdrop-filter:none;padding:0;display:block;overflow:visible}
   .modal.print-doc{max-width:none;box-shadow:none;border-radius:0}
   .modal.print-doc .modal-h .x,.modal.print-doc .modal-f{display:none!important}
+  .drawer.print-doc{position:static!important;width:auto!important;height:auto!important;box-shadow:none!important;animation:none!important}
+  .drawer.print-doc .drawer-b{overflow:visible}
+  .drawer.print-doc .drawer-h .x,.drawer.print-doc .drawer-f{display:none!important}
+  body.record-split #app>.main>.view{margin-right:0!important}
 }
 
+
+/* ===== Ruta de navegación (mejora n.° 32) ===== */
+.topbar .crumb ol{list-style:none;display:flex;align-items:center;min-width:0;overflow:hidden;white-space:nowrap}
+.topbar .crumb li{display:inline-flex;align-items:center;min-width:0}
+.topbar .crumb li+li::before{content:'›';margin:0 6px;color:var(--soft)}
+.topbar .crumb li[aria-current]{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;display:block}
+.topbar .crumb li:not([aria-current]){flex-shrink:0}
+
+/* ===== Panel lateral de registro (mejora n.° 33) ===== */
+:root{--record-w:600px}
+.drawer-bg.record-bg{top:60px}
+.drawer.record-panel.wide{width:min(760px,100%)}
+.drawer.record-panel .drawer-h h3{overflow:hidden;text-overflow:ellipsis}
+.drawer.record-panel.is-split{position:fixed;top:60px;right:0;bottom:0;height:auto;width:var(--record-w);z-index:25;border-left:1px solid var(--line);box-shadow:-12px 0 32px rgba(8,16,24,.10);animation:none}
+/* Vista dividida: la barra superior conserva todo el ancho (la ruta sigue visible) y solo la
+   lista se corre a la izquierda del panel. */
+@media(min-width:1440px){
+  body.record-split #app>.main>.view{margin-right:var(--record-w)}
+}
+@media(min-width:1800px){:root{--record-w:680px}}
+.prod-cell{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.prod-cell .link-btn{text-align:left}
+
+/* Lista de registros en el panel del proveedor */
+.rec-list{list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.rec-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;text-align:left}
+.rec-item:hover{border-color:var(--amber);background:#fffaf0}
+.rec-main{display:flex;flex-direction:column;min-width:0;flex:1}
+.rec-main b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-main small{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-side{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:12px;flex-shrink:0}
+.rec-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.rec-row .rec-side{flex-direction:row;align-items:center;gap:8px}
+.txt-red{color:var(--red);font-weight:700}
+
+/* ===== Fotografías de productos (mejora n.° 4) ===== */
+.pimg{display:inline-grid;place-items:center;flex-shrink:0;border-radius:8px;background:#fff;border:1px solid var(--line);overflow:hidden;vertical-align:middle}
+.pimg img{width:100%;height:100%;object-fit:contain}
+.pimg.is-empty{background:var(--panel);color:var(--soft)}
+.pimg-fb{line-height:1}
+.photo-field{display:flex;gap:14px;align-items:flex-start;grid-column:1/-1;padding:12px;border:1px dashed var(--line);border-radius:12px;background:#fafbfc}
+.photo-field .pimg{border-radius:12px}
+.photo-field .photo-actions{display:flex;flex-direction:column;gap:8px;min-width:0;flex:1}
+.photo-field .photo-actions .row{display:flex;gap:8px;flex-wrap:wrap}
+.photo-field.is-drag{border-color:var(--amber);background:#fffaf0}
+.photo-hint{font-size:11.5px;color:var(--muted)}
+.drawer-photo{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.drawer-photo .pimg{border-radius:12px}
+
+/* ===== Columnas configurables (mejora n.° 21) ===== */
+.cols-menu{position:relative}
+.cols-btn.is-on{border-color:var(--amber);color:var(--amber-deep)}
+.cols-count{color:var(--muted);font-weight:500}
+.cols-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:50;width:280px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 40px rgba(8,16,24,.18);padding:10px}
+.cols-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:2px 4px 8px}
+.cols-pop ul{list-style:none;max-height:320px;overflow-y:auto}
+.cols-pop li{display:flex;align-items:center;gap:8px;padding:4px;border-radius:8px}
+.cols-pop li:hover{background:var(--panel)}
+.cols-pop label{display:flex;align-items:center;gap:8px;flex:1;font-size:13px;cursor:pointer;min-width:0}
+.cols-pop label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cols-move{display:flex;gap:2px}
+.cols-move button{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:#fff;font-size:12px;color:var(--muted)}
+.cols-move button:hover:not(:disabled){border-color:var(--amber);color:var(--amber-deep)}
+.cols-move button:disabled{opacity:.35;cursor:default}
+.cols-foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);margin-top:8px;padding:8px 4px 2px}
+@media(max-width:600px){.cols-pop{right:auto;left:0;width:min(280px,calc(100vw - 32px))}}
+
+/* ===== Vista previa rápida (mejora n.° 34) ===== */
+.hp-anchor{display:inline}
+.hp-card{position:fixed;z-index:120;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px rgba(8,16,24,.22);padding:12px;pointer-events:none;animation:hp-in .12s ease-out}
+.hp-card.above{transform:translateY(-100%)}
+@keyframes hp-in{from{opacity:0}to{opacity:1}}
+.hp-prod{display:flex;gap:12px;align-items:flex-start}
+.hp-body{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:12.5px}
+.hp-body small{color:var(--muted);font-size:11.5px}
+.hp-title{font-size:13.5px;line-height:1.25}
+.hp-facts{display:flex;flex-direction:column;gap:2px;margin-top:6px;padding-top:6px;border-top:1px solid #eef2f5}
+.hp-dot{font-style:normal;font-size:11px;font-weight:700;margin-left:4px}
+.hp-dot.is-red{color:var(--red)}.hp-dot.is-amber{color:var(--amber-deep)}.hp-dot.is-green{color:var(--green)}
+@media(prefers-reduced-motion:reduce){.hp-card,.drawer{animation:none}}
+.prod-card .img .prod-card-photo{width:100%!important;height:100%!important;border:0;border-radius:0;background:#fff}

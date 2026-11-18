@@ -3,7 +3,8 @@
 import { Link } from 'react-router-dom';
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
-import { useModal } from '../../components/modals/useModal';
+import { ColumnCells, ColumnHeads, ColumnsButton } from '../../components/tables/columns';
+import { useColumns, type Column } from '../../components/tables/useColumns';
 import { FilterBar } from '../../components/tables/FilterBar';
 import { Pagination } from '../../components/tables/Pagination';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
@@ -12,14 +13,15 @@ import { usePaged } from '../../hooks/usePaged';
 import { useAuth, useData } from '../../store/hooks';
 import type { Venta } from '../../types';
 import { fmtDate, money } from '../../utils/format';
-import { InvoiceModal } from './InvoiceModal';
+import { CustomerRef } from '../customers/CustomerRef';
+import { useRecords } from '../records/records';
 import { useExportVentas } from './useExportVentas';
 
 export function SalesPage() {
   const { db } = useData();
   const { can } = useAuth();
   const canSell = can('sales:write') && can('customers:read') && can('products:read');
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const exportVentas = useExportVentas();
   const vendedores = [...new Set(db.ventas.map((v) => v.vendedor).filter(Boolean))].sort();
   const selects: SelectFilter<Venta>[] = [
@@ -35,6 +37,45 @@ export function SalesPage() {
   const f = useListFilters(db.ventas, { search: (v) => [v.factura, v.cliN, v.ruc, v.cotizacion], selects, date: (v) => v.fecha });
   const pg = usePaged(f.filtered, f.key, 'ventas');
   const totalFiltrado = f.filtered.filter((v) => v.estado !== 'Anulada').reduce((t, v) => t + v.total, 0);
+  const columns: Column<Venta>[] = [
+    {
+      id: 'factura',
+      label: 'Factura',
+      required: true,
+      cellClass: 'mono',
+      cell: (v) => (
+        <button type="button" className="link-btn mono" onClick={(e) => {
+          e.stopPropagation();
+          openRecord('venta', v.id);
+        }}>
+          {v.factura}
+        </button>
+      ),
+    },
+    { id: 'fecha', label: 'Fecha', cellClass: 'mono', cell: (v) => fmtDate(v.fecha) },
+    { id: 'cliente', label: 'Cliente', cell: (v) => <CustomerRef id={v.cli}>{v.cliN}</CustomerRef> },
+    { id: 'ruc', label: 'RUC', cellClass: 'mono', cell: (v) => v.ruc || '—', hidden: true },
+    { id: 'metodo', label: 'Método', cell: (v) => <Tag>{v.metodo}</Tag> },
+    { id: 'vendedor', label: 'Vendedor', cell: (v) => v.vendedor || '—', hidden: true },
+    { id: 'cotizacion', label: 'Cotización', cellClass: 'mono', cell: (v) => v.cotizacion ?? '—', hidden: true },
+    { id: 'vence', label: 'Vence', cellClass: 'mono', cell: (v) => (v.vence ? fmtDate(v.vence) : '—'), hidden: true },
+    { id: 'total', label: 'Total', className: 'num', cell: (v) => money(v.total) },
+    {
+      id: 'saldo',
+      label: 'Saldo',
+      className: 'num',
+      cell: (v) => (
+        <>
+          {v.estado === 'Anulada' ? '—' : money(v.saldo)}
+          {v.vencida && v.estado !== 'Anulada' && ' ⚠'}
+        </>
+      ),
+      tdProps: (v) => (v.saldo > 0 && v.estado !== 'Anulada' ? { style: { color: 'var(--red)', fontWeight: 700 } } : {}),
+    },
+    { id: 'estado', label: 'Estado', cell: (v) => <EstadoTag estado={v.estado} /> },
+  ];
+  const cols = useColumns('ventas', columns);
+  const ncols = cols.visible.length;
 
   return (
     <>
@@ -54,7 +95,9 @@ export function SalesPage() {
           </>
         }
       />
-      <FilterBar f={f} placeholder="Buscar por factura, cliente, RUC o cotización…" />
+      <FilterBar f={f} placeholder="Buscar por factura, cliente, RUC o cotización…">
+        <ColumnsButton cols={cols} />
+      </FilterBar>
       {f.active.length > 0 && (
         <p className="doc-meta" style={{ margin: '-6px 0 10px' }}>
           Total facturado en la selección (sin anuladas): <b>{money(totalFiltrado)}</b>
@@ -64,40 +107,15 @@ export function SalesPage() {
         <table>
           <thead>
             <tr>
-              <th>Factura</th>
-              <th>Fecha</th>
-              <th>Cliente</th>
-              <th>Método</th>
-              <th className="num">Total</th>
-              <th className="num">Saldo</th>
-              <th>Estado</th>
-              <th />
+              <ColumnHeads cols={cols} />
             </tr>
           </thead>
           <tbody>
-            {!db.ventas.length && <EmptyRow cols={8} msg="Sin ventas registradas" />}
-            {!!db.ventas.length && !f.filtered.length && <EmptyRow cols={8} msg="Ninguna venta coincide con los filtros" ic="🔍" />}
+            {!db.ventas.length && <EmptyRow cols={ncols} msg="Sin ventas registradas" />}
+            {!!db.ventas.length && !f.filtered.length && <EmptyRow cols={ncols} msg="Ninguna venta coincide con los filtros" ic="🔍" />}
             {pg.pageRows.map((v) => (
-              <tr key={v.id}>
-                <td className="mono">{v.factura}</td>
-                <td className="mono">{fmtDate(v.fecha)}</td>
-                <td>{v.cliN}</td>
-                <td>
-                  <Tag>{v.metodo}</Tag>
-                </td>
-                <td className="num">{money(v.total)}</td>
-                <td className="num" style={v.saldo > 0 && v.estado !== 'Anulada' ? { color: 'var(--red)', fontWeight: 700 } : undefined}>
-                  {v.estado === 'Anulada' ? '—' : money(v.saldo)}
-                  {v.vencida && v.estado !== 'Anulada' && ' ⚠'}
-                </td>
-                <td>
-                  <EstadoTag estado={v.estado} />
-                </td>
-                <td>
-                  <button className="b b-out b-sm" onClick={() => modal.open(<InvoiceModal ventaId={v.id} />)}>
-                    Factura
-                  </button>
-                </td>
+              <tr key={v.id} className="row-link" onClick={() => openRecord('venta', v.id)}>
+                <ColumnCells cols={cols} row={v} />
               </tr>
             ))}
           </tbody>

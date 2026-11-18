@@ -1,6 +1,10 @@
 /* Panel lateral de detalle (mejora n.° 33): se abre sobre la lista sin perder el contexto.
-   Comparte el gestor de modales; se cierra con ×, clic fuera o la tecla Esc. */
+   Abierto como registro (useRecords().openRecord) usa la vista dividida o superpuesta de
+   PanelShell; fuera de un registro se superpone a toda la pantalla. Se cierra con ×, clic
+   fuera o la tecla Esc. */
 import { useEffect, useRef, type ReactNode } from 'react';
+import { useInRecord } from './recordContext';
+import { PanelShell } from './RecordPanel';
 import { useModal } from './useModal';
 
 interface DrawerProps {
@@ -10,7 +14,12 @@ interface DrawerProps {
   footer?: ReactNode;
 }
 
-export function Drawer({ title, subtitle, children, footer }: DrawerProps) {
+export function Drawer(props: DrawerProps) {
+  const inRecord = useInRecord();
+  return inRecord ? <PanelShell {...props} /> : <OverlayDrawer {...props} />;
+}
+
+function OverlayDrawer({ title, subtitle, children, footer }: DrawerProps) {
   const { close } = useModal();
   const panel = useRef<HTMLDivElement>(null);
 

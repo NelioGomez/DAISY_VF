@@ -1,4 +1,4 @@
-/* Alta y edición de productos (datos maestros).
+/* Alta y edición de productos (datos maestros) con su foto (mejora n.° 4).
    El costo promedio y el stock NO se editan aquí: los calcula el servidor a
    partir de los movimientos de inventario (corrección P0 del análisis UX). */
 import { useState } from 'react';
@@ -10,9 +10,10 @@ import { useAuth, useData } from '../../store/hooks';
 import type { Producto } from '../../types';
 import { money } from '../../utils/format';
 import { UNIDADES, type Unidad } from '../../utils/units';
+import { ProductPhotoField, type PendingPhoto } from './ProductPhotoField';
 
 export function ProductFormModal({ producto }: { producto?: Producto }) {
-  const { db, guardarProducto, cambiarEstadoProducto } = useData();
+  const { db, guardarProducto, cambiarEstadoProducto, fotoProducto } = useData();
   const { can } = useAuth();
   // El precio comercial lo fijan Administración y Gerencia; el resto da de alta sin precio.
   const canPrice = can('prices:write');
@@ -20,6 +21,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
   const { close } = useModal();
   const p = producto;
   const [saving, setSaving] = useState(false);
+  const [foto, setFoto] = useState<PendingPhoto | null>(null);
   const [f, setF] = useState({
     sku: p?.sku ?? '',
     codigoBarras: p?.codigoBarras ?? '',
@@ -51,7 +53,8 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
       codigoBarras: f.codigoBarras.trim(),
       nombre: f.nombre.trim(),
       descripcion: f.descripcion.trim(),
-      imagen: f.imagen.trim(),
+      // Con una foto nueva pendiente se conserva la actual hasta que la API la reemplace.
+      imagen: foto ? (p?.imagen ?? '') : f.imagen.trim(),
       unidad: f.unidad,
       categoriaId: f.categoriaId || null,
       marcaId: f.marcaId || null,
@@ -59,6 +62,11 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
       stockMin,
       stockMax,
     });
+    let avisoFoto = '';
+    if (r.ok && foto) {
+      const subida = await fotoProducto(r.data, foto.blob);
+      if (!subida.ok) avisoFoto = subida.error;
+    }
     if (r.ok && p && f.activo !== p.activo) {
       const s = await cambiarEstadoProducto(p.id, f.activo);
       if (!s.ok) {
@@ -68,7 +76,8 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
     }
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
-    toast(p ? 'Producto actualizado' : 'Producto creado', 'ok');
+    if (avisoFoto) toast(`${p ? 'Producto actualizado' : 'Producto creado'}, pero la foto no se subió: ${avisoFoto}`, 'err');
+    else toast(p ? 'Producto actualizado' : 'Producto creado', 'ok');
     close();
   };
 
@@ -85,6 +94,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
       }
     >
       <div className="form-grid">
+        <ProductPhotoField imagen={f.imagen} onImagen={set('imagen')} pendiente={foto} onPendiente={setFoto} fallback={p?.ic ?? '▣'} />
         <InputField label="SKU" value={f.sku} onChange={set('sku')} placeholder="Ej: DSP-NZL-13" help="Letras, números, punto, guion o diagonal" />
         <Field label="Marca">
           <select value={f.marcaId} onChange={(e) => set('marcaId')(e.target.value)}>
@@ -150,14 +160,6 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
             </select>
           </Field>
         )}
-        <InputField
-          label="Imagen del producto"
-          value={f.imagen}
-          onChange={set('imagen')}
-          placeholder="/product-images/catalogo/image2.png o https://..."
-          help="Use una ruta pública del frontend o una URL http(s)."
-          full
-        />
         <Field label="Descripción" full>
           <textarea rows={2} value={f.descripcion} onChange={(e) => set('descripcion')(e.target.value)} />
         </Field>

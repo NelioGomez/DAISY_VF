@@ -1,7 +1,12 @@
-/* MÓDULO: PRODUCTOS (RF-03) — filtros con chips y paginación (mejoras n.° 18-20). */
+/* MÓDULO: PRODUCTOS (RF-03) — filtros con chips y paginación (mejoras n.° 18-20), foto (n.° 4),
+   columnas configurables (n.° 21), ficha en panel lateral con dirección propia (n.° 32-33) y
+   vista previa al pasar el cursor por el nombre (n.° 34). */
+import { ProductImage } from '../../components/common/ProductImage';
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
+import { ColumnCells, ColumnHeads, ColumnsButton } from '../../components/tables/columns';
+import { useColumns, type Column } from '../../components/tables/useColumns';
 import { FilterBar } from '../../components/tables/FilterBar';
 import { Pagination } from '../../components/tables/Pagination';
 import { Tag } from '../../components/tables/Tag';
@@ -10,9 +15,10 @@ import { usePaged } from '../../hooks/usePaged';
 import { useAuth, useData } from '../../store/hooks';
 import type { Producto } from '../../types';
 import { money } from '../../utils/format';
+import { useRecords } from '../records/records';
 import { PriceModal } from './PriceModal';
-import { ProductDrawer } from './ProductDrawer';
 import { ProductFormModal } from './ProductFormModal';
+import { ProductRef } from './ProductRef';
 import { useExportProductos } from './useExportProductos';
 
 export function ProductsPage() {
@@ -21,6 +27,7 @@ export function ProductsPage() {
   const canWrite = can('products:write');
   const canPrice = can('prices:write');
   const modal = useModal();
+  const { openRecord } = useRecords();
   const exportProductos = useExportProductos();
   const selects: SelectFilter<Producto>[] = [
     { key: 'categoria', label: 'Categoría', options: db.categorias.map((c) => ({ value: c.id, label: c.nombre })), test: (p, v) => p.categoriaId === v },
@@ -56,6 +63,50 @@ export function ProductsPage() {
   ];
   const f = useListFilters(db.productos, { search: (p) => [p.sku, p.nombre, p.marca, p.categoria, p.codigoBarras], selects });
   const pg = usePaged(f.filtered, f.key, 'productos');
+  const columns: Column<Producto>[] = [
+    { id: 'sku', label: 'SKU', cellClass: 'mono', cell: (p) => p.sku, required: true },
+    {
+      id: 'producto',
+      label: 'Producto',
+      required: true,
+      cell: (p) => (
+        <span className="prod-cell">
+          <ProductImage src={p.imagen} size={34} fallback={p.ic} />
+          <ProductRef id={p.id}>
+            <button type="button" className="link-btn" onClick={(e) => {
+                e.stopPropagation();
+                openRecord('producto', p.id);
+              }}>
+              {p.nombre}
+            </button>
+          </ProductRef>
+        </span>
+      ),
+    },
+    { id: 'marca', label: 'Marca', cell: (p) => p.marca },
+    { id: 'categoria', label: 'Categoría', cell: (p) => <Tag>{p.categoria}</Tag> },
+    { id: 'barras', label: 'Código de barras', cellClass: 'mono', cell: (p) => p.codigoBarras || '—', hidden: true },
+    { id: 'costo', label: 'Costo prom.', className: 'num', cell: (p) => money(p.costo) },
+    { id: 'precio', label: 'Precio', className: 'num', cell: (p) => money(p.precio) },
+    {
+      id: 'stock',
+      label: 'Stock',
+      className: 'num',
+      cell: (p) => (
+        <>
+          {p.stock}
+          {p.stock <= p.stockMin && ' ▼'}
+        </>
+      ),
+      tdProps: (p) => (p.stock <= p.stockMin ? { style: { color: 'var(--red)', fontWeight: 700 } } : {}),
+    },
+    { id: 'bodega', label: 'En bodega', className: 'num', cell: (p) => p.stockBodega, hidden: true },
+    { id: 'sucursal', label: 'En sucursal', className: 'num', cell: (p) => p.stockSucursal, hidden: true },
+    { id: 'minimo', label: 'Mínimo', className: 'num', cell: (p) => p.stockMin, hidden: true },
+    { id: 'estado', label: 'Estado', cell: (p) => (p.activo ? <Tag tone="t-green">Activo</Tag> : <Tag>Inactivo</Tag>) },
+  ];
+  const cols = useColumns('productos', columns);
+  const ncols = cols.visible.length + 1;
 
   return (
     <>
@@ -75,51 +126,24 @@ export function ProductsPage() {
           </>
         }
       />
-      <FilterBar f={f} placeholder="Buscar por nombre, SKU, marca, categoría o código de barras…" />
+      <FilterBar f={f} placeholder="Buscar por nombre, SKU, marca, categoría o código de barras…">
+        <ColumnsButton cols={cols} />
+      </FilterBar>
       <div className="tablewrap">
         <table>
           <thead>
             <tr>
-              <th>SKU</th>
-              <th>Producto</th>
-              <th>Marca</th>
-              <th>Categoría</th>
-              <th className="num">Costo prom.</th>
-              <th className="num">Precio</th>
-              <th className="num">Stock</th>
-              <th>Estado</th>
+              <ColumnHeads cols={cols} />
               <th />
             </tr>
           </thead>
           <tbody>
-            {!db.productos.length && <EmptyRow cols={9} msg="Sin productos" />}
-            {!!db.productos.length && !f.filtered.length && <EmptyRow cols={9} msg="Ningún producto coincide con los filtros" ic="🔍" />}
+            {!db.productos.length && <EmptyRow cols={ncols} msg="Sin productos" />}
+            {!!db.productos.length && !f.filtered.length && <EmptyRow cols={ncols} msg="Ningún producto coincide con los filtros" ic="🔍" />}
             {pg.pageRows.map((p) => {
-              const crit = p.stock <= p.stockMin;
               return (
-                <tr key={p.id} className="row-link" onClick={() => modal.open(<ProductDrawer productoId={p.id} />)}>
-                  <td className="mono">{p.sku}</td>
-                  <td>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                      {p.imagen ? (
-                        <img src={p.imagen} alt="" loading="lazy" style={{ width: 34, height: 34, objectFit: 'contain', borderRadius: 6, background: '#fff' }} />
-                      ) : (
-                        <span>{p.ic}</span>
-                      )}
-                      <span>{p.nombre}</span>
-                    </span>
-                  </td>
-                  <td>{p.marca}</td>
-                  <td>
-                    <Tag>{p.categoria}</Tag>
-                  </td>
-                  <td className="num">{money(p.costo)}</td>
-                  <td className="num">{money(p.precio)}</td>
-                  <td className="num" style={crit ? { color: 'var(--red)', fontWeight: 700 } : undefined}>
-                    {p.stock}
-                    {crit && ' ▼'}
-                  </td>
-                  <td>{p.activo ? <Tag tone="t-green">Activo</Tag> : <Tag>Inactivo</Tag>}</td>
+                <tr key={p.id} className="row-link" onClick={() => openRecord('producto', p.id)}>
+                  <ColumnCells cols={cols} row={p} />
                   <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                     {canWrite && (
                       <button className="b b-out b-sm" onClick={() => modal.open(<ProductFormModal producto={p} />)}>

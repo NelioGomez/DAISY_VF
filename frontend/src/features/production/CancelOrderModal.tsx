@@ -3,18 +3,17 @@ import { useState } from 'react';
 import { Field } from '../../components/forms/Field';
 import { useToast } from '../../components/feedback/useToast';
 import { Modal } from '../../components/modals/Modal';
-import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
-import { OrderDetailModal } from './OrderDetailModal';
 import { produccionApi, type OrdenProduccion } from './productionApi';
+import { useRecords } from '../records/records';
 
 export function CancelOrderModal({ orden }: { orden: OrdenProduccion }) {
   const { ejecutar } = useData();
   const toast = useToast();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const [motivo, setMotivo] = useState('');
   const [saving, setSaving] = useState(false);
-  const back = () => modal.open(<OrderDetailModal ordenId={orden.id} />);
+  const back = () => openRecord('produccion', orden.id);
 
   const confirmar = async () => {
     if (motivo.trim().length < 5) return toast('Indique el motivo (mínimo 5 caracteres)', 'err');

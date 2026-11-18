@@ -2,6 +2,8 @@
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
+import { ColumnCells, ColumnHeads, ColumnsButton } from '../../components/tables/columns';
+import { useColumns, type Column } from '../../components/tables/useColumns';
 import { FilterBar } from '../../components/tables/FilterBar';
 import { Pagination } from '../../components/tables/Pagination';
 import { Tag } from '../../components/tables/Tag';
@@ -10,14 +12,16 @@ import { usePaged } from '../../hooks/usePaged';
 import { useAuth, useData } from '../../store/hooks';
 import type { Cliente } from '../../types';
 import { money } from '../../utils/format';
-import { CustomerDrawer } from './CustomerDrawer';
+import { useRecords } from '../records/records';
 import { CustomerFormModal } from './CustomerFormModal';
+import { CustomerRef } from './CustomerRef';
 
 export function CustomersPage() {
   const { db } = useData();
   const { can } = useAuth();
   const canWrite = can('customers:write');
   const modal = useModal();
+  const { openRecord } = useRecords();
   const selects: SelectFilter<Cliente>[] = [
     {
       key: 'saldo',
@@ -50,6 +54,46 @@ export function CustomersPage() {
   const f = useListFilters(db.clientes, { search: (c) => [c.nombre, c.ruc, c.contacto, c.tel, c.correo, c.dir], selects });
   const pg = usePaged(f.filtered, f.key, 'clientes');
 
+  const columns: Column<Cliente>[] = [
+    {
+      id: 'cliente',
+      label: 'Cliente',
+      required: true,
+      cell: (c) => (
+        <>
+          <CustomerRef id={c.id}>
+            <button
+              className="link-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                openRecord('cliente', c.id);
+              }}
+              title="Ver perfil 360°"
+            >
+              <b>{c.nombre}</b>
+            </button>
+          </CustomerRef>{' '}
+          {!c.activo && <Tag>Inactivo</Tag>}
+        </>
+      ),
+    },
+    { id: 'ruc', label: 'RUC', cellClass: 'mono', cell: (c) => c.ruc },
+    { id: 'contacto', label: 'Contacto', cell: (c) => c.contacto },
+    { id: 'telefono', label: 'Teléfono', cellClass: 'mono', cell: (c) => c.tel },
+    { id: 'correo', label: 'Correo', cell: (c) => c.correo || '—', hidden: true },
+    { id: 'ciudad', label: 'Ciudad', cell: (c) => c.dir },
+    { id: 'compras', label: 'Compras', className: 'num', cell: (c) => money(c.totalCompras) },
+    {
+      id: 'saldo',
+      label: 'Saldo',
+      className: 'num',
+      cell: (c) => money(c.saldo),
+      tdProps: (c) => (c.saldo > 0 ? { style: { color: 'var(--red)', fontWeight: 700 } } : {}),
+    },
+  ];
+  const cols = useColumns('clientes', columns);
+  const ncols = cols.visible.length + 1;
+
   return (
     <>
       <ViewHead
@@ -63,41 +107,24 @@ export function CustomersPage() {
           )
         }
       />
-      <FilterBar f={f} placeholder="Buscar por nombre, RUC, contacto, teléfono o correo…" />
+      <FilterBar f={f} placeholder="Buscar por nombre, RUC, contacto, teléfono o correo…">
+        <ColumnsButton cols={cols} />
+      </FilterBar>
       <div className="tablewrap">
         <table>
           <thead>
             <tr>
-              <th>Cliente</th>
-              <th>RUC</th>
-              <th>Contacto</th>
-              <th>Teléfono</th>
-              <th>Ciudad</th>
-              <th className="num">Compras</th>
-              <th className="num">Saldo</th>
+              <ColumnHeads cols={cols} />
               <th />
             </tr>
           </thead>
           <tbody>
-            {!db.clientes.length && <EmptyRow cols={8} msg="Sin clientes registrados" />}
-            {!!db.clientes.length && !f.filtered.length && <EmptyRow cols={8} msg="Ningún cliente coincide con los filtros" ic="🔍" />}
+            {!db.clientes.length && <EmptyRow cols={ncols} msg="Sin clientes registrados" />}
+            {!!db.clientes.length && !f.filtered.length && <EmptyRow cols={ncols} msg="Ningún cliente coincide con los filtros" ic="🔍" />}
             {pg.pageRows.map((c) => (
-              <tr key={c.id}>
-                <td>
-                  <button className="link-btn" onClick={() => modal.open(<CustomerDrawer clienteId={c.id} />)} title="Ver perfil 360°">
-                    <b>{c.nombre}</b>
-                  </button>{' '}
-                  {!c.activo && <Tag>Inactivo</Tag>}
-                </td>
-                <td className="mono">{c.ruc}</td>
-                <td>{c.contacto}</td>
-                <td className="mono">{c.tel}</td>
-                <td>{c.dir}</td>
-                <td className="num">{money(c.totalCompras)}</td>
-                <td className="num" style={c.saldo > 0 ? { color: 'var(--red)', fontWeight: 700 } : undefined}>
-                  {money(c.saldo)}
-                </td>
-                <td>
+              <tr key={c.id} className="row-link" onClick={() => openRecord('cliente', c.id)}>
+                <ColumnCells cols={cols} row={c} />
+                <td onClick={(e) => e.stopPropagation()}>
                   {canWrite && (
                     <button className="b b-out b-sm" onClick={() => modal.open(<CustomerFormModal cliente={c} />)}>
                       Editar

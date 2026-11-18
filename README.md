@@ -298,6 +298,59 @@ filas (Kardex y Auditoría se paginan y filtran en el servidor), encabezados fij
 | `GET /inventory/movements?locationId=` | `inventory:read` | Kardex filtrado por ubicación |
 | `GET /products` (campo `stockByLocation`) | `products:read` | Existencia en cada ubicación |
 
+## Fotos, columnas, panel lateral, vista previa y comparador (mejoras 4, 21, 32-34 y 38)
+
+No hay migración nueva. Desde la carpeta `backend`:
+
+```powershell
+npx prisma generate
+npm run start:dev
+npm run seed:real      # opcional: 173 productos reales con sus imágenes (ver docs/carga-datos-reales.md)
+```
+
+> Si al iniciar aparecen errores como `Property 'stockTransfer' does not exist` o
+> `has no exported member 'StockTransferGetPayload'`, falta regenerar el cliente de Prisma:
+> detenga `start:dev`, ejecute `npx prisma generate` (y `npx prisma migrate deploy`) y vuelva a iniciar.
+
+**Fotografías (n.° 4).** En el formulario del producto: *Subir foto* (o arrastrarla), *Cambiar* y *Quitar*,
+con vista previa. El navegador la reduce a 1200 px (WebP) antes de subirla; la API acepta JPG, PNG o WebP de
+hasta 2 MB, reconoce el formato por el contenido del archivo y le pone un nombre propio. Se guardan en
+`backend/uploads/products` (`UPLOADS_DIR` para otra carpeta; no va al repositorio) y se sirven en
+`/api/v1/uploads/products/…`. Al reemplazar o quitar una foto subida, el archivo anterior se borra. También se
+puede usar una imagen del catálogo del equipo (`/product-images/catalogo/…`) o una URL http(s). La foto
+aparece en Productos, Existencias, la ficha, el punto de venta, la búsqueda global, el catálogo interno y el
+sitio público; sin foto se muestra el ícono de la categoría.
+
+**Columnas configurables (n.° 21).** Botón *Columnas* en Productos, Existencias, Kardex, Compras,
+Cotizaciones, Ventas, Clientes y Proveedores: mostrar u ocultar y mover a la izquierda o a la derecha.
+Cada tabla recuerda su configuración en el navegador; *Restablecer* vuelve al orden original. Hay columnas
+extra ocultas de inicio (código de barras, bodega/sucursal, vendedor, vence, notas…).
+
+**Ruta de navegación y panel lateral (n.° 32 y 33).** Todo detalle se abre en un panel lateral sin salir de la
+lista: facturas, cotizaciones, solicitudes, compras, órdenes de producción, lotes, traslados, productos,
+clientes y **proveedores** (nuevo: compras, productos que surte y último costo). La barra superior muestra
+`Inicio › Módulo › Registro` (p. ej. *Inicio › Ventas y Facturación › Factura FAC-000125*) y cada registro
+tiene dirección propia (`/app/ventas?venta=<id>`, `?producto=`, `?proveedor=`…): se puede copiar, recargar, y
+Atrás/Esc cierran el panel. En pantallas de 1440 px o más la lista queda a la izquierda y sigue usable
+(vista dividida); en pantallas menores el panel se superpone debajo de la barra superior.
+
+**Vista previa rápida (n.° 34).** En el sistema, al detener el cursor (o enfocar con el teclado) sobre un
+producto o un cliente aparece una tarjeta con foto, SKU, precio y existencias por ubicación, o contacto,
+total comprado y saldo. En el catálogo público, *Vista rápida* abre el producto sin salir de la lista.
+
+**Comparador (n.° 38).** En el catálogo público, *Comparar* en hasta 4 productos; la barra inferior lleva a
+`/catalogo/comparar?ids=…`: foto, precio (marca el menor), disponibilidad, marca, categoría, unidad y
+descripción lado a lado, con *Resaltar diferencias* y *Solo lo que cambia*.
+
+| Método y ruta | Permiso | Uso |
+| --- | --- | --- |
+| `POST /products/:id/image` (multipart, campo `file`) | `products:write` | Sube o reemplaza la foto |
+| `DELETE /products/:id/image` | `products:write` | Quita la foto |
+| `GET /uploads/products/:archivo` | público | Archivo de la foto (caché de 30 días) |
+| `GET /suppliers/:id/summary` | `suppliers:read` | Panel del proveedor: compras, productos e indicadores |
+| `GET /public/products/compare?ids=a,b,c` | público | Comparación de 2 a 4 productos y sus diferencias |
+| `GET /search?q=` (campo `imageUrl`) | según módulo | La búsqueda global trae la foto del producto |
+
 ## Inventario (Fase 9)
 
 | Método | Ruta | Permiso |

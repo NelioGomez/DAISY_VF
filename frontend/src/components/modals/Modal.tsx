@@ -1,4 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
+import { useInRecord } from './recordContext';
+import { PanelShell } from './RecordPanel';
 import { useModal } from './useModal';
 
 interface ModalProps {
@@ -10,7 +12,13 @@ interface ModalProps {
   className?: string;
 }
 
-export function Modal({ title, children, footer, wide, className = '' }: ModalProps) {
+/** Ventana centrada; dentro de un panel de registro (mejora n.° 33) se dibuja como panel lateral. */
+export function Modal(props: ModalProps) {
+  const inRecord = useInRecord();
+  return inRecord ? <PanelShell {...props} /> : <CenteredModal {...props} />;
+}
+
+function CenteredModal({ title, children, footer, wide, className = '' }: ModalProps) {
   const { close } = useModal();
   // Esc cierra la ventana (atajo de teclado, mejora n.° 31).
   useEffect(() => {

@@ -4,21 +4,20 @@
 import { useState } from 'react';
 import { useToast } from '../../components/feedback/useToast';
 import { CancelButton, Modal } from '../../components/modals/Modal';
-import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { CondicionesPago } from '../../store/storeContext';
 import type { Cotizacion } from '../../types';
 import { money } from '../../utils/format';
-import { InvoiceModal } from './InvoiceModal';
 import { PaymentTermsFields } from './PaymentTermsFields';
 import { buildTerms, initialTerms } from './paymentTerms';
 import { SaleSummary } from './SaleSummary';
 import { stockWarnings, type SummaryLine } from './stockWarnings';
+import { useRecords } from '../records/records';
 
 export function SaleFormModal({ cotizacion }: { cotizacion: Cotizacion }) {
   const { convertirCotizacion } = useData();
   const toast = useToast();
-  const modal = useModal();
+  const { openRecord } = useRecords();
   const [terms, setTerms] = useState(initialTerms);
   const [resumen, setResumen] = useState<CondicionesPago | null>(null);
   const [saving, setSaving] = useState(false);
@@ -49,7 +48,7 @@ export function SaleFormModal({ cotizacion }: { cotizacion: Cotizacion }) {
     setSaving(false);
     if (!r.ok) return toast(r.error, 'err');
     toast(`Venta ${r.data.factura} registrada desde ${cotizacion.codigo}`, 'ok');
-    modal.open(<InvoiceModal ventaId={r.data.ventaId} />);
+    openRecord('venta', r.data.ventaId);
   };
 
   return (

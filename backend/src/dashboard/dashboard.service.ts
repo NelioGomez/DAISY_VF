@@ -7,8 +7,23 @@ import { int, local, money, ts } from '../reports/report-sql';
 
 type Raw = Record<string, unknown>;
 
+/**
+ * Pendientes accionables (mejoras n.° 1 y 40): el frontend los muestra en la campana y en
+ * "Pendientes para hoy", y decide a qué pantalla lleva cada tipo.
+ */
 export interface Alert {
-  type: 'OUT_OF_STOCK' | 'LOW_STOCK' | 'OVERDUE_RECEIVABLES' | 'NEW_INQUIRIES' | 'QUOTATIONS_EXPIRING';
+  type:
+    | 'OUT_OF_STOCK'
+    | 'LOW_STOCK'
+    | 'OVERDUE_RECEIVABLES'
+    | 'RECEIVABLES_DUE_SOON'
+    | 'QUOTATIONS_EXPIRING'
+    | 'QUOTATIONS_APPROVED'
+    | 'NEW_INQUIRIES'
+    | 'PURCHASES_LATE'
+    | 'PURCHASES_TO_RECEIVE'
+    | 'SERVICE_ORDERS_UNASSIGNED'
+    | 'SERVICE_ORDERS_ASSIGNED';
   severity: 'critical' | 'warning' | 'info';
   message: string;
   count: number;
@@ -35,13 +50,14 @@ export class DashboardService {
     const canStock = can(actor, 'inventory:read') || can(actor, 'products:read');
     const canAr = can(actor, 'payments:read') || canSales;
 
-    const [sales, inventory, receivables, orders, quotations, inquiries] = await Promise.all([
+    const [sales, inventory, receivables, orders, quotations, inquiries, purchases] = await Promise.all([
       canSales ? this.sales(now, since) : null,
       canStock ? this.inventory(can(actor, 'inventory:read')) : null,
       canAr ? this.receivables(now) : null,
       can(actor, 'service-orders:read') ? this.serviceOrders(actor) : null,
-      can(actor, 'quotations:read') ? this.quotations(now) : null,
+      can(actor, 'quotations:read') ? this.quotations(now, since) : null,
       can(actor, 'inquiries:read') ? this.inquiries() : null,
+      can(actor, 'purchases:read') ? this.purchases(now) : null,
     ]);
 
     return {
@@ -52,7 +68,8 @@ export class DashboardService {
       serviceOrders: orders,
       quotations,
       inquiries,
-      alerts: this.alerts(inventory, receivables, quotations, inquiries),
+      purchases,
+      alerts: this.alerts(inventory, receivables, quotations, inquiries, purchases, orders, actor.role === UserRole.TECHNICIAN),
     };
   }
 
@@ -62,12 +79,15 @@ export class DashboardService {
     const active = Prisma.sql`s.status = 'ACTIVE'`;
     const dayExpr = Prisma.sql`date_trunc('day', ${local('s.sold_at')})`;
     const chartFrom = addDays(now, -(SALES_DAYS + 1));
+    const prevFrom = addDays(since, -WINDOW_DAYS);
 
     const [totals, byDay, top, byMethod, recent] = await Promise.all([
       this.prisma.$queryRaw(Prisma.sql`
         SELECT COALESCE(SUM(s.total), 0)::text AS all_total, COUNT(*)::int AS all_count,
                COALESCE(SUM(s.total) FILTER (WHERE s.sold_at >= ${ts(since)}), 0)::text AS last_total,
-               COUNT(*) FILTER (WHERE s.sold_at >= ${ts(since)})::int AS last_count
+               COUNT(*) FILTER (WHERE s.sold_at >= ${ts(since)})::int AS last_count,
+               COALESCE(SUM(s.total) FILTER (WHERE s.sold_at >= ${ts(prevFrom)} AND s.sold_at < ${ts(since)}), 0)::text AS prev_total,
+               COUNT(*) FILTER (WHERE s.sold_at >= ${ts(prevFrom)} AND s.sold_at < ${ts(since)})::int AS prev_count
         FROM sales s WHERE ${active}`) as Promise<Raw[]>,
       this.prisma.$queryRaw(Prisma.sql`
         SELECT to_char(${dayExpr}, 'YYYY-MM-DD') AS day, SUM(s.total)::text AS total, COUNT(*)::int AS invoices
@@ -100,6 +120,8 @@ export class DashboardService {
 
     return {
       last30Days: { total: money(t.last_total), invoices: int(t.last_count) },
+      // Los 30 días anteriores, para mostrar la tendencia (mejora n.° 9).
+      previous30Days: { total: money(t.prev_total), invoices: int(t.prev_count) },
       accumulated: { total: money(t.all_total), invoices: int(t.all_count) },
       salesByDay: series,
       topProducts: top.map((r) => ({ sku: String(r.sku), name: String(r.name), units: int(r.units) })),
@@ -148,10 +170,21 @@ export class DashboardService {
   }
 
   private async receivables(now: Date) {
+    // Mismos tramos que el reporte de cuentas por cobrar (días de atraso desde el vencimiento).
+    const [t31, t61, t91, soon] = [addDays(now, -31), addDays(now, -61), addDays(now, -91), addDays(now, 2)];
+    const bucket = (cond: Prisma.Sql, alias: string) =>
+      Prisma.sql`COUNT(*) FILTER (WHERE ${cond})::int AS ${Prisma.raw(alias + '_n')},
+                 COALESCE(SUM(balance) FILTER (WHERE ${cond}), 0)::text AS ${Prisma.raw(alias + '_amt')}`;
     const rows = (await this.prisma.$queryRaw(Prisma.sql`
       SELECT COUNT(*)::int AS open_invoices, COALESCE(SUM(balance), 0)::text AS balance,
              COUNT(*) FILTER (WHERE due_date < ${ts(now)})::int AS overdue_invoices,
-             COALESCE(SUM(balance) FILTER (WHERE due_date < ${ts(now)}), 0)::text AS overdue_balance
+             COALESCE(SUM(balance) FILTER (WHERE due_date < ${ts(now)}), 0)::text AS overdue_balance,
+             COUNT(*) FILTER (WHERE due_date >= ${ts(now)} AND due_date < ${ts(soon)})::int AS due_soon,
+             ${bucket(Prisma.sql`due_date IS NULL OR due_date >= ${ts(now)}`, 'current')},
+             ${bucket(Prisma.sql`due_date < ${ts(now)} AND due_date > ${ts(t31)}`, 'd1_30')},
+             ${bucket(Prisma.sql`due_date <= ${ts(t31)} AND due_date > ${ts(t61)}`, 'd31_60')},
+             ${bucket(Prisma.sql`due_date <= ${ts(t61)} AND due_date > ${ts(t91)}`, 'd61_90')},
+             ${bucket(Prisma.sql`due_date <= ${ts(t91)}`, 'd90plus')}
       FROM sales WHERE status = 'ACTIVE' AND balance > 0`)) as Raw[];
     const r = rows[0] ?? {};
     return {
@@ -159,6 +192,13 @@ export class DashboardService {
       totalReceivable: money(r.balance),
       overdueInvoices: int(r.overdue_invoices),
       overdueAmount: money(r.overdue_balance),
+      dueSoonInvoices: int(r.due_soon),
+      // Antigüedad de saldos (mejora n.° 24).
+      aging: (['current', 'd1_30', 'd31_60', 'd61_90', 'd90plus'] as const).map((key) => ({
+        key,
+        invoices: int(r[`${key}_n`]),
+        amount: money(r[`${key}_amt`]),
+      })),
     };
   }
 
@@ -173,16 +213,38 @@ export class DashboardService {
     return { open, byStatus };
   }
 
-  private async quotations(now: Date) {
+  private async quotations(now: Date, since: Date) {
     const soon = addDays(now, 3);
+    const prevFrom = addDays(since, -WINDOW_DAYS);
     const rows = (await this.prisma.$queryRaw(Prisma.sql`
       SELECT COUNT(*) FILTER (WHERE status = 'PENDING')::int AS pending,
              COUNT(*) FILTER (WHERE status = 'APPROVED')::int AS approved,
              COUNT(*) FILTER (WHERE status IN ('PENDING', 'APPROVED')
-                              AND valid_until >= ${ts(now)} AND valid_until <= ${ts(soon)})::int AS expiring
+                              AND valid_until >= ${ts(now)} AND valid_until <= ${ts(soon)})::int AS expiring,
+             COUNT(*) FILTER (WHERE status <> 'DRAFT' AND issued_at >= ${ts(since)})::int AS issued_last,
+             COUNT(*) FILTER (WHERE status = 'CONVERTED' AND issued_at >= ${ts(since)})::int AS converted_last,
+             COUNT(*) FILTER (WHERE status <> 'DRAFT' AND issued_at >= ${ts(prevFrom)} AND issued_at < ${ts(since)})::int AS issued_prev,
+             COUNT(*) FILTER (WHERE status = 'CONVERTED' AND issued_at >= ${ts(prevFrom)} AND issued_at < ${ts(since)})::int AS converted_prev
       FROM quotations`)) as Raw[];
     const r = rows[0] ?? {};
-    return { pending: int(r.pending), approvedAwaitingSale: int(r.approved), expiringSoon: int(r.expiring) };
+    return {
+      pending: int(r.pending),
+      approvedAwaitingSale: int(r.approved),
+      expiringSoon: int(r.expiring),
+      // Conversión cotización → venta de las emitidas en cada período (mejora n.° 9).
+      conversion: {
+        last30Days: { issued: int(r.issued_last), converted: int(r.converted_last) },
+        previous30Days: { issued: int(r.issued_prev), converted: int(r.converted_prev) },
+      },
+    };
+  }
+
+  private async purchases(now: Date) {
+    const rows = (await this.prisma.$queryRaw(Prisma.sql`
+      SELECT COUNT(*)::int AS to_receive,
+             COUNT(*) FILTER (WHERE expected_at < ${ts(now)})::int AS late
+      FROM purchases WHERE status IN ('ORDERED', 'PARTIALLY_RECEIVED')`)) as Raw[];
+    return { toReceive: int(rows[0]?.to_receive), late: int(rows[0]?.late) };
   }
 
   private async inquiries() {
@@ -195,9 +257,12 @@ export class DashboardService {
 
   private alerts(
     inv: { criticalProducts: number; outOfStockProducts: number } | null,
-    ar: { overdueInvoices: number; overdueAmount: number } | null,
-    q: { expiringSoon: number } | null,
+    ar: { overdueInvoices: number; overdueAmount: number; dueSoonInvoices: number } | null,
+    q: { expiringSoon: number; approvedAwaitingSale: number } | null,
     inq: { new: number } | null,
+    pur: { toReceive: number; late: number } | null = null,
+    so: { byStatus: Record<string, number> } | null = null,
+    technician = false,
   ): Alert[] {
     const out: Alert[] = [];
     if (inv?.outOfStockProducts) {
@@ -213,11 +278,32 @@ export class DashboardService {
         message: `${ar.overdueInvoices} factura(s) vencida(s) por C$ ${ar.overdueAmount.toFixed(2)}`,
       });
     }
+    if (ar?.dueSoonInvoices) {
+      out.push({ type: 'RECEIVABLES_DUE_SOON', severity: 'warning', count: ar.dueSoonInvoices, message: `${ar.dueSoonInvoices} factura(s) vencen hoy o mañana` });
+    }
     if (q?.expiringSoon) {
       out.push({ type: 'QUOTATIONS_EXPIRING', severity: 'warning', count: q.expiringSoon, message: `${q.expiringSoon} cotización(es) vencen en 3 días` });
     }
     if (inq?.new) {
       out.push({ type: 'NEW_INQUIRIES', severity: 'info', count: inq.new, message: `${inq.new} consulta(s) web nueva(s)` });
+    }
+    if (q?.approvedAwaitingSale) {
+      out.push({ type: 'QUOTATIONS_APPROVED', severity: 'info', count: q.approvedAwaitingSale, message: `${q.approvedAwaitingSale} cotización(es) aprobada(s) sin venta` });
+    }
+    if (pur?.late) {
+      out.push({ type: 'PURCHASES_LATE', severity: 'warning', count: pur.late, message: `${pur.late} compra(s) atrasada(s) en llegar` });
+    }
+    const onTime = (pur?.toReceive ?? 0) - (pur?.late ?? 0);
+    if (onTime > 0) {
+      out.push({ type: 'PURCHASES_TO_RECEIVE', severity: 'info', count: onTime, message: `${onTime} compra(s) por recibir` });
+    }
+    // Un técnico ve sus órdenes por atender; los demás, las que nadie tiene asignadas.
+    const mine = (so?.byStatus.ASSIGNED ?? 0) + (so?.byStatus.IN_PROGRESS ?? 0);
+    if (technician && mine) {
+      out.push({ type: 'SERVICE_ORDERS_ASSIGNED', severity: 'info', count: mine, message: `${mine} orden(es) de servicio asignada(s) a usted` });
+    }
+    if (!technician && so?.byStatus.REGISTERED) {
+      out.push({ type: 'SERVICE_ORDERS_UNASSIGNED', severity: 'warning', count: so.byStatus.REGISTERED, message: `${so.byStatus.REGISTERED} orden(es) de servicio sin técnico` });
     }
     return out;
   }

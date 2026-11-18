@@ -504,6 +504,8 @@ export const mapAuditoria = (a: Json): RegistroAuditoria => ({
 
 const ORDER_FLOW: ApiServiceOrderStatus[] = ['REGISTERED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED'];
 
+const AGING_LABEL: Record<string, string> = { current: 'Vigente', d1_30: '1-30 días', d31_60: '31-60 días', d61_90: '61-90 días', d90plus: 'Más de 90 días' };
+
 export const mapDashboard = (d: Json): DashboardResumen => ({
   secciones: {
     ventas: !!d.sales,
@@ -512,8 +514,10 @@ export const mapDashboard = (d: Json): DashboardResumen => ({
     ordenes: !!d.serviceOrders,
     cotizaciones: !!d.quotations,
     consultas: !!d.inquiries,
+    compras: !!d.purchases,
   },
   ventas30: { total: n(d.sales?.last30Days?.total), facturas: n(d.sales?.last30Days?.invoices) },
+  ventasPrevias: { total: n(d.sales?.previous30Days?.total), facturas: n(d.sales?.previous30Days?.invoices) },
   ventasAcumuladas: { total: n(d.sales?.accumulated?.total), facturas: n(d.sales?.accumulated?.invoices) },
   ventasPorDia: (d.sales?.salesByDay ?? []).map((x: Json) => ({ dia: s(x.day), total: n(x.total) })),
   topProductos: (d.sales?.topProducts ?? []).map((x: Json) => ({ sku: s(x.sku), nombre: s(x.name), unidades: n(x.units) })),
@@ -537,6 +541,12 @@ export const mapDashboard = (d: Json): DashboardResumen => ({
     total: n(d.receivables?.totalReceivable),
     vencidas: n(d.receivables?.overdueInvoices),
     montoVencido: n(d.receivables?.overdueAmount),
+    antiguedad: (d.receivables?.aging ?? []).map((x: Json) => ({
+      clave: s(x.key),
+      etiqueta: AGING_LABEL[s(x.key)] ?? s(x.key),
+      facturas: n(x.invoices),
+      monto: n(x.amount),
+    })),
   },
   ordenesAbiertas: n(d.serviceOrders?.open),
   ordenesPorEstado: ORDER_FLOW.map((k) => ({ estado: ORDER_STATUS[k], cantidad: n(d.serviceOrders?.byStatus?.[k]) })),
@@ -544,9 +554,13 @@ export const mapDashboard = (d: Json): DashboardResumen => ({
     pendientes: n(d.quotations?.pending),
     aprobadasSinVenta: n(d.quotations?.approvedAwaitingSale),
     porVencer: n(d.quotations?.expiringSoon),
+    conversion: {
+      actual: { emitidas: n(d.quotations?.conversion?.last30Days?.issued), convertidas: n(d.quotations?.conversion?.last30Days?.converted) },
+      previa: { emitidas: n(d.quotations?.conversion?.previous30Days?.issued), convertidas: n(d.quotations?.conversion?.previous30Days?.converted) },
+    },
   },
   consultasNuevas: n(d.inquiries?.new),
-  alertas: (d.alerts ?? []).map((a: Json) => ({ tipo: s(a.type), severidad: s(a.severity), mensaje: s(a.message) })),
+  alertas: (d.alerts ?? []).map((a: Json) => ({ tipo: s(a.type), severidad: s(a.severity), mensaje: s(a.message), cantidad: n(a.count) })),
 });
 
 export const DEFAULT_CONFIG: Configuracion = {

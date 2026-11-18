@@ -9,6 +9,7 @@ import { SESSION_IDLE_MINUTES } from '../config/security';
 import { readNoticesEnabled, storeNoticesEnabled, useRealtimeNotices } from '../features/realtime/useRealtimeNotices';
 import { useIdleTimeout } from '../hooks/useIdleTimeout';
 import { useModal } from '../components/modals/useModal';
+import { NotificationBell } from '../features/dashboard/NotificationBell';
 import { QuotationFormModal } from '../features/quotations/QuotationFormModal';
 import { useAuth, useData } from '../store/hooks';
 import type { ModuleId } from '../types';
@@ -147,6 +148,7 @@ export function DashboardLayout() {
               })
             }
           />
+          <NotificationBell />
           <div className="clock">{clock}</div>
           <button className="icon-btn" title="Catálogo público" aria-label="Catálogo público" onClick={() => navigate('/catalogo')}>
             🌐

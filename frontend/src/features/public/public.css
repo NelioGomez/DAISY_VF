@@ -672,3 +672,18 @@ body.pub-noscroll { overflow: hidden; }
   .pub-compare-table tbody th, .pub-compare-table .pub-compare-corner { width: 110px; }
   .pub-compare-table th, .pub-compare-table td { padding: 10px; font-size: 13.5px; }
 }
+
+/* Motivo del mensaje de Contacto (mejora n.° 59) */
+.pub-motivos { border: 0; padding: 0; margin: 0 0 16px; min-width: 0; }
+.pub-motivos legend { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+.pub-motivos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.pub-motivo { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 10px; cursor: pointer; background: var(--card); }
+.pub-motivo input { margin-top: 3px; accent-color: var(--amber-deep); }
+.pub-motivo b { display: block; font-size: 13.5px; color: var(--ink); }
+.pub-motivo small { display: block; font-size: 12px; color: var(--muted); }
+.pub-motivo:hover { border-color: var(--soft); }
+.pub-motivo.is-on { border-color: var(--amber); background: var(--amber-soft); box-shadow: 0 0 0 3px rgba(245, 166, 35, .15); }
+.pub-motivo:focus-within { outline: 2px solid var(--amber); outline-offset: 2px; }
+.pub-motivos.has-error .pub-motivo { border-color: var(--red); }
+.pub-hint { background: var(--blue-soft); color: var(--blue-ink); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; margin: -4px 0 14px; }
+.pub-hint a { font-weight: 600; text-decoration: underline; color: inherit; }

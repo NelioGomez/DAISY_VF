@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { availabilityOf } from '../public/public-catalog.service';
 import { expireOverdueQuotations } from '../quotations/quotation-expiry';
 import type { PortalCustomer } from './customer-auth.guard';
-import { CreatePortalInquiryDto } from './dto/portal.dto';
+import { CreatePortalContactDto, CreatePortalInquiryDto } from './dto/portal.dto';
 
 type Dec = { toString(): string };
 
@@ -19,12 +19,15 @@ const INQUIRY_SELECT = {
   statusChangedAt: true,
   message: true,
   productInterest: true,
+  type: true,
   createdAt: true,
   items: {
     orderBy: { id: 'asc' as const },
     select: { productId: true, quantity: true, note: true, product: { select: { sku: true, name: true, stock: true, minStock: true } } },
   },
   quotation: { select: { id: true, code: true, status: true, total: true, validUntil: true } },
+  // Servicio técnico o reclamo atendido con una orden de servicio (mejora n.° 60).
+  serviceOrder: { select: { code: true, status: true, underWarranty: true, warrantyUntil: true } },
 } as const;
 
 interface InquiryRow {
@@ -34,9 +37,11 @@ interface InquiryRow {
   statusChangedAt: Date;
   message: string | null;
   productInterest: string | null;
+  type: string;
   createdAt: Date;
   items: { productId: string; quantity: number; note: string | null; product: { sku: string; name: string; stock: number; minStock: number } }[];
   quotation: { id: string; code: string; status: QuotationStatus; total: Dec; validUntil: Date } | null;
+  serviceOrder: { code: string; status: string; underWarranty: boolean; warrantyUntil: Date | null } | null;
 }
 
 const QUOTATION_SELECT = {
@@ -143,6 +148,42 @@ export class PortalService {
     return this.inquiryDto(created);
   }
 
+  /**
+   * Mensaje del formulario de Contacto enviado con la sesión del cliente (mejora n.° 59): queda
+   * enlazado a su ficha y su cuenta, con el motivo que eligió (cotización, servicio, cuenta…).
+   */
+  async createContact(c: PortalCustomer, dto: CreatePortalContactDto, ip?: string) {
+    const account = await this.prisma.customerAccount.findUniqueOrThrow({
+      where: { id: c.accountId },
+      select: { email: true, phone: true },
+    });
+    const created = (await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const code = await this.sequence.next(tx, 'INQUIRY', 'SOL');
+      return tx.webInquiry.create({
+        data: {
+          code,
+          name: c.customerName,
+          contact: account.phone ? `${account.email} · ${account.phone}`.slice(0, 150) : account.email,
+          productInterest: dto.productInterest || null,
+          message: dto.message,
+          type: dto.type,
+          customerId: c.customerId,
+          customerAccountId: c.accountId,
+        },
+        select: INQUIRY_SELECT,
+      });
+    })) as unknown as InquiryRow;
+    await this.audit.log({
+      module: 'inquiries',
+      action: 'PORTAL_CREATE',
+      entity: 'WebInquiry',
+      entityId: created.id,
+      description: `Mensaje ${created.code} de ${c.customerName} desde Contacto (${dto.type})`,
+      ip,
+    });
+    return this.inquiryDto(created);
+  }
+
   async inquiries(c: PortalCustomer) {
     const rows = (await this.prisma.webInquiry.findMany({
       where: { customerId: c.customerId },
@@ -197,6 +238,7 @@ export class PortalService {
       statusChangedAt: r.statusChangedAt,
       message: r.message,
       productInterest: r.productInterest,
+      type: r.type,
       createdAt: r.createdAt,
       items: r.items.map((i) => ({
         productId: i.productId,
@@ -208,6 +250,7 @@ export class PortalService {
       })),
       quotation: q ? { id: q.id, code: q.code, status: q.status, total: decimalToNumber(q.total), validUntil: q.validUntil } : null,
       quotationInProgress: !!r.quotation && !q,
+      serviceOrder: r.serviceOrder,
     };
   }
 

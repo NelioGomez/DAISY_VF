@@ -5,6 +5,7 @@
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { useEffect, useState } from 'react';
 import { DocChip } from '../../components/common/DocChain';
+import { Icon } from '../../components/common/Icon';
 import { ProductImage } from '../../components/common/ProductImage';
 import { Tabs, type TabItem } from '../../components/common/Tabs';
 import { EmptyState } from '../../components/feedback/Empty';
@@ -16,6 +17,7 @@ import { subscribeRealtime } from '../../services/realtime/realtime';
 import { useAuth, useData } from '../../store/hooks';
 import type { FichaProducto } from '../../types';
 import { ago, fmtDate, fmtDateTime, money } from '../../utils/format';
+import { plazoGarantia } from '../../utils/warranty';
 import { useOpenDocument } from '../documents/useOpenDocument';
 import { AdjustmentFormModal } from '../inventory/AdjustmentFormModal';
 import { costIn } from '../purchases/purchaseFormat';
@@ -132,6 +134,13 @@ export function ProductDrawer({ productoId }: { productoId: string }) {
               <Tag tone={ROTACION[f.stats.rotacion].tone}>
                 <span aria-hidden="true">{ROTACION[f.stats.rotacion].ic}</span> {ROTACION[f.stats.rotacion].txt}
               </Tag>
+            )}
+            {p.garantiaDias ? (
+              <Tag tone="t-blue">
+                <Icon name="shield-check" size={12} strokeWidth={2.4} /> Garantía {plazoGarantia(p.garantiaDias)}
+              </Tag>
+            ) : (
+              <Tag tone="t-gray">Sin garantía</Tag>
             )}
             {!p.activo && <Tag tone="t-gray">Inactivo</Tag>}
           </div>

@@ -14,6 +14,9 @@ export function parseBoundary(value: string, edge: 'start' | 'end'): Date {
 
 export const addDays = (date: Date, days: number): Date => new Date(date.getTime() + days * 86_400_000);
 
+/** Fin (23:59:59.999, hora de Nicaragua) del día en que cae la fecha. */
+export const endOfDayNi = (date: Date): Date => parseBoundary(new Date(date.getTime() - 6 * 3_600_000).toISOString().slice(0, 10), 'end');
+
 /** Rango opcional para filtros de fecha (from/to inclusivos). */
 export function dateRange(from?: string, to?: string): { gte?: Date; lte?: Date } | undefined {
   if (!from && !to) return undefined;

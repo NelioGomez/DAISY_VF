@@ -77,6 +77,16 @@ enum ServiceOrderStatus {
   CANCELLED
 }
 
+/// Motivo de una solicitud web (mejora n.° 59): solo las de cotización se convierten en cotización;
+/// las de servicio técnico o garantía pasan a una orden de servicio.
+enum InquiryType {
+  QUOTE
+  SERVICE
+  ACCOUNT
+  COMPLAINT
+  OTHER
+}
+
 /// Solicitud web: Nueva → En revisión → Cotizada → Cerrada; Cancelada para spam o duplicadas.
 enum InquiryStatus {
   NEW
@@ -293,6 +303,8 @@ model Product {
   brandId               String?       @map("brand_id") @db.Uuid
   unit                  UnitOfMeasure @default(UNIT)
   imageUrl              String?       @map("image_url") @db.VarChar(500)
+  /// Garantía desde la venta, en días (mejora n.° 60). Null = sin garantía.
+  warrantyDays          Int?          @map("warranty_days")
   avgCost               Decimal       @default(0) @map("avg_cost") @db.Decimal(14, 4)
   /// Precio comercial vigente (copia del registro abierto en product_prices).
   salePrice             Decimal       @default(0) @map("sale_price") @db.Decimal(14, 2)
@@ -318,6 +330,8 @@ model Product {
   suppliers      ProductSupplier[]
   purchaseItems  PurchaseItem[]
   inquiryItems   WebInquiryItem[]
+  /// Órdenes de servicio atendidas en garantía de este producto.
+  warrantyOrders ServiceOrder[]
 
   // Manufactura (entrega 2): el producto puede ser terminado (BOM, ruta, OP, lote) o componente.
   boms                   Bom[]                   @relation("BomProduct")
@@ -705,7 +719,9 @@ model Sale {
   location      Location            @relation(fields: [locationId], references: [id])
   items         SaleItem[]
   payments      Payment[]
-  serviceOrders ServiceOrder[]
+  serviceOrders ServiceOrder[]      @relation("ServiceOrderInvoice")
+  /// Órdenes de servicio en garantía de algo comprado en esta venta.
+  warrantyOrders ServiceOrder[]     @relation("ServiceOrderWarrantySale")
   movements     InventoryMovement[]
 
   @@index([customerId])
@@ -767,17 +783,37 @@ model ServiceOrder {
   cancelledAt        DateTime?          @map("cancelled_at") @db.Timestamptz(3)
   cancellationReason String?            @map("cancellation_reason") @db.VarChar(500)
   notes              String?            @db.Text
+  /// En garantía (mejora n.° 60): no se cobra, así que termina en COMPLETADA sin factura.
+  /// La cubre un producto comprado (venta + producto) o un servicio anterior con garantía vigente.
+  underWarranty       Boolean   @default(false) @map("under_warranty")
+  warrantySaleId      String?   @map("warranty_sale_id") @db.Uuid
+  warrantyProductId   String?   @map("warranty_product_id") @db.Uuid
+  warrantyOrderId     String?   @map("warranty_order_id") @db.Uuid
+  /// Garantía del trabajo realizado: días y vencimiento, fijados al completar la orden.
+  serviceWarrantyDays Int?      @map("service_warranty_days")
+  warrantyUntil       DateTime? @map("warranty_until") @db.Timestamptz(3)
+  /// Solicitud web (Contacto o portal) que originó la orden.
+  inquiryId           String?   @unique @map("inquiry_id") @db.Uuid
   updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  customer   Customer @relation(fields: [customerId], references: [id])
-  technician User?    @relation("ServiceOrderTechnician", fields: [technicianId], references: [id], onDelete: Restrict)
-  sale       Sale?    @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  technician      User?          @relation("ServiceOrderTechnician", fields: [technicianId], references: [id], onDelete: Restrict)
+  sale            Sale?          @relation("ServiceOrderInvoice", fields: [saleId], references: [id], onDelete: Restrict)
+  warrantySale    Sale?          @relation("ServiceOrderWarrantySale", fields: [warrantySaleId], references: [id], onDelete: Restrict)
+  warrantyProduct Product?       @relation(fields: [warrantyProductId], references: [id], onDelete: Restrict)
+  warrantyOrder   ServiceOrder?  @relation("ServiceOrderWarranty", fields: [warrantyOrderId], references: [id], onDelete: Restrict)
+  warrantyClaims  ServiceOrder[] @relation("ServiceOrderWarranty")
+  inquiry         WebInquiry?    @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
 
   @@index([customerId])
   @@index([technicianId])
   @@index([status])
   @@index([saleId])
   @@index([registeredAt])
+  @@index([underWarranty])
+  @@index([warrantySaleId])
+  @@index([warrantyProductId])
+  @@index([warrantyOrderId])
   @@map("service_orders")
 }
 
@@ -800,6 +836,7 @@ model WebInquiry {
   contact           String        @db.VarChar(150) // teléfono o correo
   productInterest   String?       @map("product_interest") @db.VarChar(200)
   message           String?       @db.VarChar(1000)
+  type              InquiryType   @default(QUOTE)
   status            InquiryStatus @default(NEW)
   statusChangedAt   DateTime      @default(now()) @map("status_changed_at") @db.Timestamptz(3)
   customerId        String?       @map("customer_id") @db.Uuid
@@ -813,8 +850,11 @@ model WebInquiry {
   assignedTo      User?            @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
   items           WebInquiryItem[]
   quotation       Quotation?
+  /// Orden de servicio creada desde la solicitud (motivo servicio o reclamo).
+  serviceOrder    ServiceOrder?
 
   @@index([status])
+  @@index([type])
   @@index([createdAt])
   @@index([customerId])
   @@index([customerAccountId])

@@ -3,6 +3,7 @@ import { Transform, Type } from 'class-transformer';
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
 import { SortOrder } from '../../common/dto/sort-order.enum';
 import { trim } from '../../common/transformers/text.transformers';
+import { InquiryType } from '../../generated/prisma/client';
 
 export enum Availability {
   AVAILABLE = 'AVAILABLE',
@@ -118,6 +119,11 @@ export class CreateInquiryDto {
   @IsString()
   @MaxLength(1000)
   message?: string;
+
+  @ApiPropertyOptional({ enum: InquiryType, default: InquiryType.QUOTE, description: 'Motivo: cotización, servicio técnico o garantía, cuenta, reclamo u otra' })
+  @IsOptional()
+  @IsEnum(InquiryType, { message: 'Motivo inválido' })
+  type?: InquiryType;
 
   @ApiPropertyOptional({ description: 'Campo trampa anti-bots: debe ir vacío u omitido' })
   @IsOptional()

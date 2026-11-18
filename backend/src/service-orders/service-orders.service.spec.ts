@@ -112,4 +112,111 @@ describe('ServiceOrdersService', () => {
     expect(tx.serviceOrder.update.mock.calls[0][0].data).toMatchObject({ status: 'CANCELLED', notes: 'Cancelada: Cliente desistió' });
     await expect(build(order({ status: 'INVOICED' })).service.cancel('o1', { reason: 'Cliente desistió' }, admin)).rejects.toThrow(ConflictException);
   });
+
+  describe('garantía (mejora n.° 60)', () => {
+    const DAY = 86_400_000;
+    const item = (daysAgo: number, warrantyDays: number | null, over: Record<string, unknown> = {}) => ({
+      sale: { customerId: 'c1', status: 'ACTIVE', invoiceNumber: 'FAC-000010', soldAt: new Date(Date.now() - daysAgo * DAY), ...over },
+      product: { name: 'Bomba sumergible', warrantyDays },
+    });
+    const bySale = { customerId: 'c1', description: 'No enciende', underWarranty: true, warrantySaleId: 's1', warrantyProductId: 'p1' };
+
+    it('por compra vigente: guarda la venta y el producto que la cubren', async () => {
+      const { service, tx } = build();
+      tx.saleItem = { findUnique: jest.fn().mockResolvedValue(item(10, 30)) };
+      await service.create(bySale as never, admin);
+      expect(tx.serviceOrder.create.mock.calls[0][0].data).toMatchObject({
+        underWarranty: true, warrantySaleId: 's1', warrantyProductId: 'p1', warrantyOrderId: null,
+      });
+    });
+
+    it('por compra: vencida, sin garantía, de otro cliente o anulada → 400', async () => {
+      const cases: Array<[ReturnType<typeof item> | null, string, RegExp]> = [
+        [item(40, 30), 'warrantyProductId', /venció el/],
+        [item(5, null), 'warrantyProductId', /no tiene garantía/],
+        [item(5, 30, { customerId: 'otro' }), 'warrantySaleId', /otro cliente/],
+        [item(5, 30, { status: 'VOIDED' }), 'warrantySaleId', /anulada/],
+        [null, 'warrantyProductId', /no está en la venta/],
+      ];
+      for (const [row, field, msg] of cases) {
+        const { service, tx } = build();
+        tx.saleItem = { findUnique: jest.fn().mockResolvedValue(row) };
+        await expect(service.create(bySale as never, admin)).rejects.toMatchObject({ response: { errors: [{ field, message: expect.stringMatching(msg) }] } });
+        expect(tx.serviceOrder.create).not.toHaveBeenCalled();
+      }
+    });
+
+    it('exige indicar una sola fuente, y solo si la orden está en garantía', async () => {
+      const { service } = build();
+      await expect(service.create({ customerId: 'c1', description: 'x', underWarranty: true } as never, admin)).rejects.toThrow(BadRequestException);
+      await expect(service.create({ ...bySale, warrantyOrderId: 'o0' } as never, admin)).rejects.toThrow(BadRequestException);
+      await expect(service.create({ customerId: 'c1', description: 'x', warrantyOrderId: 'o0' } as never, admin)).rejects.toMatchObject({
+        response: { errors: [{ field: 'underWarranty' }] },
+      });
+    });
+
+    it('por un servicio anterior: su garantía de trabajo debe seguir vigente', async () => {
+      const prev = (until: number | null, over: Record<string, unknown> = {}) => ({
+        customerId: 'c1', code: 'OPI-000001', status: 'INVOICED', warrantyUntil: until === null ? null : new Date(Date.now() + until * DAY), ...over,
+      });
+      const dto = { customerId: 'c1', description: 'Volvió a fallar', underWarranty: true, warrantyOrderId: 'o0' };
+      const ok = build();
+      ok.tx.serviceOrder.findUnique.mockResolvedValueOnce(prev(20));
+      await ok.service.create(dto as never, admin);
+      expect(ok.tx.serviceOrder.create.mock.calls[0][0].data).toMatchObject({ underWarranty: true, warrantyOrderId: 'o0', warrantySaleId: null });
+      for (const row of [prev(-1), prev(null), prev(20, { customerId: 'otro' }), prev(20, { status: 'CANCELLED' })]) {
+        const b = build();
+        b.tx.serviceOrder.findUnique.mockResolvedValueOnce(row);
+        await expect(b.service.create(dto as never, admin)).rejects.toMatchObject({ response: { errors: [{ field: 'warrantyOrderId' }] } });
+      }
+    });
+
+    it('al completar fija la garantía del trabajo: 90 días por omisión, 0 = sin garantía', async () => {
+      const a = build(order({ status: 'IN_PROGRESS' }));
+      await a.service.complete('o1', {}, tech);
+      const data = a.tx.serviceOrder.update.mock.calls[0][0].data;
+      expect(data.serviceWarrantyDays).toBe(90);
+      const days = (data.warrantyUntil.getTime() - Date.now()) / DAY;
+      expect(days).toBeGreaterThan(89.9);
+      expect(days).toBeLessThan(91.1);
+      const b = build(order({ status: 'IN_PROGRESS' }));
+      await b.service.complete('o1', { warrantyDays: 0 }, tech);
+      expect(b.tx.serviceOrder.update.mock.calls[0][0].data).toMatchObject({ serviceWarrantyDays: 0, warrantyUntil: null });
+    });
+
+    it('cancelar una orden completada con costo quita la garantía del trabajo', async () => {
+      const b = build(order({ status: 'COMPLETED', serviceWarrantyDays: 90, warrantyUntil: new Date(Date.now() + 30 * DAY) }));
+      await b.service.cancel('o1', { reason: 'El cliente no aceptó el trabajo' }, admin);
+      expect(b.tx.serviceOrder.update.mock.calls[0][0].data).toMatchObject({ status: 'CANCELLED', serviceWarrantyDays: null, warrantyUntil: null });
+    });
+
+    it('una orden en garantía no se factura, y completada queda cerrada', async () => {
+      const done = order({ status: 'COMPLETED', underWarranty: true });
+      await expect(build(done).service.invoice('o1', { saleId: 's1' }, admin)).rejects.toThrow(/garantía no se factura/);
+      await expect(build(done).service.cancel('o1', { reason: 'Cliente desistió' }, admin)).rejects.toThrow(ConflictException);
+      await expect(build(done).service.update('o1', { description: 'otra' } as never, admin)).rejects.toThrow(ConflictException);
+    });
+
+    it('desde una solicitud de servicio técnico: la deja atendida; una de cotización → 409', async () => {
+      const inquiry = (over: Record<string, unknown> = {}) => ({
+        id: 'i1', code: 'SOL-000003', status: 'NEW', type: 'SERVICE', customerId: null, serviceOrder: null, ...over,
+      });
+      const { service, tx } = build();
+      tx.webInquiry = { findUnique: jest.fn().mockResolvedValue(inquiry()), update: jest.fn() };
+      await service.create({ customerId: 'c1', description: 'Revisar bomba', inquiryId: 'i1' } as never, admin);
+      expect(tx.serviceOrder.create.mock.calls[0][0].data.inquiryId).toBe('i1');
+      expect(tx.webInquiry.update.mock.calls[0][0].data).toMatchObject({ status: 'CLOSED', customerId: 'c1' });
+      for (const [over, msg] of [
+        [{ type: 'QUOTE' }, /no es de servicio técnico/],
+        [{ status: 'CLOSED', type: 'COMPLAINT' }, /ya fue atendida/],
+        [{ customerId: 'otro' }, BadRequestException],
+        [{ serviceOrder: { code: 'OPI-000002' } }, /ya tiene la orden OPI-000002/],
+      ] as const) {
+        const b = build();
+        b.tx.webInquiry = { findUnique: jest.fn().mockResolvedValue(inquiry(over)), update: jest.fn() };
+        await expect(b.service.create({ customerId: 'c1', description: 'x', inquiryId: 'i1' } as never, admin)).rejects.toThrow(msg);
+        expect(b.tx.webInquiry.update).not.toHaveBeenCalled();
+      }
+    });
+  });
 });

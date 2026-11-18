@@ -7,7 +7,7 @@ import { isUniqueViolation } from '../common/utils/prisma-errors';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CUSTOMER_TOKEN_TYPE, type CustomerJwtPayload, type PortalCustomer } from './customer-auth.guard';
-import { ChangeCustomerPasswordDto, CustomerLoginDto, RegisterCustomerDto, UpdateCustomerProfileDto } from './dto/portal.dto';
+import { ChangeCustomerEmailDto, ChangeCustomerPasswordDto, CustomerLoginDto, RegisterCustomerDto, UpdateCustomerProfileDto } from './dto/portal.dto';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -127,6 +127,45 @@ export class PortalAuthService {
         ...(dto.contactName !== undefined && { contactName: dto.contactName }),
         ...(dto.phone !== undefined && { phone: dto.phone }),
       },
+    });
+    return this.account(c.accountId);
+  }
+
+  /**
+   * El cliente cambia su correo de acceso (antes tenía que pedirlo por Contacto). Pide la
+   * contraseña actual; el correo de la ficha del cliente se actualiza si era el mismo.
+   */
+  async changeEmail(c: PortalCustomer, dto: ChangeCustomerEmailDto, ip?: string) {
+    const acc = await this.prisma.customerAccount.findUniqueOrThrow({
+      where: { id: c.accountId },
+      select: { email: true, passwordHash: true, customer: { select: { email: true } } },
+    });
+    if (!(await bcrypt.compare(dto.currentPassword, acc.passwordHash))) {
+      throw new UnprocessableEntityException({ message: 'Contraseña actual incorrecta', errors: [{ field: 'currentPassword', message: 'La contraseña actual no coincide' }] });
+    }
+    if (dto.email === acc.email) {
+      throw new ConflictException({ message: 'Es el mismo correo', errors: [{ field: 'email', message: 'Ese ya es su correo de acceso' }] });
+    }
+    try {
+      await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        await tx.customerAccount.update({ where: { id: c.accountId }, data: { email: dto.email, emailVerifiedAt: null } });
+        if (acc.customer.email && acc.customer.email.toLowerCase() === acc.email) {
+          await tx.customer.update({ where: { id: c.customerId }, data: { email: dto.email } });
+        }
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException({ message: 'Ya existe una cuenta con ese correo', errors: [{ field: 'email', message: 'Ese correo ya tiene otra cuenta' }] });
+      }
+      throw error;
+    }
+    await this.audit.log({
+      module: 'portal',
+      action: 'CHANGE_EMAIL',
+      entity: 'CustomerAccount',
+      entityId: c.accountId,
+      description: `Cambio del correo de acceso en el portal: ${acc.email} → ${dto.email}`,
+      ip,
     });
     return this.account(c.accountId);
   }

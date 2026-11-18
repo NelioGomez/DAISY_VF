@@ -237,7 +237,7 @@ export class CustomersService {
             where: { customerId: id, ...(actor.role === UserRole.TECHNICIAN && { technicianId: actor.id }) },
             orderBy: { registeredAt: 'desc' },
             take: TAKE,
-            select: { id: true, code: true, registeredAt: true, status: true, description: true },
+            select: { id: true, code: true, registeredAt: true, status: true, description: true, underWarranty: true },
           })
         : null,
       this.prisma.customerAccount.findFirst({ where: { customerId: id }, select: { email: true, createdAt: true, lastLoginAt: true, isActive: true } }),

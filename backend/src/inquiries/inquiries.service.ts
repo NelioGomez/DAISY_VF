@@ -3,7 +3,7 @@ import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { dateRange } from '../common/utils/dates';
 import { buildPagination } from '../common/utils/pagination';
-import { InquiryStatus } from '../generated/prisma/client';
+import { InquiryStatus, InquiryType } from '../generated/prisma/client';
 import type { Prisma } from '../generated/prisma/client';
 import { DocumentSequenceService } from '../documents/document-sequence.service';
 import { CreateInquiryDto } from '../public/dto/public.dto';
@@ -18,6 +18,7 @@ export const INQUIRY_SELECT = {
   contact: true,
   productInterest: true,
   message: true,
+  type: true,
   status: true,
   statusChangedAt: true,
   customerId: true,
@@ -37,6 +38,8 @@ export const INQUIRY_SELECT = {
   },
   // Cadena SOL → COT → FAC: la cotización generada y, si ya se convirtió, su factura.
   quotation: { select: { id: true, code: true, status: true, total: true, sale: { select: { id: true, invoiceNumber: true } } } },
+  // Servicio técnico o reclamo atendido con una orden de servicio (mejora n.° 60).
+  serviceOrder: { select: { id: true, code: true, status: true, underWarranty: true } },
 } as const;
 
 interface InquiryRow {
@@ -46,6 +49,7 @@ interface InquiryRow {
   contact: string;
   productInterest: string | null;
   message: string | null;
+  type: InquiryType;
   status: InquiryStatus;
   statusChangedAt: Date;
   customerId: string | null;
@@ -67,6 +71,7 @@ interface InquiryRow {
     total: { toString(): string };
     sale: { id: string; invoiceNumber: string } | null;
   } | null;
+  serviceOrder: { id: string; code: string; status: string; underWarranty: boolean } | null;
 }
 
 /** Forma pública de una solicitud (sin decimales de Prisma; disponibilidad orientativa por línea). */
@@ -113,6 +118,7 @@ export class InquiriesService {
           contact: dto.contact,
           productInterest: dto.productInterest || null,
           message: dto.message || null,
+          type: dto.type ?? InquiryType.QUOTE,
         },
         select: { id: true, code: true },
       });
@@ -134,6 +140,7 @@ export class InquiriesService {
     const range = dateRange(f.from, f.to);
     const where: Prisma.WebInquiryWhereInput = {
       ...(f.status && { status: f.status }),
+      ...(f.type && { type: f.type }),
       ...(range && { createdAt: range }),
       ...(f.search && {
         OR: ['code', 'name', 'contact', 'productInterest', 'message'].map((field) => ({
@@ -164,6 +171,34 @@ export class InquiriesService {
     const row = (await this.prisma.webInquiry.findUnique({ where: { id }, select: INQUIRY_SELECT })) as unknown as InquiryRow | null;
     if (!row) throw new NotFoundException('Consulta no encontrada');
     return inquiryToDto(row);
+  }
+
+  /**
+   * Corrige el motivo que eligió el cliente (p. ej. escribió en «Otra consulta» pero pide precios).
+   * Solo mientras está Nueva o En revisión; una lista de productos siempre es de cotización.
+   */
+  async setType(id: string, to: InquiryType, actor: AuthUser, ip?: string) {
+    const current = await this.findOne(id);
+    if (current.type === to) return current;
+    if (current.status !== InquiryStatus.NEW && current.status !== InquiryStatus.IN_REVIEW) {
+      throw new ConflictException('El motivo solo se cambia mientras la solicitud está Nueva o En revisión');
+    }
+    if (current.items.length && to !== InquiryType.QUOTE) {
+      throw new ConflictException('Una lista de productos siempre es un pedido de cotización');
+    }
+    const res = await this.prisma.webInquiry.updateMany({ where: { id, type: current.type, status: current.status }, data: { type: to } });
+    if (res.count === 0) throw new ConflictException('La solicitud cambió; recargue e intente de nuevo');
+    await this.audit.log({
+      userId: actor.id,
+      username: actor.username,
+      module: 'inquiries',
+      action: 'TYPE_CHANGE',
+      entity: 'WebInquiry',
+      entityId: id,
+      description: `Solicitud ${current.code}: motivo ${current.type} → ${to}`,
+      ip,
+    });
+    return { ...current, type: to };
   }
 
   async setStatus(id: string, to: InquiryStatus, actor: AuthUser, ip?: string) {

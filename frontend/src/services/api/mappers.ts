@@ -7,6 +7,7 @@ import type {
   Catalogo,
   Cliente,
   Compra,
+  CoberturaOrden,
   ConsultaWeb,
   Cotizacion,
   CuentaPorCobrar,
@@ -14,6 +15,7 @@ import type {
   DocumentoRef,
   EstadoCompra,
   EstadoConsulta,
+  TipoConsulta,
   EstadoCotizacion,
   EstadoOrden,
   EstadoVenta,
@@ -23,6 +25,7 @@ import type {
   MetodoPago,
   Moneda,
   Movimiento,
+  OpcionesGarantia,
   OrdenServicio,
   Pago,
   Producto,
@@ -48,6 +51,7 @@ export type ApiPaymentStatus = 'PAID' | 'PARTIAL' | 'PENDING';
 export type ApiQuotationStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CONVERTED' | 'EXPIRED';
 export type ApiServiceOrderStatus = 'REGISTERED' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'INVOICED' | 'CANCELLED';
 export type ApiInquiryStatus = 'NEW' | 'IN_REVIEW' | 'QUOTED' | 'CLOSED' | 'CANCELLED';
+export type ApiInquiryType = 'QUOTE' | 'SERVICE' | 'ACCOUNT' | 'COMPLAINT' | 'OTHER';
 export type ApiMovementType = 'ENTRY' | 'EXIT' | 'ADJUSTMENT';
 
 export const ROLE_FROM_API: Record<ApiRole, RoleKey> = {
@@ -77,6 +81,12 @@ export const INQUIRY_STATUS: Record<ApiInquiryStatus, EstadoConsulta> = {
 };
 export const INQUIRY_TO_API: Record<EstadoConsulta, ApiInquiryStatus> = {
   Nueva: 'NEW', 'En revisión': 'IN_REVIEW', Cotizada: 'QUOTED', Cerrada: 'CLOSED', Cancelada: 'CANCELLED',
+};
+export const INQUIRY_TYPE: Record<ApiInquiryType, TipoConsulta> = {
+  QUOTE: 'Cotización', SERVICE: 'Servicio técnico', ACCOUNT: 'Cuenta', COMPLAINT: 'Reclamo', OTHER: 'Otra',
+};
+export const INQUIRY_TYPE_TO_API: Record<TipoConsulta, ApiInquiryType> = {
+  Cotización: 'QUOTE', 'Servicio técnico': 'SERVICE', Cuenta: 'ACCOUNT', Reclamo: 'COMPLAINT', Otra: 'OTHER',
 };
 
 const MOVEMENT_TYPE: Record<ApiMovementType, TipoMovimiento> = { ENTRY: 'Entrada', EXIT: 'Salida', ADJUSTMENT: 'Ajuste' };
@@ -130,6 +140,7 @@ export const mapProducto = (p: Json): Producto => ({
   stockSucursal: stockEn(p, 2),
   stockMin: n(p.minStock),
   stockMax: p.maxStock === null || p.maxStock === undefined ? null : n(p.maxStock),
+  garantiaDias: p.warrantyDays ? n(p.warrantyDays) : null,
   ic: iconFor(p.category?.name),
   activo: p.isActive !== false,
 });
@@ -450,17 +461,71 @@ export const mapCxc = (r: Json): CuentaPorCobrar => ({
   diasVencida: n(r.daysOverdue),
 });
 
+function mapCobertura(o: Json): CoberturaOrden | null {
+  if (!o.underWarranty) return null;
+  const hasta = o.coverage?.until ? s(o.coverage.until) : null;
+  if (o.warrantySale && o.warrantyProduct) {
+    return {
+      origen: 'Compra',
+      ventaId: s(o.warrantySale.id),
+      factura: s(o.warrantySale.invoiceNumber),
+      fechaVenta: s(o.warrantySale.soldAt),
+      productoId: s(o.warrantyProduct.id),
+      producto: s(o.warrantyProduct.name),
+      sku: s(o.warrantyProduct.sku),
+      dias: o.warrantyProduct.warrantyDays ? n(o.warrantyProduct.warrantyDays) : null,
+      hasta,
+    };
+  }
+  return { origen: 'Servicio', ordenId: s(o.warrantyOrder?.id ?? o.warrantyOrderId), codigo: s(o.warrantyOrder?.code), hasta };
+}
+
 export const mapOrden = (o: Json): OrdenServicio => ({
   id: o.id,
   codigo: s(o.code),
   fecha: s(o.registeredAt),
   cliId: s(o.customerId ?? o.customer?.id),
   cli: s(o.customer?.name),
+  cliTel: s(o.customer?.phone),
   desc: s(o.description),
   tecnicoId: o.technicianId ?? o.technician?.id ?? null,
   tecnico: o.technician ? fullName(o.technician) : '—',
   estado: ORDER_STATUS[o.status as ApiServiceOrderStatus] ?? 'Registrada',
   factura: o.sale?.invoiceNumber ?? null,
+  ventaId: o.saleId ?? o.sale?.id ?? null,
+  inicio: o.startedAt ?? null,
+  fin: o.finishedAt ?? null,
+  canceladaEl: o.cancelledAt ?? null,
+  motivoCancelacion: s(o.cancellationReason),
+  notas: s(o.notes),
+  enGarantia: !!o.underWarranty,
+  cobertura: mapCobertura(o),
+  garantiaTrabajo: o.serviceWarrantyDays === null || o.serviceWarrantyDays === undefined ? null : { dias: n(o.serviceWarrantyDays), hasta: o.warrantyUntil ?? null },
+  solicitud: o.inquiry ? { id: s(o.inquiry.id), codigo: s(o.inquiry.code) } : null,
+  reclamos: (o.warrantyClaims ?? []).map((w: Json) => ({ id: s(w.id), codigo: s(w.code), estado: ORDER_STATUS[w.status as ApiServiceOrderStatus] ?? 'Registrada' })),
+});
+
+export const mapOpcionesGarantia = (r: Json): OpcionesGarantia => ({
+  compras: (r?.purchases ?? []).map((p: Json) => ({
+    ventaId: s(p.saleId),
+    factura: s(p.invoiceNumber),
+    fecha: s(p.soldAt),
+    productoId: s(p.productId),
+    sku: s(p.sku),
+    producto: s(p.name),
+    cantidad: n(p.quantity),
+    dias: n(p.warrantyDays),
+    hasta: s(p.until),
+    vigente: !!p.valid,
+  })),
+  servicios: (r?.services ?? []).map((o: Json) => ({
+    ordenId: s(o.orderId),
+    codigo: s(o.code),
+    desc: s(o.description),
+    fin: o.finishedAt ?? null,
+    hasta: s(o.until),
+    vigente: !!o.valid,
+  })),
 });
 
 export const mapTecnico = (t: Json): Tecnico => ({ id: t.id, nombre: fullName(t), usuario: s(t.username) });
@@ -473,6 +538,7 @@ export const mapConsulta = (c: Json): ConsultaWeb => ({
   contacto: s(c.contact),
   producto: s(c.productInterest),
   msg: s(c.message),
+  tipo: INQUIRY_TYPE[c.type as ApiInquiryType] ?? 'Cotización',
   estado: INQUIRY_STATUS[c.status as ApiInquiryStatus] ?? 'Nueva',
   estadoDesde: s(c.statusChangedAt ?? c.createdAt),
   origen: c.source === 'PORTAL' || c.customerAccountId ? 'PORTAL' : 'WEB',
@@ -497,6 +563,9 @@ export const mapConsulta = (c: Json): ConsultaWeb => ({
         total: n(c.quotation.total),
         factura: c.quotation.sale ? { id: s(c.quotation.sale.id), codigo: s(c.quotation.sale.invoiceNumber) } : null,
       }
+    : null,
+  ordenServicio: c.serviceOrder
+    ? { id: s(c.serviceOrder.id), codigo: s(c.serviceOrder.code), estado: ORDER_STATUS[c.serviceOrder.status as ApiServiceOrderStatus] ?? 'Registrada', enGarantia: !!c.serviceOrder.underWarranty }
     : null,
 });
 

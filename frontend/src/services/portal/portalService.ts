@@ -3,7 +3,7 @@
    Usa su propio token (tipo "customer"), que el servidor no acepta en
    la API interna; el token del personal tampoco sirve aquí.
    ===================================================================== */
-import { iconFor, INQUIRY_STATUS, QUOTATION_STATUS, type ApiInquiryStatus, type ApiQuotationStatus } from '../api/mappers';
+import { iconFor, INQUIRY_STATUS, INQUIRY_TYPE, ORDER_STATUS, QUOTATION_STATUS, type ApiInquiryStatus, type ApiInquiryType, type ApiQuotationStatus, type ApiServiceOrderStatus } from '../api/mappers';
 import { ApiError, request } from '../api/client';
 import type { CotizacionPortal, CuentaCliente, Disponibilidad, LineaLista, ProductoPublico, SolicitudPortal } from '../../types';
 
@@ -27,6 +27,7 @@ export const mapProductoPublico = (p: Json): ProductoPublico => ({
   unidad: s(p.unit) || 'unidad',
   imagen: p.imageUrl ?? null,
   disponibilidad: AVAILABILITY[p.availability] ?? 'Disponible',
+  garantiaDias: p.warrantyDays ? n(p.warrantyDays) : null,
   ic: iconFor(p.category?.name),
 });
 
@@ -47,6 +48,7 @@ export const mapCuenta = (a: Json): CuentaCliente => ({
 const mapSolicitud = (r: Json): SolicitudPortal => ({
   id: s(r.id),
   codigo: s(r.code),
+  tipo: INQUIRY_TYPE[r.type as ApiInquiryType] ?? 'Cotización',
   estado: INQUIRY_STATUS[r.status as ApiInquiryStatus] ?? 'Nueva',
   estadoDesde: s(r.statusChangedAt ?? r.createdAt),
   fecha: s(r.createdAt),
@@ -69,6 +71,14 @@ const mapSolicitud = (r: Json): SolicitudPortal => ({
       }
     : null,
   enPreparacion: !!r.quotationInProgress,
+  ordenServicio: r.serviceOrder
+    ? {
+        codigo: s(r.serviceOrder.code),
+        estado: ORDER_STATUS[r.serviceOrder.status as ApiServiceOrderStatus] ?? 'Registrada',
+        enGarantia: !!r.serviceOrder.underWarranty,
+        garantiaHasta: r.serviceOrder.warrantyUntil ?? null,
+      }
+    : null,
 });
 
 const mapCotizacion = (q: Json): CotizacionPortal => ({
@@ -143,6 +153,12 @@ export async function actualizarPerfil(token: string, contacto: string, telefono
   return mapCuenta(r.data);
 }
 
+/** El cliente cambia su correo de acceso (mejora n.° 59). */
+export async function cambiarCorreo(token: string, email: string, actual: string): Promise<CuentaCliente> {
+  const r = await request<Json>('PATCH', '/portal/me/email', { token, body: { email: email.trim().toLowerCase(), currentPassword: actual } });
+  return mapCuenta(r.data);
+}
+
 export async function cambiarClave(token: string, actual: string, nueva: string): Promise<PortalSession> {
   const r = await request<Json>('PATCH', '/portal/me/password', { token, body: { currentPassword: actual, newPassword: nueva } });
   return session(r.data);
@@ -161,6 +177,15 @@ export async function enviarLista(token: string, lineas: LineaLista[], mensaje: 
       items: lineas.map((l) => ({ productId: l.id, quantity: l.cant, ...(l.nota.trim() ? { note: l.nota.trim() } : {}) })),
       ...(mensaje.trim() ? { message: mensaje.trim() } : {}),
     },
+  });
+  return mapSolicitud(r.data);
+}
+
+/** Mensaje de Contacto con la sesión del cliente: queda enlazado a su cuenta. */
+export async function enviarMensaje(token: string, d: { tipo: ApiInquiryType; producto: string; mensaje: string }): Promise<SolicitudPortal> {
+  const r = await request<Json>('POST', '/portal/contact', {
+    token,
+    body: { type: d.tipo, message: d.mensaje.trim(), ...(d.producto.trim() ? { productInterest: d.producto.trim() } : {}) },
   });
   return mapSolicitud(r.data);
 }

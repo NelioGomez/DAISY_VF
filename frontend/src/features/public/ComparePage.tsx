@@ -7,6 +7,7 @@ import { usePageTitle } from '../../hooks/usePageTitle';
 import { errorMessage } from '../../services/api/client';
 import { comparar } from '../../services/public/publicService';
 import type { ProductoPublico } from '../../types';
+import { plazoGarantia } from '../../utils/warranty';
 import { compareStore, MAX_COMPARE, useCompare } from './compareStore';
 import { AddToList, Availability, Price, ProductMedia } from './ProductBits';
 
@@ -197,6 +198,7 @@ function buildRows(menorPrecio: number | null): Row[] {
     { key: 'marca', label: 'Marca', diff: 'brand', cell: (p) => p.marca || '—' },
     { key: 'categoria', label: 'Categoría', diff: 'category', cell: (p) => p.categoria || '—' },
     { key: 'unidad', label: 'Se vende por', diff: 'unit', cell: (p) => p.unidad },
+    { key: 'garantia', label: 'Garantía', diff: null, cell: (p) => (p.garantiaDias ? plazoGarantia(p.garantiaDias) : 'Sin garantía') },
     { key: 'sku', label: 'Código (SKU)', diff: null, cell: (p) => <span className="pub-sku">{p.sku}</span> },
     { key: 'desc', label: 'Descripción', diff: null, cell: (p) => (p.descripcion && p.descripcion !== p.nombre ? p.descripcion : '—') },
   ];

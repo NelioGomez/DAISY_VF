@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsEmail,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -17,6 +18,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { emptyToNull, emptyToNullUpper, trimLower } from '../../common/transformers/text.transformers';
+import { InquiryType } from '../../generated/prisma/client';
 
 /** Quita caracteres de control (conserva saltos de línea) y recorta espacios. */
 const clean = ({ value }: { value: unknown }): unknown =>
@@ -99,6 +101,42 @@ export class UpdateCustomerProfileDto {
   @MaxLength(40)
   @Matches(/^[0-9+()\-\s.]{6,40}$/, { message: 'Teléfono inválido' })
   phone?: string | null;
+}
+
+/** Mensaje del formulario de Contacto con la sesión iniciada (mejora n.° 59). */
+export class CreatePortalContactDto {
+  @ApiProperty({ enum: InquiryType })
+  @IsEnum(InquiryType, { message: 'Elija el motivo de su mensaje' })
+  type!: InquiryType;
+
+  @ApiPropertyOptional({ example: 'Boquilla automática 3/4"' })
+  @Transform(clean)
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  productInterest?: string;
+
+  @ApiProperty()
+  @Transform(clean)
+  @IsString()
+  @IsNotEmpty({ message: 'Escriba su mensaje' })
+  @MaxLength(1000)
+  message!: string;
+}
+
+/** Cambio del correo de acceso por el propio cliente (pide la contraseña actual). */
+export class ChangeCustomerEmailDto {
+  @ApiProperty({ example: 'compras@nuevo-dominio.com' })
+  @Transform(trimLower)
+  @IsEmail({}, { message: 'Escriba un correo válido' })
+  @MaxLength(150)
+  email!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty({ message: 'Escriba su contraseña actual' })
+  @MaxLength(72)
+  currentPassword!: string;
 }
 
 export class ChangeCustomerPasswordDto {

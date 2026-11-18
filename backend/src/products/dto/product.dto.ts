@@ -122,6 +122,18 @@ export class CreateProductDto {
   @Max(1_000_000)
   maxStock?: number | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    minimum: 1,
+    maximum: 3650,
+    description: 'Garantía del fabricante o de NORCOR en días desde la venta (null = sin garantía). Habilita las órdenes de servicio en garantía.',
+  })
+  @IsOptional()
+  @IsInt({ message: 'La garantía debe ser un número entero de días' })
+  @Min(1, { message: 'La garantía debe ser de al menos 1 día (déjela vacía si no tiene)' })
+  @Max(3650, { message: 'La garantía no puede pasar de 10 años' })
+  warrantyDays?: number | null;
+
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()

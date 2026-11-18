@@ -10,6 +10,7 @@ import { useAuth, useData } from '../../store/hooks';
 import type { Producto } from '../../types';
 import { money } from '../../utils/format';
 import { UNIDADES, type Unidad } from '../../utils/units';
+import { plazoGarantia } from '../../utils/warranty';
 import { ProductPhotoField, type PendingPhoto } from './ProductPhotoField';
 
 export function ProductFormModal({ producto }: { producto?: Producto }) {
@@ -34,6 +35,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
     precio: String(p?.precio ?? ''),
     stockMin: String(p?.stockMin ?? 0),
     stockMax: p?.stockMax !== null && p?.stockMax !== undefined ? String(p.stockMax) : '',
+    garantia: p?.garantiaDias ? String(p.garantiaDias) : '',
     motivoPrecio: '',
     activo: p?.activo ?? true,
   });
@@ -45,6 +47,10 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
     const stockMin = Math.max(0, Math.round(Number(f.stockMin) || 0));
     const stockMax = f.stockMax.trim() === '' ? null : Math.max(0, Math.round(Number(f.stockMax) || 0));
     if (stockMax !== null && stockMax < stockMin) return toast('El stock máximo no puede ser menor que el mínimo', 'err');
+    const garantiaDias = f.garantia.trim() === '' || Number(f.garantia) === 0 ? null : Number(f.garantia);
+    if (garantiaDias !== null && (!Number.isInteger(garantiaDias) || garantiaDias < 1 || garantiaDias > 3650)) {
+      return toast('La garantía va en días enteros, de 1 a 3650 (déjela vacía si el producto no tiene)', 'err');
+    }
     const precio = Number(f.precio);
     const cambiaPrecio = canPrice && (!p || precio !== p.precio);
     setSaving(true);
@@ -61,6 +67,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
       ...(cambiaPrecio && { precio, motivoPrecio: f.motivoPrecio.trim() || undefined }),
       stockMin,
       stockMax,
+      garantiaDias,
     });
     let avisoFoto = '';
     if (r.ok && foto) {
@@ -151,6 +158,18 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
           onChange={set('stockMax')}
           placeholder="Opcional"
           help="El panel de reabastecimiento sugiere comprar hasta este nivel"
+        />
+        <InputField
+          label="Garantía (días)"
+          type="number"
+          value={f.garantia}
+          onChange={set('garantia')}
+          placeholder="Sin garantía"
+          help={
+            Number(f.garantia) >= 1
+              ? `${plazoGarantia(Math.round(Number(f.garantia)))} desde la venta: permite registrar órdenes de servicio en garantía`
+              : 'Ej.: 365 = 1 año. Se muestra en el catálogo y habilita las OPI en garantía'
+          }
         />
         {p && (
           <Field label="Estado">

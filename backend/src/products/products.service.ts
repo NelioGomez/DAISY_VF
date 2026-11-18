@@ -47,6 +47,7 @@ const PRODUCT_SELECT = {
   stock: true,
   minStock: true,
   maxStock: true,
+  warrantyDays: true,
   restockPostponedUntil: true,
   isActive: true,
   createdAt: true,
@@ -72,6 +73,7 @@ interface ProductRow {
   stock: number;
   minStock: number;
   maxStock?: number | null;
+  warrantyDays?: number | null;
   restockPostponedUntil?: Date | null;
   isActive: boolean;
   createdAt: Date;
@@ -147,6 +149,7 @@ export class ProductsService {
         { header: 'Stock', value: (p) => p.stock },
         { header: 'Stock mínimo', value: (p) => p.minStock },
         { header: 'Stock crítico', value: (p) => p.lowStock },
+        { header: 'Garantía (días)', value: (p) => p.warrantyDays },
         { header: 'Activo', value: (p) => p.isActive },
         { header: 'Fecha de creación', value: (p) => p.createdAt },
       ],
@@ -179,6 +182,7 @@ export class ProductsService {
             salePrice: dto.salePrice ?? 0,
             minStock: dto.minStock ?? 0,
             maxStock: dto.maxStock ?? null,
+            warrantyDays: dto.warrantyDays ?? null,
             isActive: dto.isActive ?? true,
           },
           select: PRODUCT_SELECT,
@@ -224,6 +228,7 @@ export class ProductsService {
           ...(priceChanges && { salePrice: dto.salePrice }),
           ...(dto.minStock !== undefined && { minStock: dto.minStock }),
           ...(dto.maxStock !== undefined && { maxStock: dto.maxStock }),
+          ...(dto.warrantyDays !== undefined && { warrantyDays: dto.warrantyDays }),
         },
         select: PRODUCT_SELECT,
       });
@@ -661,6 +666,7 @@ export class ProductsService {
       })),
       minStock: p.minStock,
       maxStock: p.maxStock ?? null,
+      warrantyDays: p.warrantyDays ?? null,
       restockPostponedUntil: p.restockPostponedUntil ?? null,
       lowStock: p.stock <= p.minStock,
       isActive: p.isActive,

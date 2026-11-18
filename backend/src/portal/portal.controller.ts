@@ -5,7 +5,9 @@ import { ClientIp } from '../common/decorators/client-ip.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentCustomer, CustomerAuthGuard, type PortalCustomer } from './customer-auth.guard';
 import {
+  ChangeCustomerEmailDto,
   ChangeCustomerPasswordDto,
+  CreatePortalContactDto,
   CreatePortalInquiryDto,
   CustomerLoginDto,
   RegisterCustomerDto,
@@ -71,6 +73,28 @@ export class PortalController {
   @ApiOperation({ summary: 'Cambia la contraseña (cierra las demás sesiones y devuelve una nueva)' })
   changePassword(@CurrentCustomer() c: PortalCustomer, @Body() dto: ChangeCustomerPasswordDto, @ClientIp() ip?: string) {
     return this.auth.changePassword(c, dto, ip);
+  }
+
+  @Patch('me/email')
+  @UseGuards(CustomerAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cambia el correo de acceso (pide la contraseña actual)' })
+  @ApiResponse({ status: 409, description: 'Ese correo ya tiene cuenta' })
+  @ApiResponse({ status: 422, description: 'Contraseña actual incorrecta' })
+  changeEmail(@CurrentCustomer() c: PortalCustomer, @Body() dto: ChangeCustomerEmailDto, @ClientIp() ip?: string) {
+    return this.auth.changeEmail(c, dto, ip);
+  }
+
+  // ───────────── Contacto con sesión ─────────────
+
+  @Post('contact')
+  @UseGuards(CustomerAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mensaje del formulario de Contacto enlazado a la cuenta (queda NUEVO, código SOL-…)' })
+  createContact(@CurrentCustomer() c: PortalCustomer, @Body() dto: CreatePortalContactDto, @ClientIp() ip?: string) {
+    return this.portal.createContact(c, dto, ip);
   }
 
   // ───────────── Mis solicitudes ─────────────

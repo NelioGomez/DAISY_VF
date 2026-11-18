@@ -4,6 +4,7 @@
    ===================================================================== */
 import { WHATSAPP_NUMBER } from '../../config/business';
 import { request, type Pagination } from '../api/client';
+import type { ApiInquiryType } from '../api/mappers';
 import { mapProductoPublico } from '../portal/portalService';
 import type { Disponibilidad, ProductoPublico } from '../../types';
 
@@ -126,10 +127,11 @@ export function whatsappUrl(empresa: Empresa | null | undefined, texto: string):
 }
 
 /** Formulario de contacto anónimo: queda como consulta Nueva en el sistema interno. */
-export async function enviarContacto(d: { nombre: string; contacto: string; producto: string; mensaje: string; website: string }): Promise<string | null> {
+export async function enviarContacto(d: { tipo: ApiInquiryType; nombre: string; contacto: string; producto: string; mensaje: string; website: string }): Promise<string | null> {
   const r = await request<{ code?: string }>('POST', '/public/inquiries', {
     auth: false,
     body: {
+      type: d.tipo,
       name: d.nombre.trim(),
       contact: d.contacto.trim(),
       ...(d.producto.trim() ? { productInterest: d.producto.trim() } : {}),

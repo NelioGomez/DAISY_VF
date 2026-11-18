@@ -17,6 +17,7 @@ const PUBLIC_SELECT = {
   minStock: true,
   unit: true,
   imageUrl: true,
+  warrantyDays: true,
   category: { select: { id: true, name: true } },
   brand: { select: { id: true, name: true } },
 } as const;
@@ -31,6 +32,7 @@ interface PublicRow {
   minStock: number;
   unit?: string;
   imageUrl?: string | null;
+  warrantyDays?: number | null;
   category: { id: string; name: string } | null;
   brand: { id: string; name: string } | null;
 }
@@ -222,6 +224,7 @@ export class PublicCatalogService {
       availability: availabilityOf(p.stock, p.minStock),
       unit: UNIT_LABEL[p.unit ?? 'UNIT'] ?? 'unidad',
       imageUrl: p.imageUrl ?? null,
+      warrantyDays: p.warrantyDays ?? null,
     };
   }
 }

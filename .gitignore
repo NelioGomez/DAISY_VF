@@ -66,6 +66,4 @@ lerna-debug.log*
 *.sln
 *.sw?
 # Despliegue: web.config con claves reales y salida generada
-deploy/web.config
-deploy/salida/
-deploy/*.zip
+deploy/

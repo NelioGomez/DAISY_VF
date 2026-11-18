@@ -177,13 +177,13 @@ model User {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  role               Role                 @relation(fields: [roleId], references: [id])
+  role               Role                  @relation(fields: [roleId], references: [id])
   quotations         Quotation[]
   sales              Sale[]
   payments           Payment[]
   inventoryMovements InventoryMovement[]
   stockTransfers     StockTransfer[]
-  serviceOrders      ServiceOrder[]       @relation("ServiceOrderTechnician")
+  serviceOrders      ServiceOrder[]        @relation("ServiceOrderTechnician")
   priceChanges       ProductPrice[]
   purchases          Purchase[]
   purchaseReceipts   PurchaseReceipt[]
@@ -1167,4 +1167,3 @@ model QualityInspection {
   @@index([inspectedAt])
   @@map("quality_inspections")
 }
-

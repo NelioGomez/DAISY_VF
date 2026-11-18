@@ -16,9 +16,14 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api/v1');
-  // Detrás de IIS (SmarterASP) o de otro proxy en la misma máquina: la IP real del cliente llega en
-  // X-Forwarded-For. Solo se confía en el proxy local, así nadie puede falsear su IP desde afuera.
-  app.set('trust proxy', 'loopback');
+    // IP real del cliente detrás de un proxy (va en X-Forwarded-For).
+  // Sin TRUST_PROXY (local / SmarterASP): solo se confía en el proxy local ('loopback').
+  // En Render: TRUST_PROXY=true, si no todos los usuarios comparten el límite de peticiones.
+  const trustProxy = process.env.TRUST_PROXY?.trim();
+  app.set(
+    'trust proxy',
+    !trustProxy ? 'loopback' : trustProxy === 'true' ? true : /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy,
+  );
   // Fotos de productos subidas desde el sistema (mejora n.° 4): archivos estáticos públicos para
   // que el catálogo web también las muestre. Nombres únicos: se pueden guardar en caché.
   app.useStaticAssets(uploadsRoot(), {

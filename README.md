@@ -305,7 +305,7 @@ No hay migración nueva. Desde la carpeta `backend`:
 ```powershell
 npx prisma generate
 npm run start:dev
-npm run seed:real      # opcional: 173 productos reales con sus imágenes (ver docs/carga-datos-reales.md)
+npm run seed:real      # opcional: 173 productos reales con sus imágenes
 ```
 
 > Si al iniciar aparecen errores como `Property 'stockTransfer' does not exist` o

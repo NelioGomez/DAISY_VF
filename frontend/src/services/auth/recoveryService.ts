@@ -1,6 +1,6 @@
 /* =====================================================================
    Recuperación de contraseña en 3 pasos.
-   La hace el backend (contrato en docs/recuperacion-contrasena.md):
+   La hace el backend:
 
      POST /api/v1/auth/forgot-password      { email }            → { resendAfter, expiresIn }
      POST /api/v1/auth/verify-reset-code    { email, code }      → { resetToken, username }

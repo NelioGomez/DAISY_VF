@@ -175,7 +175,7 @@ sesión de los clientes). Los datos de contacto del sitio público se guardan co
 En el sistema interno: **Ctrl + K** abre la búsqueda global, **Alt + V** el punto de venta, **Alt + C** una
 cotización nueva y **Esc** cierra ventanas y paneles. Cotizaciones tiene vista de tabla y de pipeline.
 
-**Punto de venta** (menú Operación → Punto de venta): acepta lector de código de barras (el código se
+**Punto de venta** (menú Ventas → Punto de venta): acepta lector de código de barras (el código se
 registra en el formulario del producto; el lector escribe el código y Enter), SKU exacto o búsqueda por nombre.
 Atajos: **F2** buscar producto, **F4** cliente, **F9** cobrar. Permite crear un cliente sin salir, calcula el
 vuelto en ventas de contado y la factura se puede imprimir. El efectivo recibido no se guarda en la base de
@@ -350,6 +350,42 @@ descripción lado a lado, con *Resaltar diferencias* y *Solo lo que cambia*.
 | `GET /suppliers/:id/summary` | `suppliers:read` | Panel del proveedor: compras, productos e indicadores |
 | `GET /public/products/compare?ids=a,b,c` | público | Comparación de 2 a 4 productos y sus diferencias |
 | `GET /search?q=` (campo `imageUrl`) | según módulo | La búsqueda global trae la foto del producto |
+
+## Menú por módulos, celular, inventario y pipeline con arrastre (mejoras 55-58)
+
+Solo cambia el frontend (no hay migración ni endpoints nuevos): `npm run dev` en `frontend`.
+
+**Menú por módulos desplegables (n.° 55).** El menú lateral sigue la distribución acordada en clase:
+*Dashboard* (panel e indicadores, reportes y KPIs) · *Compras* (productos, pedidos de compra,
+reabastecimiento, proveedores e inventario) · *Ventas* (clientes, cotizaciones, punto de venta, ventas y
+facturación, órdenes de servicio OPI, consultas y catálogo web) · *Pagos y CxC* · *Producción* (órdenes,
+lotes y calidad, listas de materiales y rutas) · *Auditoría*. Cada módulo se despliega con un clic (o Enter)
+y se abre uno a la vez; el que contiene la pantalla actual se abre solo. Cerrado, muestra la suma de sus
+avisos (stock crítico, compras por recibir, cotizaciones pendientes…). Si un rol ve una sola pantalla de un
+módulo, aparece como enlace directo. Las entradas de Compras y Producción llevan a su pestaña
+(`/app/compras?tab=reabastecimiento`, `/app/produccion?tab=lotes`…). Con *« Contraer menú* queda una barra de
+íconos que se despliega al pasar el mouse; la preferencia se guarda en el navegador.
+
+**Celular y tableta (n.° 56).** Hasta 880 px el menú es un panel deslizable (☰) con fondo oscuro: se cierra
+con ×, Esc, tocando el fondo o al elegir una pantalla, y mientras está abierto la página no se desplaza ni
+recibe el foco. Los filtros se acomodan de dos en dos, las tarjetas de indicadores pasan a una columna y los
+gráficos se desplazan de lado. Ninguna pantalla interna se desborda a 390 px ni a 768 px, y las tablas más
+anchas que su espacio (laptop, panel lateral abierto) se desplazan de lado en vez de recortar columnas.
+
+**Inventario sin entradas ni salidas manuales (n.° 57).** Las entradas llegan al recibir compras y las
+salidas con ventas y producción, cada una con su documento en *Movimientos*. Inventario conserva
+*Trasladar* y *Ajuste*: el ajuste fija lo contado en una ubicación con un motivo (conteo físico, merma o
+daño, uso interno, donación o muestra, corrección u otro) que queda en el movimiento y en la auditoría. La
+ficha del producto ofrece *Ajustar* y las acciones rápidas ya no incluyen *Registrar entrada*. La API sigue
+aceptando `ENTRY`/`EXIT` (la usa `npm run seed:real`).
+
+**Pipeline con arrastrar y soltar (n.° 58).** En *Cotizaciones → Pipeline* las tarjetas se arrastran entre
+columnas con las reglas del servidor: Borrador → Pendiente (enviar), Pendiente → Aprobada, Aprobada o
+Pendiente → Convertida (abre la venta; si estaba pendiente se aprueba y se convierte en un paso) y Pendiente o
+Aprobada → Rechazada (pide el motivo). Al arrastrar, las columnas válidas se marcan en verde con lo que
+pasará al soltar; soltar en una no permitida explica por qué y Esc cancela. Con mouse se arrastra la tarjeta;
+en celular, desde la manija ⠿ (el tablero se desplaza solo cerca de los bordes). Los botones de cada tarjeta
+siguen funcionando igual.
 
 ## Inventario (Fase 9)
 

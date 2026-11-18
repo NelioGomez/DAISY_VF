@@ -1,0 +1,32 @@
+# Nginx para la SPA de SIVEN. ${PORT} lo reemplaza la imagen oficial de nginx al arrancar.
+server {
+    listen       ${PORT};
+    server_name  _;
+
+    root   /usr/share/nginx/html;
+    index  index.html;
+
+    server_tokens     off;
+    # Detrás del proxy de Railway: nunca redirigir a http://host:8080/...
+    absolute_redirect off;
+
+    gzip on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+    # Archivos con hash de Vite: caché de un año.
+    location /assets/ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # index.html sin caché: cada despliegue se ve de inmediato.
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    # Rutas de React Router (/app/ventas, /catalogo, /clientes…): siempre index.html.
+    location / {
+        try_files $uri /index.html;
+    }
+}

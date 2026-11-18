@@ -57,7 +57,7 @@ La factura muestra:
 
 Botones:
 
-- **Imprimir**: imprime la factura sola, sin el menú ni la pantalla de fondo. En la ventana de impresión también puede elegir **Guardar como PDF** para enviarla por correo.
+- **Imprimir**: imprime la factura sola, sin el menú ni la pantalla de fondo. Debajo del logo salen el RUC, la dirección, el teléfono y el correo de NORCOR que se llenan en [Panel de administración › Empresa](?cap=administracion#empresa). En la ventana de impresión también puede elegir **Guardar como PDF** para enviarla por correo.
 - **Registrar pago**: aparece si la factura tiene saldo y usted puede registrar pagos; abre [Pagos y CxC](?cap=pagos).
 - **Anular venta**: solo para el administrador (vea abajo).
 

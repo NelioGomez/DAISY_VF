@@ -21,7 +21,7 @@ Su rol aparece en la barra superior, debajo de su nombre. En este manual, al ini
 
 | Rol | Su trabajo en el sistema |
 |---|---|
-| **Administrador** | Ve y hace todo. Es el único que puede **anular ventas** y entrar al [Panel de administración](?cap=administracion) (usuarios, categorías, marcas y datos de la empresa). Registra, asigna y factura las órdenes de servicio. |
+| **Administrador** | Ve y hace todo. Es el único que puede **anular ventas** y entrar al [Panel de administración](?cap=administracion) (usuarios, cuentas del portal, categorías, marcas, datos de la empresa y actividad). Registra, asigna y factura las órdenes de servicio. |
 | **Gerencia** | Consulta los indicadores, reportes, inventario, compras, producción, ventas y la auditoría. **Fija el precio de venta** de los productos. No registra ventas ni compras. |
 | **Vendedor** | Atiende a los clientes: clientes, cotizaciones, punto de venta, consultas web y catálogo web. Ve los productos y precios para cotizar y vender, pero no los modifica. |
 | **Encargado de inventario** | Productos, inventario (ajustes y traslados), pedidos de compra y su recepción, proveedores, producción y control de calidad. Ve los precios, pero no los fija. |

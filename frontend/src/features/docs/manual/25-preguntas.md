@@ -141,11 +141,11 @@ El técnico solo ve **las órdenes asignadas a él**. Pida al administrador que 
 
 ### Un cliente olvidó la contraseña del portal
 
-El cliente debe escribir desde **Contacto** (motivo *Mi cuenta*) o por WhatsApp. Pase la solicitud al administrador del sistema para que le restablezca el acceso.
+El cliente debe escribir desde **Contacto** (motivo *Mi cuenta*) o por WhatsApp. Pase la solicitud al administrador del sistema: le pone una contraseña temporal en **Panel de administración › Cuentas del portal** (vea [Recuperar el acceso de un cliente](?cap=administracion#recuperar-el-acceso-de-un-cliente)).
 
 ### Un cliente no puede crear su cuenta porque su RUC ya existe
 
-Su empresa ya está registrada como cliente. Pase el caso al administrador del sistema para vincular la cuenta.
+Su empresa ya está registrada como cliente. El administrador le crea la cuenta del portal unida a ese cliente (vea [Crear la cuenta de un cliente que ya existe](?cap=administracion#crear-la-cuenta-de-un-cliente-que-ya-existe-vincular)) y le entrega su contraseña temporal.
 
 ### El sitio dice «Ya recibimos varias solicitudes desde su conexión»
 
@@ -156,6 +156,14 @@ Es una protección contra abusos que limita los mensajes por hora. El cliente pu
 ### ¿Cómo creo un usuario para una persona nueva?
 
 Solo el administrador: **Panel de administración › Usuarios › + Nuevo usuario**. Vea [Crear un usuario](?cap=administracion#crear-un-usuario).
+
+### Una persona quiere otro usuario o cambió de correo
+
+El administrador los cambia con **Editar** en **Panel de administración › Usuarios**. Desde que guarda, la persona entra con el usuario nuevo y el código de recuperación llega al correo nuevo; su historial se conserva. Vea [Editar un usuario](?cap=administracion#editar-un-usuario-usuario-correo-nombres-y-rol).
+
+### Alguien perdió el celular con la sesión abierta
+
+El administrador abre la ficha de esa persona en **Panel de administración › Usuarios** y hace clic en **Cerrar sesiones**. Su contraseña no cambia. Vea [Cerrar las sesiones de un usuario](?cap=administracion#cerrar-las-sesiones-de-un-usuario).
 
 ### Una persona dejó la empresa
 

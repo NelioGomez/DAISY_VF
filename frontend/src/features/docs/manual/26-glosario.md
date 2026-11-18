@@ -43,6 +43,7 @@ resumen: Qué significa cada palabra, sigla y código que se usa en el sistema, 
 | **Cotización** | Propuesta de precios para un cliente; vale 15 días y se convierte en venta. |
 | **Crédito** | Venta que el cliente paga después, en un plazo de 1 a 365 días. |
 | **CSV** | Tipo de archivo de datos que se abre con Excel. |
+| **Cuenta del portal** | El correo y la contraseña con que un cliente entra al portal. Está unida a la ficha del cliente; el administrador la atiende en **Panel de administración › Cuentas del portal**. |
 | **Cuota fija (régimen)** | Régimen de impuestos en el que la empresa no cobra IVA en sus ventas; el sistema lo indica bajo el subtotal. |
 | **CxC** | Cuentas por cobrar: lo que los clientes deben por facturas de crédito. |
 | **Dashboard** | Pantalla de inicio con los indicadores y los pendientes del día. |
@@ -58,7 +59,7 @@ resumen: Qué significa cada palabra, sigla y código que se usa en el sistema, 
 | **Mínimo / máximo** | Existencia mínima (en ella o por debajo, el producto está *crítico*) y máxima (hasta donde sugiere comprar el reabastecimiento). |
 | **Movimiento** | Cada entrada, salida o ajuste de inventario, con su documento de origen. |
 | **OPI** | Orden de servicio técnico (instalación, mantenimiento, reparación). |
-| **Panel de administración** | Área aparte de SIVEN, solo para el administrador, donde se manejan usuarios, roles, categorías, marcas, clientes y proveedores inactivos, y los datos de la empresa. |
+| **Panel de administración** | Área aparte de SIVEN, solo para el administrador, donde se manejan los usuarios (usuario, correo, rol, contraseña, sesiones y estado), las cuentas del portal, los roles, las categorías y marcas, los clientes y proveedores inactivos, los datos de la empresa y la actividad. |
 | **Pipeline** | Vista de cotizaciones en columnas por estado, con tarjetas que se pueden arrastrar. |
 | **Portal de clientes** | Área privada del sitio web para los clientes con cuenta. |
 | **Precio de referencia** | Precio publicado en el sitio; la cotización confirma el precio final. |

@@ -17,7 +17,7 @@ import { useAuth, useData } from '../../store/hooks';
 import type { FichaProducto } from '../../types';
 import { ago, fmtDate, fmtDateTime, money } from '../../utils/format';
 import { useOpenDocument } from '../documents/useOpenDocument';
-import { MovementFormModal } from '../inventory/MovementFormModal';
+import { AdjustmentFormModal } from '../inventory/AdjustmentFormModal';
 import { costIn } from '../purchases/purchaseFormat';
 import { ROTACION } from '../inventory/rotation';
 import { PriceModal } from './PriceModal';
@@ -104,8 +104,8 @@ export function ProductDrawer({ productoId }: { productoId: string }) {
       footer={
         <>
           {can('inventory:write') && (
-            <button className="b b-out b-sm" onClick={() => modal.open(<MovementFormModal tipo="Entrada" productoId={p.id} />)}>
-              ↧ Entrada
+            <button className="b b-out b-sm" onClick={() => modal.open(<AdjustmentFormModal productoId={p.id} />)}>
+              ⚖ Ajustar
             </button>
           )}
           {can('prices:write') && (

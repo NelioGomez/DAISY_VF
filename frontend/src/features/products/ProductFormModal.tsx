@@ -172,7 +172,7 @@ export function ProductFormModal({ producto }: { producto?: Producto }) {
               Existencia actual: <b>{p.stock}</b> · costo promedio: <b>{money(p.costo)}</b>. Ambos cambian solo con movimientos de Inventario.
             </>
           ) : (
-            <>El producto se crea sin existencias. Registre una entrada en Inventario para darle stock y costo.</>
+            <>El producto se crea sin existencias: su stock y su costo llegan al recibir una compra en Compras.</>
           )}
         </div>
       </div>

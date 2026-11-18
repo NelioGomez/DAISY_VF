@@ -20,10 +20,8 @@ import {
 } from 'class-validator';
 import { LOCATION_IDS } from '../../common/constants/locations';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { trim } from '../../common/transformers/text.transformers';
 import { InventoryMovementType } from '../../generated/prisma/client';
-
-const trim = ({ value }: { value: unknown }): unknown =>
-  typeof value === 'string' ? value.trim() : value;
 
 /**
  * Cada tipo exige campos distintos:

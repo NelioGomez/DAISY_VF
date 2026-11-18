@@ -44,8 +44,8 @@ El manual está en la opción **Documentación** :ic-book-open: del menú y lo v
 2. **Índice**: los capítulos agrupados como en el menú. El capítulo que está leyendo se ve resaltado. Un candado :ic-lock: indica un módulo que su rol no abre: puede leer cómo funciona, pero esa pantalla no aparece en su menú.
 3. **Lo usan**: los roles que trabajan con ese módulo. El suyo se ve resaltado.
 4. **En este capítulo**: las secciones del capítulo; haga clic en una para ir directo.
-5. **Imprimir capítulo**: imprime solo el capítulo abierto, sin el menú. En la ventana de impresión también puede elegir **Guardar como PDF**.
-6. **Imprimir todo el manual**: imprime el manual completo de una vez, con portada, contenido y cada capítulo en una página nueva (unas 160 páginas). Mientras carga las imágenes, el botón dice *Preparando el manual…*; después se abre la ventana de impresión. Si solo necesita tenerlo en la computadora, elija **Guardar como PDF**.
+5. **Descargar capítulo**: descarga en PDF el capítulo que está leyendo, con sus imágenes, listo para guardar, enviar por correo o imprimir.
+6. **Descargar todo el manual**: descarga el manual completo en un solo PDF, con portada, contenido y cada capítulo en una página nueva (unas 130 páginas). Mientras se arma, el botón dice *Generando el manual…*; tarda unos segundos.
 
 Además:
 

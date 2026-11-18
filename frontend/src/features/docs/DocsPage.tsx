@@ -4,13 +4,14 @@
    imágenes que se amplían con un clic, "En este capítulo", anterior / siguiente e impresión.
    La dirección lleva el capítulo y la sección (/app/documentacion?cap=ordenes#facturar-la-orden),
    así que se puede compartir; el botón de ayuda de la barra superior abre el capítulo de la
-   pantalla en que se está. "Imprimir todo el manual" arma una versión con portada, índice y los 25
-   capítulos seguidos (cada uno en página nueva) y abre la impresión. */
+   pantalla en que se está. "Descargar capítulo" y "Descargar todo el manual" generan un PDF con las
+   imágenes (el completo con portada y contenido) y lo descargan, sin pasar por la impresión. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Icon } from '../../components/common/Icon';
 import { ViewHead } from '../../components/common/ViewHead';
 import { ACCESS, ROLES, visibleModules } from '../../config/navigation';
+import { useToast } from '../../components/feedback/useToast';
 import { MOBILE_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
 import { useAuth } from '../../store/hooks';
 import type { RoleKey } from '../../types';
@@ -25,8 +26,8 @@ export function DocsPage() {
   const { hash } = useLocation();
   const [q, setQ] = useState('');
   const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
-  const [todo, setTodo] = useState(false);
-  const todoRef = useRef<HTMLDivElement>(null);
+  const [descargando, setDescargando] = useState<'cap' | 'todo' | null>(null);
+  const toast = useToast();
   const toc = useRef<HTMLDetailsElement>(null);
   const mobile = useMediaQuery(MOBILE_QUERY);
   const permitidos = useMemo(() => new Set(user ? visibleModules(user) : []), [user]);
@@ -57,25 +58,17 @@ export function DocsPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [zoom]);
 
-  // Imprimir todo: se espera a que carguen las imágenes de todos los capítulos y se abre la impresión.
-  useEffect(() => {
-    if (!todo) return;
-    let activo = true;
-    const fin = () => setTodo(false);
-    window.addEventListener('afterprint', fin);
-    const imgs = [...(todoRef.current?.querySelectorAll('img') ?? [])];
-    const cargada = (i: HTMLImageElement) =>
-      new Promise<void>((listo) => {
-        if (i.complete) return listo();
-        i.addEventListener('load', () => listo(), { once: true });
-        i.addEventListener('error', () => listo(), { once: true });
-      });
-    void Promise.all(imgs.map(cargada)).then(() => activo && window.print());
-    return () => {
-      activo = false;
-      window.removeEventListener('afterprint', fin);
-    };
-  }, [todo]);
+  const descargar = async (que: 'cap' | 'todo') => {
+    setDescargando(que);
+    try {
+      const { descargarPdf } = await import('./pdf');
+      await descargarPdf(que === 'todo' ? CAPITULOS : [cap], CAPITULOS, que === 'todo' ? 'SIVEN-manual-de-usuario.pdf' : `SIVEN-manual-${idx + 1}-${cap.id}.pdf`);
+    } catch {
+      toast('No se pudo generar el PDF. Intente de nuevo.', 'err');
+    } finally {
+      setDescargando(null);
+    }
+  };
 
   const href = (id: string, seccion = '') => `/app/documentacion?cap=${id}${seccion ? `#${seccion}` : ''}`;
   const irA = (id: string) => setParams({ cap: id });
@@ -87,16 +80,16 @@ export function DocsPage() {
         desc="Manual de usuario de SIVEN: qué hace cada parte del sistema y cómo usarla, paso a paso y con imágenes."
         actions={
           <>
-            <button type="button" className="b b-out" onClick={() => window.print()} disabled={todo}>
-              <Icon name="printer" size={16} /> Imprimir capítulo
+            <button type="button" className="b b-out" onClick={() => descargar('cap')} disabled={!!descargando} aria-busy={descargando === 'cap'}>
+              <Icon name="download" size={16} /> {descargando === 'cap' ? 'Generando PDF…' : 'Descargar capítulo'}
             </button>
-            <button type="button" className="b b-out" onClick={() => setTodo(true)} disabled={todo} aria-busy={todo}>
-              <Icon name="book-open" size={16} /> {todo ? 'Preparando el manual…' : 'Imprimir todo el manual'}
+            <button type="button" className="b b-out" onClick={() => descargar('todo')} disabled={!!descargando} aria-busy={descargando === 'todo'}>
+              <Icon name="download" size={16} /> {descargando === 'todo' ? 'Generando el manual…' : 'Descargar todo el manual'}
             </button>
           </>
         }
       />
-      <div className={`docs ${todo ? 'is-print-all' : ''}`}>
+      <div className="docs">
         <aside className="docs-nav" aria-label="Índice del manual">
           <label className="docs-search">
             <Icon name="search" size={16} />
@@ -215,47 +208,6 @@ export function DocsPage() {
           </nav>
         </article>
       </div>
-
-      {todo && (
-        <div className="docs-all" ref={todoRef}>
-          <section className="docs-all-cover">
-            <p className="docs-kicker">NORCOR Fueling System</p>
-            <h1>Manual de usuario de SIVEN</h1>
-            <p className="docs-lead">Sistema de Inventario y Ventas: qué hace cada parte del sistema y cómo usarla, paso a paso y con imágenes.</p>
-            <h2>Contenido</h2>
-            <div className="docs-all-tocs">
-              {GRUPOS.map((g) => (
-                <div key={g} className="docs-all-toc">
-                  <h3>{g}</h3>
-                  <ol>
-                    {CAPITULOS.filter((c) => c.grupo === g).map((c) => (
-                      <li key={c.id} value={CAPITULOS.indexOf(c) + 1}>
-                        {c.titulo}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              ))}
-            </div>
-          </section>
-          {CAPITULOS.map((c, i) => (
-            <article key={c.id} className="docs-all-cap">
-              <p className="docs-kicker">
-                {c.grupo} · capítulo {i + 1} de {CAPITULOS.length}
-              </p>
-              <h1>{c.titulo}</h1>
-              {c.resumen && (
-                <p className="docs-lead">
-                  <Inline text={c.resumen} />
-                </p>
-              )}
-              <div className="md">
-                <Markdown blocks={c.blocks} eager />
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
 
       {zoom && (
         <div className="docs-zoom" role="dialog" aria-modal="true" aria-label={zoom.alt || 'Imagen ampliada'} onClick={() => setZoom(null)}>

@@ -17,6 +17,7 @@ function buildCatalog(rows: unknown[] = []) {
       count: jest.fn().mockResolvedValue(rows.length),
       findMany: jest.fn().mockResolvedValue(rows),
       findFirst: jest.fn().mockResolvedValue(rows[0] ?? null),
+      groupBy: jest.fn().mockResolvedValue([{ categoryId: 'c', _count: { _all: 3 }, _min: { salePrice: dec('450.50') } }]),
     },
     category: { findMany: jest.fn().mockResolvedValue([{ id: 'c', name: 'Cat' }]) },
     brand: { findMany: jest.fn().mockResolvedValue([]) },
@@ -54,6 +55,15 @@ describe('Catálogo público', () => {
     const item = res.data[0] as Record<string, unknown>;
     expect(item).toMatchObject({ price: 100, availability: 'AVAILABLE' });
     for (const k of ['avgCost', 'stock', 'minStock', 'cost', 'version']) expect(item).not.toHaveProperty(k);
+  });
+
+  it('categorías con cantidad de productos publicados y precio "desde" (rótulo de la portada)', async () => {
+    const { prisma, service } = buildCatalog();
+    const cats = await service.categories();
+    expect(cats).toEqual([{ id: 'c', name: 'Cat', productCount: 3, minPrice: 450.5 }]);
+    // Solo cuenta productos visibles (activos y con precio).
+    const where = prisma.product.groupBy.mock.calls[0][0].where;
+    expect(where).toMatchObject({ isActive: true, salePrice: { gt: 0 } });
   });
 
   it('precio 0 → null ("consulte precio")', async () => {

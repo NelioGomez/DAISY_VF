@@ -137,6 +137,58 @@ npx prisma db seed                            # idempotente: agrega el permiso s
 npm run start:dev
 ```
 
+## Actualizar a las mejoras de octubre 2026
+
+Compras y reabastecimiento, venta tipo POS, ficha de producto, solicitud → cotización,
+trazabilidad, sitio público y portal de clientes. Desde la carpeta `backend`:
+
+```powershell
+npm install
+npx prisma generate
+npx prisma migrate deploy   # aplica 20261030120000_proveedores_por_producto (solo datos; se puede repetir)
+npm run start:dev
+```
+
+Desde la carpeta `frontend`:
+
+```powershell
+npm install
+npm run dev                 # http://localhost:5173
+```
+
+En `backend/.env` hay una variable nueva y opcional: `PORTAL_JWT_EXPIRES_IN=2h` (duración de la
+sesión de los clientes). Los datos de contacto del sitio público se guardan con
+`PATCH /api/v1/settings` (`COMPANY_PHONE`, `COMPANY_EMAIL`, `COMPANY_WHATSAPP`, `COMPANY_ADDRESS`,
+`COMPANY_HOURS`); mientras estén vacíos, el sitio solo muestra lo que tenga valor.
+
+### Rutas del frontend
+
+| Ruta | Pantalla |
+| --- | --- |
+| `/` | Inicio público: rótulo "Precios desde" por categoría, más vendidos, cómo cotizar, marcas |
+| `/catalogo` · `/catalogo/:id` | Productos con búsqueda, filtros, orden y paginación; ficha pública con relacionados |
+| `/nosotros` · `/contacto` | Empresa (misión/visión marcadas como propuesta) y contacto con formulario |
+| `/clientes/ingresar` · `/clientes/registro` | Acceso de clientes, separado del acceso interno |
+| `/clientes/cuenta/solicitudes` · `/cotizaciones` · `/perfil` | Portal del cliente |
+| `/login` · `/app/...` | Sistema interno (Compras en `/app/compras`, POS en `/app/ventas/nueva`) |
+
+### Endpoints nuevos
+
+| Método y ruta | Uso |
+| --- | --- |
+| `GET/POST /purchases`, `GET/PATCH/DELETE /purchases/:id` | Órdenes de compra (borrador editable) |
+| `POST /purchases/:id/order` · `/receive` · `/cancel` | Ordenar, registrar recepción (total o parcial) y anular |
+| `GET /purchases/restock`, `POST/DELETE /purchases/restock/:productId/postpone` | Sugerencias de reabastecimiento y posponer |
+| `GET /products/:id/detail` | Ficha 360° del producto (proveedores, compras, ventas, movimientos) |
+| `POST /inquiries/:id/quotation` | Crear la cotización desde la solicitud (precarga cliente y productos) |
+| `POST /portal/auth/register` · `/portal/auth/login` | Registro e inicio de sesión de clientes (token propio) |
+| `GET/PATCH /portal/me`, `PATCH /portal/me/password` | Perfil y contraseña del cliente |
+| `GET/POST /portal/inquiries`, `GET /portal/inquiries/:id` | Lista de cotización enviada y su seguimiento |
+| `GET /portal/quotations`, `GET /portal/quotations/:id` | Cotizaciones del cliente (sin borradores) |
+| `GET /public/products/:id` · `GET /public/categories` | Ficha pública con relacionados; categorías con cantidad y precio "desde" |
+
+El token de cliente no sirve en la API interna y el del personal no sirve en `/portal`.
+
 ## Inventario (Fase 9)
 
 | Método | Ruta | Permiso |

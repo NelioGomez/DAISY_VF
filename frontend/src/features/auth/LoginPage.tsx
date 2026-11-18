@@ -12,7 +12,6 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/feedback/useToast';
 import { isModuleId, visibleModules } from '../../config/navigation';
 import { REMEMBER_USER_KEY, SHOW_DEMO_ACCOUNTS, USERNAME_MAX } from '../../config/security';
-import { ACCESS, MODULE_COUNT, ROLES, ROLE_KEYS } from '../../config/navigation';
 import { useAuth } from '../../store/hooks';
 import type { SessionUser } from '../../types';
 import type { LoginRedirectState } from '../../app/router/guards';
@@ -49,40 +48,6 @@ function destinationFor(user: SessionUser, from?: string): string {
 }
 
 const formatCountdown = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-import type { RoleKey } from '../../types';
-import type { LoginRedirectState } from '../../app/router/guards';
-import { AuthLayout } from './AuthLayout';
-import { DemoAccounts } from './DemoAccounts';
-import { AlertIcon, CheckIcon, InfoIcon, UserIcon } from './icons';
-import { PasswordField } from './PasswordField';
-
-type Notice = { tone: 'error' | 'warning' | 'info' | 'success'; text: string } | null;
-
-function readRememberedUser(): string {
-  try {
-    return localStorage.getItem(REMEMBER_USER_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function storeRememberedUser(username: string | null): void {
-  try {
-    if (username) localStorage.setItem(REMEMBER_USER_KEY, username);
-    else localStorage.removeItem(REMEMBER_USER_KEY);
-  } catch {
-    /* almacenamiento no disponible: se ignora */
-  }
-}
-
-/** Ruta a la que se vuelve tras iniciar sesión, si el rol tiene acceso a ella. */
-function destinationFor(role: RoleKey, from?: string): string {
-  const mod = from?.match(/^\/app\/([^/]+)/)?.[1];
-  if (isModuleId(mod) && ACCESS[role].includes(mod)) return `/app/${mod}`;
-  return `/app/${ACCESS[role][0]}`;
-}
-
-const formatCountdown = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 export function LoginPage() {
   const { user, login, lastLogout } = useAuth();
@@ -115,28 +80,6 @@ export function LoginPage() {
   );
   const [loading, setLoading] = useState(false);
   const [lockedUntil, setLockedUntil] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
-  const [role, setRole] = useState<RoleKey>('admin');
-  const [username, setUsername] = useState(ROLES.admin.user);
-  const [password, setPassword] = useState('••••••••');
-
-  // Tras un cierre por inactividad o un cambio de contraseña se conserva el usuario.
-  const [username, setUsername] = useState(
-    () => navState.resetUsername ?? (lastLogout?.reason === 'idle' ? lastLogout.username : readRememberedUser()),
-  );
-  const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(() => readRememberedUser() !== '');
-  const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
-  const [notice, setNotice] = useState<Notice>(() =>
-    navState.resetUsername
-      ? { tone: 'success', text: 'Contraseña actualizada. Inicie sesión con su nueva contraseña.' }
-      : lastLogout?.reason === 'idle'
-        ? { tone: 'info', text: 'Su sesión se cerró por inactividad. Inicie sesión para continuar donde estaba.' }
-        : null,
-  );
-  const [loading, setLoading] = useState(false);
-  const [lockedUntil, setLockedUntil] = useState(0);
-  const [lockedUser, setLockedUser] = useState('');
   const [now, setNow] = useState(() => Date.now());
 
   const userRef = useRef<HTMLInputElement>(null);
@@ -176,9 +119,6 @@ export function LoginPage() {
     if (!password) e.password = 'Escriba su contraseña.';
     setErrors(e);
     return e;
-  const selectRole = (r: RoleKey) => {
-    setRole(r);
-    setUsername(ROLES[r].user);
   };
 
   const handleSubmit = async (ev: FormEvent) => {
@@ -222,12 +162,6 @@ export function LoginPage() {
     setPassword(p);
     setErrors({});
     setNotice(null);
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    // Autenticación simulada: la contraseña aún no se valida (se hará con /auth/login en NestJS).
-    const u = login(role, username);
-    toast('Sesión iniciada como ' + u.name, 'ok');
-    navigate(`/app/${ACCESS[role][0]}`);
   };
 
   return (

@@ -83,35 +83,6 @@ Tres pasos: correo → código de 6 dígitos → contraseña nueva. El frontend 
 - en desarrollo se usa una simulación: el código aparece en pantalla y la contraseña real no cambia
   (se avisa al terminar);
 - en producción se indica que la recuperación no está disponible y que lo resuelva el administrador.
-Variables de entorno: copiar `.env.example` como `.env`. `VITE_API_URL` apunta a la API NestJS
-(aún no se consume).
-
-## Inicio de sesión
-
-El rol lo define la cuenta, no se elige en pantalla. En desarrollo (`npm run dev`) el login muestra
-un panel **Cuentas de prueba** (contraseña `Siven#2026`); fuera de desarrollo solo aparece con
-`VITE_DEMO_ACCOUNTS=true` en `.env`.
-
-Medidas aplicadas en el cliente (`config/security.ts`, `services/auth/authService.ts`):
-
-- Mensaje genérico ante credenciales incorrectas, sin revelar si el usuario existe.
-- 5 intentos fallidos → bloqueo temporal de 60 s con cuenta regresiva.
-- Intentos fallidos, bloqueos y cierres de sesión quedan en Auditoría.
-- La contraseña se borra tras un fallo y nunca se recuerda; "Recordar mi usuario" guarda solo el nombre.
-- Cierre automático tras 15 min sin actividad, con aviso y regreso a la vista anterior.
-
-### Recuperación de contraseña (`/recuperar`)
-
-Tres pasos: correo → código de 6 dígitos → contraseña nueva. La respuesta al pedir el código es
-igual exista o no el correo; el código vence a los 10 min, admite 5 intentos y se reenvía cada
-60 s (máximo 3 por correo cada 15 min). La contraseña nueva debe cumplir la política de
-`utils/passwordPolicy.ts`. La cuenta `ngomez` usa el correo de pruebas `ngomezanderson@gmail.com`.
-
-El correo real lo envía el backend (guía y plantilla en `docs/` en la raíz del repo). Mientras
-no exista ese endpoint, en desarrollo el código se muestra en pantalla.
-
-Pendiente en NestJS (lo que realmente protege): contraseñas con hash argon2/bcrypt, límite de
-intentos en el servidor (`@nestjs/throttler`), JWT en cookie `httpOnly` + `Secure` + `SameSite` y HTTPS.
 
 ## Rutas
 

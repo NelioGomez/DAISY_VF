@@ -460,6 +460,30 @@ Para corregir o ampliar el manual no hay que tocar código:
   `> **Nota:**`, `> **Importante:**` y `> **Consejo:**`, y enlaces a otro capítulo o sección
   (`[texto](?cap=pagos#registrar-un-pago)`).
 
+## Despliegue en SmarterASP.NET (un solo sitio)
+
+En producción la API de NestJS sirve también el frontend: si existe la carpeta `public` (o `FRONTEND_DIR`)
+con el `index.html` compilado, la API la publica y devuelve `index.html` en las rutas de React Router. Así
+todo queda en un mismo dominio (sin CORS ni proxy) y el WebSocket usa el mismo sitio. En desarrollo no hay
+carpeta `public` y todo sigue igual (Vite en 5173). La API confía en el proxy local (`trust proxy`) para
+registrar la IP real del cliente detrás de IIS.
+
+1. **Base de datos.** Con la base PostgreSQL de SmarterASP creada, desde `backend` en su PC (con
+   `DATABASE_URL` apuntando a esa base) revise que tenga todas las migraciones:
+   `npx prisma migrate status` y, si faltan, `npx prisma migrate deploy`. Si la base está vacía, después
+   `npx prisma db seed`.
+2. **Claves.** Copie `deploy/web.config.ejemplo` como `deploy/web.config` y cambie los valores `CAMBIAR`
+   (conexión, `JWT_SECRET` nuevo, correo). `deploy/web.config` no se sube a GitHub (.gitignore).
+3. **Paquete.** Desde la raíz, en PowerShell: `powershell -ExecutionPolicy Bypass -File deploy\preparar-despliegue.ps1`.
+   Compila frontend y backend y deja `deploy\salida` y `deploy\siven-sitio.zip` (dist, public, uploads,
+   logs, web.config y node_modules de producción).
+4. **Subir.** En el panel, *Archivos* (o FTP): suba `siven-sitio.zip` a la carpeta del sitio, descomprímalo
+   ahí y dé permiso de **escritura** a `uploads` y `logs`. Encienda el sitio.
+5. **Probar.** Abra la dirección del sitio. Si sale un error 502/500, revise `logs\node*.log`.
+
+El servidor necesita Node 22 o superior (`processPath` en `web.config`); si tiene uno más viejo, suba Node
+portátil para Windows dentro del sitio y ponga la ruta completa a `node.exe`.
+
 ## Inventario (Fase 9)
 
 | Método | Ruta | Permiso |

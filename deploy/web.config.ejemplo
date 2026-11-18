@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SIVEN en SmarterASP.NET (IIS + HttpPlatformHandler): IIS arranca Node y le pasa todas las
+  peticiones; la API de NestJS sirve también el frontend (carpeta public).
+
+  Antes de subirlo:
+  1. Copie este archivo como web.config (preparar-despliegue.ps1 lo hace solo).
+  2. Cambie cada valor CAMBIAR por el suyo. NO suba este archivo a GitHub con las claves puestas.
+  3. processPath: deje "node" si el servidor tiene Node 22 o superior. Si no, suba la carpeta de
+     Node portátil (node-v22.x-win-x64) como "node" dentro del sitio y use la ruta completa a
+     node.exe que muestra el Administrador de archivos, por ejemplo:
+     h:\root\home\neliogomez-001\www\site1\node\node.exe
+-->
+<configuration>
+  <system.webServer>
+    <handlers>
+      <add name="httpplatformhandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
+    </handlers>
+    <httpPlatform processPath="node"
+                  arguments="dist\main.js"
+                  startupTimeLimit="60"
+                  startupRetryCount="3"
+                  stdoutLogEnabled="true"
+                  stdoutLogFile=".\logs\node">
+      <environmentVariables>
+        <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
+        <environmentVariable name="NODE_ENV" value="production" />
+
+        <!-- Base de datos PostgreSQL de SmarterASP (Bases de datos > PostgreSQL > Connection string).
+             Si la clave tiene símbolos, codifíquelos: @ = %40, # = %23, : = %3A, / = %2F -->
+        <environmentVariable name="DATABASE_URL" value="postgresql://USUARIO:CLAVE@SERVIDOR:5432/BASE?schema=public" />
+
+        <!-- Clave NUEVA solo para producción: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))" -->
+        <environmentVariable name="JWT_SECRET" value="CAMBIAR" />
+        <environmentVariable name="JWT_EXPIRES_IN" value="8h" />
+        <environmentVariable name="PORTAL_JWT_EXPIRES_IN" value="2h" />
+
+        <!-- La dirección pública del sitio (sin / al final) -->
+        <environmentVariable name="CORS_ORIGIN" value="https://neliogomez-001-site1.htempurl.com" />
+        <environmentVariable name="LOG_HTTP" value="changes" />
+
+        <!-- Correo para los códigos de recuperación de contraseña (contraseña de aplicación de Gmail) -->
+        <environmentVariable name="SMTP_HOST" value="smtp.gmail.com" />
+        <environmentVariable name="SMTP_PORT" value="465" />
+        <environmentVariable name="SMTP_SECURE" value="true" />
+        <environmentVariable name="SMTP_USER" value="CAMBIAR@gmail.com" />
+        <environmentVariable name="SMTP_PASS" value="CAMBIAR" />
+        <environmentVariable name="MAIL_FROM" value="SIVEN · NORCOR &lt;CAMBIAR@gmail.com&gt;" />
+      </environmentVariables>
+    </httpPlatform>
+    <security>
+      <requestFiltering>
+        <!-- Fotos de productos de hasta 10 MB -->
+        <requestLimits maxAllowedContentLength="10485760" />
+      </requestFiltering>
+    </security>
+  </system.webServer>
+</configuration>

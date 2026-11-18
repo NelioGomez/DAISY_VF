@@ -28,8 +28,10 @@
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/platform-socket.io": "^11.2.8",
     "@nestjs/swagger": "^11.0.0",
     "@nestjs/throttler": "^6.7.1",
+    "@nestjs/websockets": "^11.2.8",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "bcrypt": "^6.0.0",
@@ -68,12 +70,21 @@
   "engines": {
     "node": ">=22"
   },
-    "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.ts$": ["ts-jest", { "tsconfig": "<rootDir>/../tsconfig.json" }]
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "tsconfig": "<rootDir>/../tsconfig.json"
+        }
+      ]
     },
     "testEnvironment": "node",
     "moduleNameMapper": {

@@ -10,13 +10,13 @@ import { useData } from '../../store/hooks';
 import type { CartLine, ConsultaWeb } from '../../types';
 import { QuotationDetailModal } from './QuotationDetailModal';
 
-export function QuotationFormModal({ solicitud }: { solicitud?: ConsultaWeb }) {
+export function QuotationFormModal({ solicitud, clienteId }: { solicitud?: ConsultaWeb; clienteId?: string }) {
   const { db, crearCotizacion, cotizarConsulta } = useData();
   const toast = useToast();
   const modal = useModal();
   const activos = db.clientes.filter((c) => c.activo);
   // Desde una solicitud sin cliente vinculado se exige elegirlo (no se adivina por el nombre).
-  const [cliId, setCliId] = useState(solicitud ? (solicitud.cliente?.id ?? '') : (activos[0]?.id ?? ''));
+  const [cliId, setCliId] = useState(solicitud ? (solicitud.cliente?.id ?? '') : (clienteId ?? activos[0]?.id ?? ''));
   const [lines, setLines] = useState<CartLine[]>(() =>
     solicitud?.items.length ? solicitud.items.filter((i) => i.activo).map((i) => ({ prod: i.prod, cant: i.cant })) : [{ prod: '', cant: 1 }],
   );

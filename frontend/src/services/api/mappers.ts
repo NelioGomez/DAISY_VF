@@ -60,7 +60,7 @@ export const ROLE_FROM_API: Record<ApiRole, RoleKey> = {
 export const METHOD_FROM_API: Record<ApiPaymentMethod, MetodoPago> = { CASH: 'Contado', TRANSFER: 'Transferencia', CREDIT: 'Crédito' };
 export const METHOD_TO_API: Record<MetodoPago, ApiPaymentMethod> = { Contado: 'CASH', Transferencia: 'TRANSFER', Crédito: 'CREDIT' };
 
-const PAYMENT_STATUS: Record<ApiPaymentStatus, EstadoVenta> = { PAID: 'Pagada', PARTIAL: 'Parcial', PENDING: 'Pendiente' };
+export const PAYMENT_STATUS: Record<ApiPaymentStatus, EstadoVenta> = { PAID: 'Pagada', PARTIAL: 'Parcial', PENDING: 'Pendiente' };
 
 export const QUOTATION_STATUS: Record<ApiQuotationStatus, EstadoCotizacion> = {
   DRAFT: 'Borrador', PENDING: 'Pendiente', APPROVED: 'Aprobada', REJECTED: 'Rechazada', CONVERTED: 'Convertida', EXPIRED: 'Vencida',

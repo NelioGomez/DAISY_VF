@@ -170,7 +170,10 @@ sesión de los clientes). Los datos de contacto del sitio público se guardan co
 | `/nosotros` · `/contacto` | Empresa (misión/visión marcadas como propuesta) y contacto con formulario |
 | `/clientes/ingresar` · `/clientes/registro` | Acceso de clientes, separado del acceso interno |
 | `/clientes/cuenta/solicitudes` · `/cotizaciones` · `/perfil` | Portal del cliente |
-| `/login` · `/app/...` | Sistema interno (Compras en `/app/compras`, POS en `/app/ventas/nueva`) |
+| `/login` · `/app/...` | Sistema interno (Compras en `/app/compras`, POS en `/app/ventas/nueva`; `?cliente=<id>` preselecciona el cliente) |
+
+En el sistema interno: **Ctrl + K** abre la búsqueda global, **Alt + V** una venta nueva, **Alt + C** una
+cotización nueva y **Esc** cierra ventanas y paneles. Cotizaciones tiene vista de tabla y de pipeline.
 
 ### Endpoints nuevos
 
@@ -186,6 +189,8 @@ sesión de los clientes). Los datos de contacto del sitio público se guardan co
 | `GET/POST /portal/inquiries`, `GET /portal/inquiries/:id` | Lista de cotización enviada y su seguimiento |
 | `GET /portal/quotations`, `GET /portal/quotations/:id` | Cotizaciones del cliente (sin borradores) |
 | `GET /public/products/:id` · `GET /public/categories` | Ficha pública con relacionados; categorías con cantidad y precio "desde" |
+| `GET /search?q=` | Búsqueda global (Ctrl + K) en los módulos que el rol puede leer |
+| `GET /customers/:id/summary` | Perfil 360° del cliente: indicadores e historial de ventas, cotizaciones, solicitudes, pagos y OPI |
 | `GET /dashboard/summary` (ampliado) | Ventas de los 30 días anteriores, conversión de cotizaciones, antigüedad de CxC, compras por recibir y pendientes accionables (campana y "Pendientes para hoy") |
 
 El token de cliente no sirve en la API interna y el del personal no sirve en `/portal`.

@@ -6,7 +6,7 @@ import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { Cliente } from '../../types';
 
-export function CustomerFormModal({ cliente }: { cliente?: Cliente }) {
+export function CustomerFormModal({ cliente, onSaved }: { cliente?: Cliente; onSaved?(id: string): void }) {
   const { guardarCliente } = useData();
   const toast = useToast();
   const { close } = useModal();
@@ -26,6 +26,7 @@ export function CustomerFormModal({ cliente }: { cliente?: Cliente }) {
     if (!r.ok) return toast(r.error, 'err');
     toast('Cliente guardado', 'ok');
     close();
+    onSaved?.(r.data);
   };
 
   return (

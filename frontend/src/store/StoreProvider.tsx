@@ -330,7 +330,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       guardarProducto: (id, d) =>
         run(async () => {
           const body = {
-            sku: d.sku, name: d.nombre, description: d.descripcion || undefined,
+            sku: d.sku, barcode: d.codigoBarras.trim() || null, name: d.nombre, description: d.descripcion || undefined,
             categoryId: d.categoriaId, brandId: d.marcaId, minStock: d.stockMin, maxStock: d.stockMax,
           };
           if (id) {
@@ -363,8 +363,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       guardarCliente: (id, d) =>
         run(async () => {
           const body = { name: d.nombre, ruc: emptyToNull(d.ruc), contactName: emptyToNull(d.contacto), phone: emptyToNull(d.tel), email: emptyToNull(d.correo), address: emptyToNull(d.dir) };
-          if (id) await api.patch(`/customers/${id}`, body);
-          else await api.post('/customers', body);
+          if (id) {
+            await api.patch(`/customers/${id}`, body);
+            return id;
+          }
+          const created = await api.post<{ id: string }>('/customers', body);
+          return created.id;
         }, ['clientes', 'auditoria']),
 
       guardarProveedor: (id, d) =>

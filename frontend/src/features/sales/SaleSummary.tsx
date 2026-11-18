@@ -3,6 +3,7 @@
    informa qué va a pasar. */
 import type { CondicionesPago } from '../../store/storeContext';
 import { fmtDate, isoInDays, money } from '../../utils/format';
+import type { Efectivo } from './paymentTerms';
 import { stockWarnings, type SummaryLine } from './stockWarnings';
 
 interface SaleSummaryProps {
@@ -10,9 +11,10 @@ interface SaleSummaryProps {
   lines: SummaryLine[];
   totals: { sub: number; iva: number; total: number };
   terms: CondicionesPago;
+  efectivo?: Efectivo | null;
 }
 
-export function SaleSummary({ cliente, lines, totals, terms }: SaleSummaryProps) {
+export function SaleSummary({ cliente, lines, totals, terms, efectivo }: SaleSummaryProps) {
   const unidades = lines.reduce((n, l) => n + l.cant, 0);
   const warnings = stockWarnings(lines);
   const credito = terms.metodo === 'Crédito';
@@ -42,6 +44,16 @@ export function SaleSummary({ cliente, lines, totals, terms }: SaleSummaryProps)
             </>
           )}
         </dd>
+        {efectivo && (
+          <>
+            <dt>Efectivo recibido</dt>
+            <dd className="mono">{money(efectivo.recibido)}</dd>
+            <dt>Vuelto</dt>
+            <dd className="mono" style={{ fontWeight: 700 }}>
+              {money(efectivo.vuelto)}
+            </dd>
+          </>
+        )}
         {credito && (
           <>
             <dt>Saldo por cobrar</dt>

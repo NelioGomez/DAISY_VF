@@ -22,6 +22,8 @@ import type {
 
 export interface ProductoInput {
   sku: string;
+  /** '' = sin código de barras. */
+  codigoBarras: string;
   nombre: string;
   descripcion: string;
   categoriaId: string | null;
@@ -100,7 +102,8 @@ export interface DataActions {
   guardarProducto(id: string | null, data: ProductoInput): Promise<Result>;
   cambiarEstadoProducto(id: string, activo: boolean): Promise<Result>;
   registrarMovimiento(data: MovimientoInput): Promise<Result<{ sku: string; stock: number }>>;
-  guardarCliente(id: string | null, data: ClienteInput): Promise<Result>;
+  /** Devuelve el id del cliente (nuevo o editado). */
+  guardarCliente(id: string | null, data: ClienteInput): Promise<Result<string>>;
   guardarProveedor(id: string | null, data: ProveedorInput): Promise<Result>;
   crearCotizacion(cliId: string, lines: CartLine[], notas: string): Promise<Result<{ id: string; codigo: string }>>;
   cambiarEstadoCotizacion(id: string, accion: 'submit' | 'approve' | 'reject', motivo?: string): Promise<Result>;

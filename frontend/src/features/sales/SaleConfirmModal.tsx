@@ -6,6 +6,7 @@ import { useModal } from '../../components/modals/useModal';
 import { useData } from '../../store/hooks';
 import type { CondicionesPago } from '../../store/storeContext';
 import { InvoiceModal } from './InvoiceModal';
+import type { Efectivo } from './paymentTerms';
 import { SaleSummary } from './SaleSummary';
 import { stockWarnings, type SummaryLine } from './stockWarnings';
 
@@ -15,10 +16,11 @@ interface Props {
   lines: SummaryLine[];
   totals: { sub: number; iva: number; total: number };
   terms: CondicionesPago;
+  efectivo?: Efectivo | null;
   onDone(): void;
 }
 
-export function SaleConfirmModal({ cliId, cliente, lines, totals, terms, onDone }: Props) {
+export function SaleConfirmModal({ cliId, cliente, lines, totals, terms, efectivo, onDone }: Props) {
   const { confirmarVenta } = useData();
   const toast = useToast();
   const modal = useModal();
@@ -37,7 +39,7 @@ export function SaleConfirmModal({ cliId, cliente, lines, totals, terms, onDone 
     if (!r.ok) return toast(r.error, 'err');
     toast(`Venta ${r.data.factura} registrada`, 'ok');
     onDone();
-    modal.open(<InvoiceModal ventaId={r.data.ventaId} />);
+    modal.open(<InvoiceModal ventaId={r.data.ventaId} efectivo={efectivo} />);
   };
 
   return (
@@ -52,7 +54,7 @@ export function SaleConfirmModal({ cliId, cliente, lines, totals, terms, onDone 
         </>
       }
     >
-      <SaleSummary cliente={cliente} lines={lines} totals={totals} terms={terms} />
+      <SaleSummary cliente={cliente} lines={lines} totals={totals} terms={terms} efectivo={efectivo} />
     </Modal>
   );
 }

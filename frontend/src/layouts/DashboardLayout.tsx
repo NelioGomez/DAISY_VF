@@ -17,7 +17,7 @@ import type { ModuleId } from '../types';
 
 /** Pantallas dentro de un módulo (título propio y breadcrumb). */
 const SUBPAGES: Record<string, string> = {
-  '/app/ventas/nueva': 'Nueva venta (POS)',
+  '/app/ventas/nueva': 'Punto de venta',
 };
 
 function useClock(): string {
@@ -106,16 +106,22 @@ export function DashboardLayout() {
         </div>
         <nav className="nav">
           {MENU.map((group) => {
-            const items = group.items.filter((it) => allowed.includes(it.id));
+            const items = group.items.filter((it) => allowed.includes(it.id) && (!it.perm || can(it.perm)));
             if (!items.length) return null;
             return (
               <div key={group.grp}>
                 <div className="nav-group">{group.grp}</div>
                 {items.map((it) => (
-                  <NavLink key={it.id} to={`/app/${it.id}`} onClick={() => setMenuOpen(false)} className={({ isActive }) => (isActive ? 'active' : '')}>
+                  <NavLink
+                    key={it.to ?? it.id}
+                    to={it.to ?? `/app/${it.id}`}
+                    end={it.end}
+                    onClick={() => setMenuOpen(false)}
+                    className={({ isActive }) => (isActive ? 'active' : '')}
+                  >
                     <span className="ic">{it.ic}</span>
                     {it.t}
-                    {!!badges[it.id] && <span className="badge">{badges[it.id]}</span>}
+                    {!it.to && !!badges[it.id] && <span className="badge">{badges[it.id]}</span>}
                   </NavLink>
                 ))}
               </div>

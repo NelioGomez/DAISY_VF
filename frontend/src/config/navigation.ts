@@ -28,6 +28,12 @@ export interface MenuItem {
   id: ModuleId;
   t: string;
   ic: string;
+  /** Ruta propia dentro del módulo (p. ej. el punto de venta dentro de Ventas). */
+  to?: string;
+  /** Permiso adicional para mostrar la entrada. */
+  perm?: string;
+  /** Activo solo con la ruta exacta (para no marcarse junto a sus subpantallas). */
+  end?: boolean;
 }
 
 export interface MenuGroup {
@@ -40,11 +46,12 @@ export const MENU: MenuGroup[] = [
     grp: 'Operación',
     items: [
       { id: 'dashboard', t: 'Dashboard', ic: '▦' },
+      { id: 'ventas', t: 'Punto de venta', ic: '⊞', to: '/app/ventas/nueva', perm: 'sales:write' },
       { id: 'productos', t: 'Productos', ic: '▣' },
       { id: 'inventario', t: 'Inventario', ic: '▤' },
       { id: 'compras', t: 'Compras', ic: '⇩' },
       { id: 'cotizaciones', t: 'Cotizaciones', ic: '▥' },
-      { id: 'ventas', t: 'Ventas y Facturación', ic: '▧' },
+      { id: 'ventas', t: 'Ventas y Facturación', ic: '▧', end: true },
       { id: 'pagos', t: 'Pagos y CxC', ic: '▨' },
       { id: 'ordenes', t: 'Órdenes OPI', ic: '▩' },
     ],

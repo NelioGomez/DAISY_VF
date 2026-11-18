@@ -15,7 +15,8 @@ export const LOCKOUT_SECONDS = 60;
 export const SESSION_IDLE_MINUTES = 15;
 
 /** Longitudes máximas aceptadas en el formulario. */
-export const USERNAME_MAX = 50;
+/** Usuario (hasta 50) o correo (hasta 150). */
+export const USERNAME_MAX = 150;
 export const PASSWORD_MAX = 128;
 
 /**

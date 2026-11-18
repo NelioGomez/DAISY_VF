@@ -1,4 +1,5 @@
-/* MÓDULO: CONSULTAS WEB (RF-17) — solicitudes enviadas desde el catálogo público. */
+/* MÓDULO: CONSULTAS WEB (RF-17) — solicitudes del catálogo público.
+   Se conservan siempre (evidencia): Nueva → En revisión → Cotizada → Cerrada; Cancelada para spam o duplicadas. */
 import { useState } from 'react';
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
@@ -19,16 +20,20 @@ export function WebInquiriesPage() {
     const r = await cambiarEstadoConsulta(c.id, estado);
     setBusy(null);
     if (!r.ok) return toast(r.error, 'err');
-    toast(`Consulta de ${c.nombre}: ${estado.toLowerCase()}`, 'ok');
+    toast(`${c.codigo || 'Solicitud'} de ${c.nombre}: ${estado.toLowerCase()}`, 'ok');
   };
 
   return (
     <>
-      <ViewHead title="Consultas Web" desc="Solicitudes enviadas por clientes desde el catálogo público (RF-17)." />
+      <ViewHead
+        title="Consultas Web"
+        desc="Solicitudes enviadas desde el catálogo público (RF-17). Nunca se borran: quedan como evidencia aunque se coticen."
+      />
       <div className="tablewrap">
         <table>
           <thead>
             <tr>
+              <th>Código</th>
               <th>Fecha</th>
               <th>Cliente / Empresa</th>
               <th>Contacto</th>
@@ -39,9 +44,10 @@ export function WebInquiriesPage() {
             </tr>
           </thead>
           <tbody>
-            {!db.consultas.length && <EmptyRow cols={7} msg="Sin consultas" />}
+            {!db.consultas.length && <EmptyRow cols={8} msg="Sin consultas" />}
             {db.consultas.map((c) => (
               <tr key={c.id}>
+                <td className="mono">{c.codigo || '—'}</td>
                 <td className="mono">{fmtDate(c.fecha)}</td>
                 <td>
                   <b>{c.nombre}</b>
@@ -54,13 +60,18 @@ export function WebInquiriesPage() {
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   {can('inquiries:write') && c.estado === 'Nueva' && (
-                    <button className="b b-green b-sm" disabled={busy === c.id} onClick={() => cambiar(c, 'Atendida')}>
-                      Marcar atendida
+                    <button className="b b-green b-sm" disabled={busy === c.id} onClick={() => cambiar(c, 'En revisión')}>
+                      En revisión
                     </button>
-                  )}
-                  {can('inquiries:write') && c.estado === 'Atendida' && (
+                  )}{' '}
+                  {can('inquiries:write') && ['Nueva', 'En revisión', 'Cotizada'].includes(c.estado) && (
                     <button className="b b-out b-sm" disabled={busy === c.id} onClick={() => cambiar(c, 'Cerrada')}>
                       Cerrar
+                    </button>
+                  )}{' '}
+                  {can('inquiries:write') && ['Nueva', 'En revisión'].includes(c.estado) && (
+                    <button className="b b-red b-sm" disabled={busy === c.id} onClick={() => cambiar(c, 'Cancelada')} title="Spam, duplicada o datos falsos">
+                      Cancelar
                     </button>
                   )}
                 </td>

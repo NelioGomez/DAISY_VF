@@ -90,13 +90,21 @@ El menú de cada usuario sale de sus permisos reales en el servidor.
 
 ### Recuperación de contraseña (`/recuperar`)
 
-Tres pasos: correo → código de 6 dígitos → contraseña nueva. El frontend llama primero a
-`/auth/forgot-password`, `/auth/verify-reset-code` y `/auth/reset-password` (contrato y guía en
-`docs/recuperacion-contrasena.md`). **El backend todavía no tiene esos endpoints**, así que:
+Tres pasos reales contra la API: correo → código de 6 dígitos → contraseña nueva
+(`/auth/forgot-password`, `/auth/verify-reset-code`, `/auth/reset-password`). El código vence a los
+10 min, admite 5 intentos y se reenvía cada 60 s; la contraseña nueva cumple la política de
+`utils/passwordPolicy.ts` (el servidor valida la misma). Al cambiarla se cierran las sesiones
+abiertas con la anterior. Sin SMTP configurado en el backend, el código aparece en su terminal.
+Si el backend no tuviera esas rutas (404), en desarrollo se usa una simulación y se avisa.
 
-- en desarrollo se usa una simulación: el código aparece en pantalla y la contraseña real no cambia
-  (se avisa al terminar);
-- en producción se indica que la recuperación no está disponible y que lo resuelva el administrador.
+### Otros cambios ligados a la base de datos
+
+- **Login con usuario o correo** (ambos sin distinguir mayúsculas).
+- **Impuesto desde la configuración** (`GET /settings`): en cuota fija las ventas y cotizaciones
+  muestran "sin IVA"; si Administración activa el IVA, la vista previa lo calcula con esa tasa.
+- **Precio comercial con historial:** botón *Precio* en Productos e Inventario para quien tiene
+  `prices:write` (Administración, Gerencia). Inventario da de alta productos sin precio.
+- **Solicitudes web** con código `SOL-000001` y estados Nueva → En revisión → Cotizada → Cerrada / Cancelada.
 
 ## Rutas
 

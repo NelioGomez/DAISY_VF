@@ -35,6 +35,7 @@ const MODULE_LABEL: Record<string, string> = {
   payments: 'Pagos',
   'service-orders': 'Órdenes OPI',
   inquiries: 'Consultas web',
+  settings: 'Configuración',
 };
 
 /** El backend redacta la bitácora con los códigos de la API; se traducen para el aviso. */

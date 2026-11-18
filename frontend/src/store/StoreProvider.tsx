@@ -12,8 +12,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, api, errorMessage, getAll, setAuthToken, setUnauthorizedHandler } from '../services/api/client';
 import {
-  INQUIRY_TO_API, METHOD_TO_API, MOVEMENT_TO_API, mapAuditoria, mapCatalogo, mapCliente, mapConsulta, mapCotizacion,
-  mapCxc, mapDashboard, mapMovimiento, mapOrden, mapPago, mapProducto, mapProveedor, mapTecnico, mapVenta,
+  DEFAULT_CONFIG, INQUIRY_TO_API, METHOD_TO_API, MOVEMENT_TO_API, mapAuditoria, mapCatalogo, mapCliente, mapConsulta, mapCotizacion,
+  mapConfig, mapCxc, mapDashboard, mapMovimiento, mapOrden, mapPago, mapProducto, mapProveedor, mapTecnico, mapVenta,
 } from '../services/api/mappers';
 import * as authService from '../services/auth/authService';
 import { connectRealtime, disconnectRealtime, type ChangeEvent, type RealtimeStatus } from '../services/realtime/realtime';
@@ -23,7 +23,7 @@ import {
   type RefreshKey, type StoreValue,
 } from './storeContext';
 
-const ALL_KEYS: RefreshKey[] = ['productos', 'catalogos', 'movimientos', 'clientes', 'proveedores', 'ventas', 'cotizaciones', 'pagos', 'cxc', 'ordenes', 'consultas', 'auditoria', 'dashboard'];
+const ALL_KEYS: RefreshKey[] = ['config', 'productos', 'catalogos', 'movimientos', 'clientes', 'proveedores', 'ventas', 'cotizaciones', 'pagos', 'cxc', 'ordenes', 'consultas', 'auditoria', 'dashboard'];
 
 /** Qué colecciones recargar cuando el servidor avisa que cambió un módulo. */
 const CHANGE_KEYS: Record<string, RefreshKey[]> = {
@@ -38,6 +38,7 @@ const CHANGE_KEYS: Record<string, RefreshKey[]> = {
   payments: ['pagos', 'cxc', 'ventas', 'clientes', 'dashboard'],
   'service-orders': ['ordenes', 'dashboard'],
   inquiries: ['consultas', 'dashboard'],
+  settings: ['config', 'dashboard'],
 };
 
 /** Espera breve para juntar varios avisos seguidos en una sola recarga. */
@@ -48,6 +49,7 @@ const SESSION_KEY = 'siven.session';
 const EMPTY_DB: Database = {
   productos: [], categorias: [], marcas: [], clientes: [], proveedores: [], movimientos: [], inventarioValor: 0,
   ventas: [], cotizaciones: [], pagos: [], cxc: [], ordenes: [], tecnicos: [], consultas: [], auditoria: [], dashboard: null,
+  config: DEFAULT_CONFIG,
 };
 
 interface StoredSession {
@@ -148,6 +150,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       consultas: async () => (has('inquiries:read') ? { consultas: (await getAll<Json>('/inquiries')).items.map(mapConsulta) } : {}),
       auditoria: async () => (has('audit:read') ? { auditoria: (await getAll<Json>('/audit', {}, 1)).items.map(mapAuditoria) } : {}),
       dashboard: async () => (has('dashboard:read') ? { dashboard: mapDashboard(await api.get<Json>('/dashboard/summary')) } : {}),
+      // Impuesto y datos de la empresa: cualquier usuario autenticado.
+      config: async () => ({ config: mapConfig(await api.get<Json>('/settings')) }),
     };
   }, []);
 
@@ -304,10 +308,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         run(async () => {
           const body = {
             sku: d.sku, name: d.nombre, description: d.descripcion || undefined,
-            categoryId: d.categoriaId, brandId: d.marcaId, salePrice: d.precio, minStock: d.stockMin,
+            categoryId: d.categoriaId, brandId: d.marcaId, minStock: d.stockMin,
           };
-          if (id) await api.patch(`/products/${id}`, body);
-          else await api.post('/products', body);
+          if (id) {
+            await api.patch(`/products/${id}`, body);
+            // El precio tiene su propia sección (permiso prices:write) y queda en el historial.
+            if (d.precio !== undefined) await api.patch(`/products/${id}/price`, { salePrice: d.precio, ...(d.motivoPrecio ? { reason: d.motivoPrecio } : {}) });
+          } else {
+            await api.post('/products', { ...body, ...(d.precio !== undefined && { salePrice: d.precio }) });
+          }
         }, ['productos', 'catalogos', 'dashboard', 'auditoria']),
 
       cambiarEstadoProducto: (id, activo) =>
@@ -379,6 +388,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
 
+      cambiarPrecio: (productoId, precio, motivo) =>
+        run(
+          () => api.patch(`/products/${productoId}/price`, { salePrice: precio, ...(motivo.trim() ? { reason: motivo.trim() } : {}) }).then(() => undefined),
+          ['productos', 'dashboard', 'auditoria'],
+        ),
+
+      historialPrecios: async (productoId) => {
+        try {
+          const rows = await api.get<Json[]>(`/products/${productoId}/prices`);
+          return ok(
+            rows.map((r) => ({
+              id: String(r.id),
+              precio: Number(r.price),
+              desde: String(r.validFrom),
+              hasta: r.validTo ? String(r.validTo) : null,
+              motivo: String(r.reason ?? ''),
+              usuario: r.changedBy ? `@${r.changedBy.username}` : 'Sistema',
+            })),
+          );
+        } catch (e) {
+          return fail(errorMessage(e));
+        }
+      },
+
       anularVenta: (id, motivo) => run(() => api.post(`/sales/${id}/void`, { reason: motivo }).then(() => undefined), SALE_KEYS),
 
       registrarPago: (ventaId, monto, metodo, referencia) =>
@@ -402,9 +435,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       crearConsulta: async (nombre, contacto, producto, msg) => {
         try {
-          await api.post('/public/inquiries', { name: nombre.trim(), contact: contacto.trim(), ...(producto.trim() ? { productInterest: producto.trim() } : {}), ...(msg.trim() ? { message: msg.trim() } : {}) }, false);
+          const r = await api.post<{ code?: string }>('/public/inquiries', { name: nombre.trim(), contact: contacto.trim(), ...(producto.trim() ? { productInterest: producto.trim() } : {}), ...(msg.trim() ? { message: msg.trim() } : {}) }, false);
           if (userRef.current) await refresh(['consultas', 'dashboard']);
-          return ok(undefined);
+          return ok(r?.code);
         } catch (e) {
           return fail(errorMessage(e));
         }

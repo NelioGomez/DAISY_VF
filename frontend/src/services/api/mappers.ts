@@ -4,9 +4,29 @@
    solo se ajusta este archivo.
    ===================================================================== */
 import type {
-  Catalogo, Cliente, ConsultaWeb, Cotizacion, CuentaPorCobrar, DashboardResumen, EstadoConsulta, EstadoCotizacion,
-  EstadoOrden, EstadoVenta, LineaDocumento, MetodoPago, Movimiento, OrdenServicio, Pago, Producto, Proveedor,
-  RegistroAuditoria, RoleKey, Tecnico, TipoMovimiento, Venta,
+  Catalogo,
+  Cliente,
+  ConsultaWeb,
+  Cotizacion,
+  CuentaPorCobrar,
+  DashboardResumen,
+  EstadoConsulta,
+  EstadoCotizacion,
+  EstadoOrden,
+  EstadoVenta,
+  LineaDocumento,
+  MetodoPago,
+  Movimiento,
+  OrdenServicio,
+  Pago,
+  Producto,
+  Proveedor,
+  RegistroAuditoria,
+  RoleKey,
+  Tecnico,
+  TipoMovimiento,
+  Venta,
+  Configuracion,
 } from '../../types';
 
 /* ---------- Códigos de la API ---------- */
@@ -16,7 +36,7 @@ export type ApiPaymentMethod = 'CASH' | 'TRANSFER' | 'CREDIT';
 export type ApiPaymentStatus = 'PAID' | 'PARTIAL' | 'PENDING';
 export type ApiQuotationStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CONVERTED' | 'EXPIRED';
 export type ApiServiceOrderStatus = 'REGISTERED' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'INVOICED' | 'CANCELLED';
-export type ApiInquiryStatus = 'NEW' | 'ATTENDED' | 'CLOSED';
+export type ApiInquiryStatus = 'NEW' | 'IN_REVIEW' | 'QUOTED' | 'CLOSED' | 'CANCELLED';
 export type ApiMovementType = 'ENTRY' | 'EXIT' | 'ADJUSTMENT';
 
 export const ROLE_FROM_API: Record<ApiRole, RoleKey> = {
@@ -41,8 +61,12 @@ export const ORDER_STATUS: Record<ApiServiceOrderStatus, EstadoOrden> = {
   REGISTERED: 'Registrada', ASSIGNED: 'Asignada', IN_PROGRESS: 'En proceso', COMPLETED: 'Completada', INVOICED: 'Facturada', CANCELLED: 'Cancelada',
 };
 
-export const INQUIRY_STATUS: Record<ApiInquiryStatus, EstadoConsulta> = { NEW: 'Nueva', ATTENDED: 'Atendida', CLOSED: 'Cerrada' };
-export const INQUIRY_TO_API: Record<EstadoConsulta, ApiInquiryStatus> = { Nueva: 'NEW', Atendida: 'ATTENDED', Cerrada: 'CLOSED' };
+export const INQUIRY_STATUS: Record<ApiInquiryStatus, EstadoConsulta> = {
+  NEW: 'Nueva', IN_REVIEW: 'En revisión', QUOTED: 'Cotizada', CLOSED: 'Cerrada', CANCELLED: 'Cancelada',
+};
+export const INQUIRY_TO_API: Record<EstadoConsulta, ApiInquiryStatus> = {
+  Nueva: 'NEW', 'En revisión': 'IN_REVIEW', Cotizada: 'QUOTED', Cerrada: 'CLOSED', Cancelada: 'CANCELLED',
+};
 
 const MOVEMENT_TYPE: Record<ApiMovementType, TipoMovimiento> = { ENTRY: 'Entrada', EXIT: 'Salida', ADJUSTMENT: 'Ajuste' };
 export const MOVEMENT_TO_API: Record<TipoMovimiento, ApiMovementType> = { Entrada: 'ENTRY', Salida: 'EXIT', Ajuste: 'ADJUSTMENT' };
@@ -217,6 +241,7 @@ export const mapTecnico = (t: Json): Tecnico => ({ id: t.id, nombre: fullName(t)
 
 export const mapConsulta = (c: Json): ConsultaWeb => ({
   id: c.id,
+  codigo: s(c.code),
   fecha: s(c.createdAt),
   nombre: s(c.name),
   contacto: s(c.contact),
@@ -286,4 +311,18 @@ export const mapDashboard = (d: Json): DashboardResumen => ({
   },
   consultasNuevas: n(d.inquiries?.new),
   alertas: (d.alerts ?? []).map((a: Json) => ({ tipo: s(a.type), severidad: s(a.severity), mensaje: s(a.message) })),
+});
+
+export const DEFAULT_CONFIG: Configuracion = {
+  taxRate: 0,
+  taxRegime: 'CUOTA_FIJA',
+  creditTermDays: 15,
+  empresa: { name: 'NORCOR FUELING SYSTEM', phone: '', email: '', whatsapp: '', address: '' },
+};
+
+export const mapConfig = (c: Json): Configuracion => ({
+  taxRate: n(c?.taxRate),
+  taxRegime: s(c?.taxRegime) || 'CUOTA_FIJA',
+  creditTermDays: n(c?.creditTermDays) || 15,
+  empresa: { ...DEFAULT_CONFIG.empresa, ...(c?.company ?? {}) },
 });

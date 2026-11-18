@@ -23,7 +23,7 @@ export function PublicInquiryModal({ producto }: { producto?: string }) {
     setSending(false);
     if (!r.ok) return toast(r.error, 'err');
     close();
-    toast('¡Solicitud enviada! Le contactaremos pronto.', 'ok');
+    toast(r.data ? `¡Solicitud ${r.data} enviada! Le contactaremos pronto.` : '¡Solicitud enviada! Le contactaremos pronto.', 'ok');
   };
 
   return (

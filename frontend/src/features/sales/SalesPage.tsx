@@ -24,7 +24,7 @@ export function SalesPage() {
     <>
       <ViewHead
         title="Ventas y Facturación"
-        desc="Registra ventas: el servidor calcula el IVA, genera la factura, descuenta el inventario y crea la cuenta por cobrar."
+        desc="Registra ventas: el servidor aplica el impuesto configurado, genera la factura, descuenta el inventario y crea la cuenta por cobrar."
         actions={
           <>
             <button className="b b-out" onClick={exportVentas}>

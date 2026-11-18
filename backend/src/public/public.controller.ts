@@ -4,7 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { ClientIp } from '../common/decorators/client-ip.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { InquiriesService } from '../inquiries/inquiries.service';
-import { CreateInquiryDto, PublicProductFilterDto } from './dto/public.dto';
+import { CompareProductsDto, CreateInquiryDto, PublicProductFilterDto } from './dto/public.dto';
 import { PublicCatalogService } from './public-catalog.service';
 
 /** Todo lo de este controlador es accesible sin iniciar sesión. */
@@ -22,6 +22,14 @@ export class PublicController {
   @ApiOperation({ summary: 'Catálogo público: productos activos con búsqueda, filtros y paginación (sin costos ni stock exacto)' })
   products(@Query() filter: PublicProductFilterDto) {
     return this.catalog.products(filter);
+  }
+
+  @Get('products/compare')
+  @Header('Cache-Control', 'public, max-age=60')
+  @ApiOperation({ summary: 'Compara de 2 a 4 productos publicados (?ids=a,b,c): características y diferencias' })
+  @ApiResponse({ status: 422, description: 'Menos de 2, más de 4 o identificadores inválidos' })
+  compare(@Query() dto: CompareProductsDto) {
+    return this.catalog.compare(dto.ids);
   }
 
   @Get('products/:id')

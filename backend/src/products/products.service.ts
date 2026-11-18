@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { LOCATION_IDS } from '../common/constants/locations';
@@ -20,6 +21,7 @@ import { MOVEMENT_ORIGIN_INCLUDE, movementOrigin } from '../inventory/movement-o
 import { daysOfCover, rotationOf } from '../inventory/rotation';
 import { PrismaService } from '../prisma/prisma.service';
 import { ts } from '../reports/report-sql';
+import { detectImageType, MAX_IMAGE_BYTES, removeUploadedImage, saveProductImage, UPLOADS_PREFIX } from './product-images';
 import {
   CreateProductDto,
   FilterProductDto,
@@ -152,6 +154,7 @@ export class ProductsService {
   }
 
   async create(dto: CreateProductDto, actor: AuthUser, ip?: string) {
+    this.assertNotUploadPath(dto.imageUrl);
     await this.assertSkuFree(dto.sku);
     if (dto.barcode) await this.assertBarcodeFree(dto.barcode);
     await this.assertRelations(dto.categoryId, dto.brandId);
@@ -194,6 +197,7 @@ export class ProductsService {
 
   async update(id: string, dto: UpdateProductDto, actor: AuthUser, ip?: string) {
     const existing = await this.findOne(id);
+    if (dto.imageUrl !== existing.imageUrl) this.assertNotUploadPath(dto.imageUrl);
     if (dto.sku && dto.sku !== existing.sku) await this.assertSkuFree(dto.sku, id);
     if (dto.barcode) await this.assertBarcodeFree(dto.barcode, id);
     await this.assertRelations(dto.categoryId, dto.brandId);
@@ -225,6 +229,8 @@ export class ProductsService {
       });
     })) as ProductRow;
 
+    // Si se quitó o cambió una foto subida, su archivo ya no se usa.
+    if (dto.imageUrl !== undefined && existing.imageUrl !== updated.imageUrl) await removeUploadedImage(existing.imageUrl);
     const detail = priceChanges ? ` (precio C$ ${existing.salePrice} → C$ ${dto.salePrice})` : '';
     await this.log(actor, 'UPDATE', id, `Producto ${updated.sku} modificado${detail}`, ip);
     return this.toDto(updated);
@@ -247,12 +253,66 @@ export class ProductsService {
     return this.toDto(updated);
   }
 
+  /**
+   * Sube o reemplaza la foto del producto (mejora n.° 4). Solo JPG, PNG o WebP de hasta 2 MB
+   * (el navegador la reduce antes de enviarla); la foto anterior subida se borra del disco.
+   */
+  async setImage(id: string, file: { buffer: Buffer; size: number } | undefined, actor: AuthUser, ip?: string) {
+    if (!file?.buffer?.length) {
+      throw new UnprocessableEntityException({ message: 'Error de validación', errors: [{ field: 'file', message: 'Adjunte la foto en el campo "file"' }] });
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      throw new UnprocessableEntityException({ message: 'Error de validación', errors: [{ field: 'file', message: 'La foto no puede pasar de 2 MB' }] });
+    }
+    const ext = detectImageType(file.buffer);
+    if (!ext) {
+      throw new UnprocessableEntityException({ message: 'Error de validación', errors: [{ field: 'file', message: 'Formato no admitido: use JPG, PNG o WebP' }] });
+    }
+    const existing = await this.prisma.product.findUnique({ where: { id }, select: { sku: true, imageUrl: true } });
+    if (!existing) throw new NotFoundException('Producto no encontrado');
+
+    const url = await saveProductImage(id, file.buffer, ext);
+    let updated: ProductRow;
+    try {
+      updated = (await this.prisma.product.update({ where: { id }, data: { imageUrl: url }, select: PRODUCT_SELECT })) as ProductRow;
+    } catch (error) {
+      await removeUploadedImage(url);
+      throw error;
+    }
+    await removeUploadedImage(existing.imageUrl);
+    await this.log(actor, 'UPDATE', id, `Foto del producto ${updated.sku} ${existing.imageUrl ? 'reemplazada' : 'agregada'}`, ip);
+    return this.toDto(updated);
+  }
+
+  /** Las rutas de fotos subidas solo las asigna POST /products/:id/image (no se copian de otro producto). */
+  private assertNotUploadPath(imageUrl: string | null | undefined): void {
+    if (imageUrl?.startsWith(UPLOADS_PREFIX)) {
+      throw new UnprocessableEntityException({
+        message: 'Error de validación',
+        errors: [{ field: 'imageUrl', message: 'Las fotos se suben desde el formulario del producto (POST /products/:id/image)' }],
+      });
+    }
+  }
+
+  /** Quita la foto (si era una subida, también borra el archivo). */
+  async removeImage(id: string, actor: AuthUser, ip?: string) {
+    const existing = await this.prisma.product.findUnique({ where: { id }, select: { sku: true, imageUrl: true } });
+    if (!existing) throw new NotFoundException('Producto no encontrado');
+    const updated = (await this.prisma.product.update({ where: { id }, data: { imageUrl: null }, select: PRODUCT_SELECT })) as ProductRow;
+    if (existing.imageUrl) {
+      await removeUploadedImage(existing.imageUrl);
+      await this.log(actor, 'UPDATE', id, `Foto del producto ${updated.sku} quitada`, ip);
+    }
+    return this.toDto(updated);
+  }
+
   /** Solo se elimina físicamente un producto sin movimientos, cotizaciones ni ventas. */
   async remove(id: string, actor: AuthUser, ip?: string): Promise<void> {
     const product = await this.prisma.product.findUnique({
       where: { id },
       select: {
         sku: true,
+        imageUrl: true,
         _count: { select: { movements: true, saleItems: true, quotationItems: true } },
       },
     });
@@ -268,6 +328,7 @@ export class ProductsService {
       if (isForeignKeyViolation(error)) throw this.inUse();
       throw error;
     }
+    await removeUploadedImage(product.imageUrl);
     await this.log(actor, 'DELETE', id, `Producto ${product.sku} eliminado`, ip);
   }
 

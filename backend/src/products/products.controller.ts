@@ -11,8 +11,11 @@ import {
   Post,
   Query,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiProduces, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiProduces, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { ClientIp } from '../common/decorators/client-ip.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -25,6 +28,7 @@ import {
   UpdateProductDto,
   SetProductPriceDto,
 } from './dto/product.dto';
+import { MAX_IMAGE_BYTES } from './product-images';
 import { ProductsService } from './products.service';
 
 @ApiTags('Products')
@@ -120,6 +124,31 @@ export class ProductsController {
     @ClientIp() ip?: string,
   ) {
     return this.products.update(id, dto, actor, ip);
+  }
+
+  @Post(':id/image')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('products:write')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES, files: 1 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } }, required: ['file'] } })
+  @ApiOperation({ summary: 'Sube o reemplaza la foto del producto (JPG, PNG o WebP, máx. 2 MB)' })
+  @ApiResponse({ status: 413, description: 'La foto pasa de 2 MB' })
+  @ApiResponse({ status: 422, description: 'Sin archivo o formato no admitido' })
+  uploadImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: { buffer: Buffer; size: number } | undefined,
+    @CurrentUser() actor: AuthUser,
+    @ClientIp() ip?: string,
+  ) {
+    return this.products.setImage(id, file, actor, ip);
+  }
+
+  @Delete(':id/image')
+  @Permissions('products:write')
+  @ApiOperation({ summary: 'Quita la foto del producto' })
+  removeImage(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser, @ClientIp() ip?: string) {
+    return this.products.removeImage(id, actor, ip);
   }
 
   @Patch(':id/status')

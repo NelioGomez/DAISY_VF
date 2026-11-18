@@ -95,6 +95,34 @@ export class PublicCatalogService {
   }
 
   /**
+   * Comparador (mejora n.° 38): los productos publicados en el orden pedido y qué características
+   * cambian entre ellos (para resaltar diferencias). Los que ya no están publicados se omiten.
+   */
+  async compare(ids: string[]) {
+    const rows = (await this.prisma.product.findMany({
+      where: { id: { in: ids }, ...this.visible() },
+      select: PUBLIC_SELECT,
+    })) as PublicRow[];
+    const byId = new Map(rows.map((r) => [r.id, this.toDto(r)]));
+    const items = ids.map((id) => byId.get(id)).filter((x): x is ReturnType<PublicCatalogService['toDto']> => !!x);
+    const fields: Record<string, (x: (typeof items)[number]) => unknown> = {
+      price: (x) => x.price,
+      brand: (x) => x.brand?.id ?? null,
+      category: (x) => x.category?.id ?? null,
+      availability: (x) => x.availability,
+      unit: (x) => x.unit,
+    };
+    const differences = items.length < 2 ? [] : Object.keys(fields).filter((k) => new Set(items.map(fields[k])).size > 1);
+    const prices = items.map((x) => x.price).filter((v): v is number => v !== null);
+    return {
+      items,
+      missing: ids.filter((id) => !byId.has(id)),
+      differences,
+      lowestPrice: prices.length ? Math.min(...prices) : null,
+    };
+  }
+
+  /**
    * Filtros del catálogo: solo categorías/marcas activas que tienen productos visibles.
    * Cada categoría trae cuántos productos publicados tiene y su precio más bajo
    * (la portada los muestra como un rótulo de precios "desde").

@@ -25,6 +25,8 @@ export interface SearchHit {
   subtitle: string | null;
   status?: string;
   amount?: number;
+  /** Foto del producto (mejora n.° 4). */
+  imageUrl?: string | null;
 }
 
 const can = (u: AuthUser, perm: string) => u.role === UserRole.ADMIN || u.permissions.includes(perm);
@@ -46,13 +48,13 @@ export class SearchService {
         ? this.prisma.product
             .findMany({
               where: { OR: [{ name: has }, { sku: has }, { barcode: has }] },
-              select: { id: true, sku: true, name: true, stock: true, isActive: true, category: { select: { name: true } } },
+              select: { id: true, sku: true, name: true, stock: true, isActive: true, imageUrl: true, category: { select: { name: true } } },
               orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
               take,
             })
             .then((rows) =>
               rows.map<SearchHit>((p) => ({
-                type: 'PRODUCT', id: p.id, code: p.sku, title: p.name,
+                type: 'PRODUCT', id: p.id, code: p.sku, title: p.name, imageUrl: p.imageUrl,
                 subtitle: [p.category?.name, `${p.stock} en stock`, p.isActive ? null : 'inactivo'].filter(Boolean).join(' · '),
               })),
             )

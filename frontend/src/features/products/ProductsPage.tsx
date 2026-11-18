@@ -1,12 +1,15 @@
-/* MÓDULO: PRODUCTOS (RF-03) */
-import { useState } from 'react';
+/* MÓDULO: PRODUCTOS (RF-03) — filtros con chips y paginación (mejoras n.° 18-20). */
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
-import { SearchToolbar } from '../../components/tables/SearchToolbar';
+import { FilterBar } from '../../components/tables/FilterBar';
+import { Pagination } from '../../components/tables/Pagination';
 import { Tag } from '../../components/tables/Tag';
+import { useListFilters, type SelectFilter } from '../../hooks/useListFilters';
+import { usePaged } from '../../hooks/usePaged';
 import { useAuth, useData } from '../../store/hooks';
-import { matches, money } from '../../utils/format';
+import type { Producto } from '../../types';
+import { money } from '../../utils/format';
 import { PriceModal } from './PriceModal';
 import { ProductDrawer } from './ProductDrawer';
 import { ProductFormModal } from './ProductFormModal';
@@ -19,8 +22,40 @@ export function ProductsPage() {
   const canPrice = can('prices:write');
   const modal = useModal();
   const exportProductos = useExportProductos();
-  const [q, setQ] = useState('');
-  const rows = db.productos.filter((p) => matches(q, p.sku, p.nombre, p.marca, p.categoria));
+  const selects: SelectFilter<Producto>[] = [
+    { key: 'categoria', label: 'Categoría', options: db.categorias.map((c) => ({ value: c.id, label: c.nombre })), test: (p, v) => p.categoriaId === v },
+    { key: 'marca', label: 'Marca', options: db.marcas.map((m) => ({ value: m.id, label: m.nombre })), test: (p, v) => p.marcaId === v },
+    {
+      key: 'estado',
+      label: 'Estado',
+      options: [
+        { value: 'activo', label: 'Activos' },
+        { value: 'inactivo', label: 'Inactivos' },
+      ],
+      test: (p, v) => (v === 'activo' ? p.activo : !p.activo),
+    },
+    {
+      key: 'stock',
+      label: 'Stock',
+      options: [
+        { value: 'critico', label: 'Crítico (≤ mínimo)' },
+        { value: 'agotado', label: 'Agotado' },
+        { value: 'ok', label: 'Sobre el mínimo' },
+      ],
+      test: (p, v) => (v === 'agotado' ? p.stock <= 0 : v === 'critico' ? p.stock <= p.stockMin : p.stock > p.stockMin),
+    },
+    {
+      key: 'precio',
+      label: 'Precio',
+      options: [
+        { value: 'sin', label: 'Sin precio comercial' },
+        { value: 'con', label: 'Con precio' },
+      ],
+      test: (p, v) => (v === 'sin' ? p.precio <= 0 : p.precio > 0),
+    },
+  ];
+  const f = useListFilters(db.productos, { search: (p) => [p.sku, p.nombre, p.marca, p.categoria, p.codigoBarras], selects });
+  const pg = usePaged(f.filtered, f.key, 'productos');
 
   return (
     <>
@@ -40,7 +75,7 @@ export function ProductsPage() {
           </>
         }
       />
-      <SearchToolbar value={q} onChange={setQ} placeholder="Buscar por nombre, SKU, marca o categoría…" />
+      <FilterBar f={f} placeholder="Buscar por nombre, SKU, marca, categoría o código de barras…" />
       <div className="tablewrap">
         <table>
           <thead>
@@ -58,7 +93,8 @@ export function ProductsPage() {
           </thead>
           <tbody>
             {!db.productos.length && <EmptyRow cols={9} msg="Sin productos" />}
-            {rows.map((p) => {
+            {!!db.productos.length && !f.filtered.length && <EmptyRow cols={9} msg="Ningún producto coincide con los filtros" ic="🔍" />}
+            {pg.pageRows.map((p) => {
               const crit = p.stock <= p.stockMin;
               return (
                 <tr key={p.id} className="row-link" onClick={() => modal.open(<ProductDrawer productoId={p.id} />)}>
@@ -95,6 +131,7 @@ export function ProductsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination p={pg} label="productos" />
     </>
   );
 }

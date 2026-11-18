@@ -2,8 +2,9 @@
 import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/common/Logo';
-import { MENU, TITLES, isModuleId, visibleModules } from '../config/navigation';
-import { ViewLoader } from '../components/feedback/FullScreenLoader';
+import { MENU, MODULE_DATA, TITLES, isModuleId, visibleModules } from '../config/navigation';
+import { LoadErrors } from '../components/feedback/LoadErrors';
+import { SkeletonPage } from '../components/feedback/Skeleton';
 import { RealtimeIndicator } from '../components/feedback/RealtimeIndicator';
 import { SESSION_IDLE_MINUTES } from '../config/security';
 import { readNoticesEnabled, storeNoticesEnabled, useRealtimeNotices } from '../features/realtime/useRealtimeNotices';
@@ -189,7 +190,7 @@ export function DashboardLayout() {
         </header>
         <main className="view">
           {status === 'loading' || status === 'idle' ? (
-            <ViewLoader text="Cargando datos del servidor…" />
+            <SkeletonPage />
           ) : status === 'error' ? (
             <div className="card conn-error" role="alert">
               <div style={{ fontSize: 36 }}>⚠️</div>
@@ -201,7 +202,8 @@ export function DashboardLayout() {
             </div>
           ) : (
             // Cada módulo se descarga al abrirlo por primera vez (división del código).
-            <Suspense fallback={<ViewLoader text="Abriendo el módulo…" />}>
+            <Suspense fallback={<SkeletonPage />}>
+              <LoadErrors keys={MODULE_DATA[moduleId]} />
               <Outlet />
             </Suspense>
           )}

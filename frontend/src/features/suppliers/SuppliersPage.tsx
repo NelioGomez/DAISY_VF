@@ -1,12 +1,14 @@
-/* MÓDULO: PROVEEDORES (RF-04) */
-import { useState } from 'react';
+/* MÓDULO: PROVEEDORES (RF-04) — filtros con chips y paginación (mejoras n.° 18-20). */
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
-import { SearchToolbar } from '../../components/tables/SearchToolbar';
+import { FilterBar } from '../../components/tables/FilterBar';
+import { Pagination } from '../../components/tables/Pagination';
 import { Tag } from '../../components/tables/Tag';
+import { useListFilters, type SelectFilter } from '../../hooks/useListFilters';
+import { usePaged } from '../../hooks/usePaged';
 import { useAuth, useData } from '../../store/hooks';
-import { matches } from '../../utils/format';
+import type { Proveedor } from '../../types';
 import { SupplierFormModal } from './SupplierFormModal';
 
 export function SuppliersPage() {
@@ -14,8 +16,30 @@ export function SuppliersPage() {
   const { can } = useAuth();
   const canWrite = can('suppliers:write');
   const modal = useModal();
-  const [q, setQ] = useState('');
-  const rows = db.proveedores.filter((p) => matches(q, p.nombre, p.ruc, p.pais, p.contacto, p.tel, p.correo));
+  const paises = [...new Set(db.proveedores.map((p) => p.pais).filter(Boolean))].sort();
+  const selects: SelectFilter<Proveedor>[] = [
+    {
+      key: 'origen',
+      label: 'Origen',
+      options: [
+        { value: 'nac', label: 'Nacionales' },
+        { value: 'int', label: 'Internacionales' },
+      ],
+      test: (p, v) => (v === 'int' ? p.internacional : !p.internacional),
+    },
+    ...(paises.length > 1 ? [{ key: 'pais', label: 'País', options: paises.map((x) => ({ value: x, label: x })), test: (p: Proveedor, v: string) => p.pais === v }] : []),
+    {
+      key: 'estado',
+      label: 'Estado',
+      options: [
+        { value: 'activo', label: 'Activos' },
+        { value: 'inactivo', label: 'Inactivos' },
+      ],
+      test: (p, v) => (v === 'activo' ? p.activo : !p.activo),
+    },
+  ];
+  const f = useListFilters(db.proveedores, { search: (p) => [p.nombre, p.ruc, p.pais, p.contacto, p.tel, p.correo], selects });
+  const pg = usePaged(f.filtered, f.key, 'proveedores');
 
   return (
     <>
@@ -30,7 +54,7 @@ export function SuppliersPage() {
           )
         }
       />
-      <SearchToolbar value={q} onChange={setQ} placeholder="Buscar proveedor…" />
+      <FilterBar f={f} placeholder="Buscar por nombre, RUC, país o contacto…" />
       <div className="tablewrap">
         <table>
           <thead>
@@ -46,7 +70,8 @@ export function SuppliersPage() {
           </thead>
           <tbody>
             {!db.proveedores.length && <EmptyRow cols={7} msg="Sin proveedores" />}
-            {rows.map((p) => (
+            {!!db.proveedores.length && !f.filtered.length && <EmptyRow cols={7} msg="Ningún proveedor coincide con los filtros" ic="🔍" />}
+            {pg.pageRows.map((p) => (
               <tr key={p.id}>
                 <td>
                   <b>{p.nombre}</b>
@@ -70,6 +95,7 @@ export function SuppliersPage() {
           </tbody>
         </table>
       </div>
+      <Pagination p={pg} label="proveedores" />
     </>
   );
 }

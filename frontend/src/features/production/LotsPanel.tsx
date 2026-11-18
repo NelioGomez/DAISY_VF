@@ -1,7 +1,8 @@
 /* Lotes de producción y su estado de calidad: por inspeccionar, en retrabajo, liberado o desechado. */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useState } from 'react';
 import { EmptyRow } from '../../components/feedback/Empty';
-import { ViewLoader } from '../../components/feedback/FullScreenLoader';
+import { SkeletonTable } from '../../components/feedback/Skeleton';
 import { useModal } from '../../components/modals/useModal';
 import { SearchToolbar } from '../../components/tables/SearchToolbar';
 import { EstadoTag } from '../../components/tables/Tag';
@@ -16,18 +17,12 @@ const FILTROS: Array<EstadoLote | 'Todos' | 'Pendientes'> = ['Todos', 'Pendiente
 export function LotsPanel() {
   const { can } = useAuth();
   const modal = useModal();
-  const { data, error } = useProduccion(produccionApi.lotes);
+  const { data, error, reload } = useProduccion(produccionApi.lotes);
   const [q, setQ] = useState('');
   const [estado, setEstado] = useState<(typeof FILTROS)[number]>('Todos');
 
-  if (error)
-    return (
-      <div className="note note-danger" role="alert">
-        <span className="ic">⚠️</span>
-        <div>{error}</div>
-      </div>
-    );
-  if (!data) return <ViewLoader text="Cargando lotes…" />;
+  if (error && !data) return <ErrorState msg={error} onRetry={reload} />;
+  if (!data) return <SkeletonTable cols={10} />;
 
   const pendiente = (l: Lote) => l.pendiente > 0 || l.retrabajo > 0;
   const rows = data.filter(

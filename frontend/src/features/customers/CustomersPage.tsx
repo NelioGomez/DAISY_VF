@@ -1,11 +1,15 @@
-/* MÓDULO: CLIENTES (RF-05) */
-import { useState } from 'react';
+/* MÓDULO: CLIENTES (RF-05) — filtros con chips y paginación (mejoras n.° 18-20). */
 import { ViewHead } from '../../components/common/ViewHead';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useModal } from '../../components/modals/useModal';
-import { SearchToolbar } from '../../components/tables/SearchToolbar';
+import { FilterBar } from '../../components/tables/FilterBar';
+import { Pagination } from '../../components/tables/Pagination';
+import { Tag } from '../../components/tables/Tag';
+import { useListFilters, type SelectFilter } from '../../hooks/useListFilters';
+import { usePaged } from '../../hooks/usePaged';
 import { useAuth, useData } from '../../store/hooks';
-import { matches, money } from '../../utils/format';
+import type { Cliente } from '../../types';
+import { money } from '../../utils/format';
 import { CustomerDrawer } from './CustomerDrawer';
 import { CustomerFormModal } from './CustomerFormModal';
 
@@ -14,8 +18,37 @@ export function CustomersPage() {
   const { can } = useAuth();
   const canWrite = can('customers:write');
   const modal = useModal();
-  const [q, setQ] = useState('');
-  const rows = db.clientes.filter((c) => matches(q, c.nombre, c.ruc, c.contacto, c.tel, c.dir, money(c.totalCompras)));
+  const selects: SelectFilter<Cliente>[] = [
+    {
+      key: 'saldo',
+      label: 'Saldo',
+      options: [
+        { value: 'con', label: 'Con saldo pendiente' },
+        { value: 'sin', label: 'Sin saldo' },
+      ],
+      test: (c, v) => (v === 'con' ? c.saldo > 0 : c.saldo <= 0),
+    },
+    {
+      key: 'compras',
+      label: 'Compras',
+      options: [
+        { value: 'con', label: 'Con compras' },
+        { value: 'sin', label: 'Sin compras todavía' },
+      ],
+      test: (c, v) => (v === 'con' ? c.totalCompras > 0 : c.totalCompras <= 0),
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      options: [
+        { value: 'activo', label: 'Activos' },
+        { value: 'inactivo', label: 'Inactivos' },
+      ],
+      test: (c, v) => (v === 'activo' ? c.activo : !c.activo),
+    },
+  ];
+  const f = useListFilters(db.clientes, { search: (c) => [c.nombre, c.ruc, c.contacto, c.tel, c.correo, c.dir], selects });
+  const pg = usePaged(f.filtered, f.key, 'clientes');
 
   return (
     <>
@@ -30,7 +63,7 @@ export function CustomersPage() {
           )
         }
       />
-      <SearchToolbar value={q} onChange={setQ} placeholder="Buscar cliente…" />
+      <FilterBar f={f} placeholder="Buscar por nombre, RUC, contacto, teléfono o correo…" />
       <div className="tablewrap">
         <table>
           <thead>
@@ -47,12 +80,14 @@ export function CustomersPage() {
           </thead>
           <tbody>
             {!db.clientes.length && <EmptyRow cols={8} msg="Sin clientes registrados" />}
-            {rows.map((c) => (
+            {!!db.clientes.length && !f.filtered.length && <EmptyRow cols={8} msg="Ningún cliente coincide con los filtros" ic="🔍" />}
+            {pg.pageRows.map((c) => (
               <tr key={c.id}>
                 <td>
                   <button className="link-btn" onClick={() => modal.open(<CustomerDrawer clienteId={c.id} />)} title="Ver perfil 360°">
                     <b>{c.nombre}</b>
-                  </button>
+                  </button>{' '}
+                  {!c.activo && <Tag>Inactivo</Tag>}
                 </td>
                 <td className="mono">{c.ruc}</td>
                 <td>{c.contacto}</td>
@@ -74,6 +109,7 @@ export function CustomersPage() {
           </tbody>
         </table>
       </div>
+      <Pagination p={pg} label="clientes" />
     </>
   );
 }

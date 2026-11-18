@@ -1,5 +1,6 @@
 /* Detalle de una compra: líneas, lo recibido, recepciones y las entradas que generaron.
    Desde aquí se ordena, se recibe o se cancela (según estado y permisos). */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useCallback, useEffect, useState } from 'react';
 import { DocChain } from '../../components/common/DocChain';
 import { ViewLoader } from '../../components/feedback/FullScreenLoader';
@@ -35,7 +36,10 @@ export function PurchaseDetailModal({ compraId }: { compraId: string }) {
     let alive = true;
     void obtenerCompra(compraId).then((r) => {
       if (!alive) return;
-      if (r.ok) setC(r.data);
+      if (r.ok) {
+        setC(r.data);
+        setError('');
+      }
       else setError(r.error);
     });
     return () => {
@@ -110,10 +114,7 @@ export function PurchaseDetailModal({ compraId }: { compraId: string }) {
       }
     >
       {error ? (
-        <div className="note" role="alert">
-          <span className="ic">⚠️</span>
-          <div>{error}</div>
-        </div>
+        <ErrorState msg={error} onRetry={load} />
       ) : !c ? (
         <ViewLoader text="Cargando compra…" />
       ) : (

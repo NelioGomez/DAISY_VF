@@ -3,9 +3,8 @@
    El módulo trae sus propios datos de /production/* (no viven en el store
    global) y traduce aquí los códigos de la API a lo que ven las pantallas.
    ===================================================================== */
-import { useCallback, useEffect, useState } from 'react';
-import { api, errorMessage, getAll } from '../../services/api/client';
-import { subscribeRealtime } from '../../services/realtime/realtime';
+import { useRemoteData } from '../../hooks/useRemoteData';
+import { api, getAll } from '../../services/api/client';
 import type { RefreshKey } from '../../store/storeContext';
 import type { TipoMovimiento } from '../../types';
 import { isUnidad, type Unidad } from '../../utils/units';
@@ -438,37 +437,11 @@ export const KEYS_STOCK: RefreshKey[] = ['productos', 'movimientos', 'dashboard'
 
 /* ---------- Carga con recarga en tiempo real ---------- */
 
+const MODULES = ['production'] as const;
+
 /**
  * Trae datos de producción y los vuelve a pedir cuando el servidor avisa de un cambio
  * en el módulo (otro usuario inició una orden, calidad liberó un lote…).
  * `load` debe ser estable (función del módulo o useCallback).
  */
-export function useProduccion<T>(load: () => Promise<T>) {
-  const [state, setState] = useState<{ load: () => Promise<T>; data?: T; error?: string } | null>(null);
-  const [version, setVersion] = useState(0);
-
-  useEffect(() => {
-    let alive = true;
-    load().then(
-      (data) => alive && setState({ load, data }),
-      (e) => alive && setState({ load, error: errorMessage(e) }),
-    );
-    return () => {
-      alive = false;
-    };
-  }, [load, version]);
-
-  useEffect(
-    () =>
-      subscribeRealtime((e) => {
-        if (e.module === 'production') setVersion((v) => v + 1);
-      }),
-    [],
-  );
-
-  const reload = useCallback(() => setVersion((v) => v + 1), []);
-  /** Usa la respuesta de una acción (la API devuelve el documento actualizado). */
-  const set = useCallback((data: T) => setState({ load, data }), [load]);
-  const current = state && state.load === load ? state : null;
-  return { data: current?.data ?? null, error: current?.error ?? '', loading: !current, reload, set };
-}
+export const useProduccion = <T,>(load: () => Promise<T>) => useRemoteData(load, MODULES);

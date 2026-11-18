@@ -2,18 +2,22 @@
    Flujo del servidor: Borrador → Pendiente → Aprobada → Convertida.
    Pendiente o Aprobada pueden rechazarse; vencen al pasar su validez.
    Muestra la antigüedad del estado (mejora n.° 15), el origen web (n.° 50) y una vista
-   de pipeline por estado (n.° 14) alternable con la tabla. */
+   de pipeline por estado (n.° 14) alternable con la tabla; filtros con chips y paginación
+   (n.° 18-20). */
 import { useState } from 'react';
 import { ViewHead } from '../../components/common/ViewHead';
 import { DocChip } from '../../components/common/DocChain';
 import { EmptyRow } from '../../components/feedback/Empty';
 import { useToast } from '../../components/feedback/useToast';
 import { useModal } from '../../components/modals/useModal';
-import { SearchToolbar } from '../../components/tables/SearchToolbar';
+import { FilterBar } from '../../components/tables/FilterBar';
+import { Pagination } from '../../components/tables/Pagination';
 import { EstadoTag, Tag } from '../../components/tables/Tag';
+import { useListFilters, type SelectFilter } from '../../hooks/useListFilters';
+import { usePaged } from '../../hooks/usePaged';
 import { useAuth, useData } from '../../store/hooks';
 import type { Cotizacion, EstadoCotizacion } from '../../types';
-import { ago, daysSince, fmtDate, matches, money } from '../../utils/format';
+import { ago, daysSince, fmtDate, money } from '../../utils/format';
 import { useOpenDocument } from '../documents/useOpenDocument';
 import { SaleFormModal } from '../sales/SaleFormModal';
 import { QuotationDetailModal } from './QuotationDetailModal';
@@ -45,7 +49,6 @@ export function QuotationsPage() {
   const modal = useModal();
   const toast = useToast();
   const doc = useOpenDocument();
-  const [q, setQ] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [vista, setVista] = useState<Vista>(readVista);
   const cambiarVista = (v: Vista) => {
@@ -56,7 +59,27 @@ export function QuotationsPage() {
       /* sin almacenamiento: solo dura esta visita */
     }
   };
-  const rows = db.cotizaciones.filter((c) => matches(q, c.codigo, fmtDate(c.fecha), c.cliN, money(c.total), c.estado, c.solicitud?.codigo));
+  const selects: SelectFilter<Cotizacion>[] = [
+    { key: 'estado', label: 'Estado', options: PIPELINE.map((x) => ({ value: x, label: x })), test: (c, v) => c.estado === v },
+    {
+      key: 'origen',
+      label: 'Origen',
+      options: [
+        { value: 'web', label: 'Solicitud web' },
+        { value: 'interna', label: 'Interna' },
+      ],
+      test: (c, v) => (v === 'web' ? !!c.solicitud : !c.solicitud),
+    },
+    {
+      key: 'seguimiento',
+      label: 'Seguimiento',
+      options: [{ value: 'si', label: `Pendientes hace ${SEGUIMIENTO_DIAS}+ días` }],
+      test: (c) => c.estado === 'Pendiente' && daysSince(c.estadoDesde) >= SEGUIMIENTO_DIAS,
+    },
+  ];
+  const f = useListFilters(db.cotizaciones, { search: (c) => [c.codigo, c.cliN, c.solicitud?.codigo], selects, date: (c) => c.fecha });
+  const rows = f.filtered;
+  const pg = usePaged(rows, f.key, 'cotizaciones');
 
   const transition = async (c: Cotizacion, accion: 'submit' | 'approve') => {
     setBusy(c.id);
@@ -117,7 +140,7 @@ export function QuotationsPage() {
           )
         }
       />
-      <SearchToolbar value={q} onChange={setQ} placeholder="Buscar cotización, cliente o solicitud…">
+      <FilterBar f={f} placeholder="Buscar cotización, cliente o solicitud…" dateLabel="Emitida">
         <div className="seg" role="group" aria-label="Vista">
           <button className={vista === 'tabla' ? 'on' : ''} aria-pressed={vista === 'tabla'} onClick={() => cambiarVista('tabla')}>
             Tabla
@@ -126,7 +149,7 @@ export function QuotationsPage() {
             Pipeline
           </button>
         </div>
-      </SearchToolbar>
+      </FilterBar>
       {vista === 'pipeline' ? (
         <div className="kanban" aria-label="Cotizaciones por estado">
           {PIPELINE.map((estado) => {
@@ -194,7 +217,8 @@ export function QuotationsPage() {
           </thead>
           <tbody>
             {!db.cotizaciones.length && <EmptyRow cols={8} msg="Sin cotizaciones" />}
-            {rows.map((c) => {
+            {!!db.cotizaciones.length && !rows.length && <EmptyRow cols={8} msg="Ninguna cotización coincide con los filtros" ic="🔍" />}
+            {pg.pageRows.map((c) => {
               const dias = daysSince(c.estadoDesde);
               const seguimiento = c.estado === 'Pendiente' && dias >= SEGUIMIENTO_DIAS;
               return (
@@ -232,6 +256,7 @@ export function QuotationsPage() {
         </table>
       </div>
       )}
+      {vista === 'tabla' && <Pagination p={pg} label="cotizaciones" />}
     </>
   );
 }

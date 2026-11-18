@@ -1,5 +1,6 @@
 /* Detalle de un lote de producción: de qué orden viene, cuántas unidades se liberaron, se
    desecharon o están en retrabajo, y el historial de inspecciones de calidad. */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useCallback } from 'react';
 import { DocChain } from '../../components/common/DocChain';
 import { ViewLoader } from '../../components/feedback/FullScreenLoader';
@@ -17,7 +18,7 @@ export function LotDetailModal({ loteId }: { loteId: string }) {
   const { can } = useAuth();
   const modal = useModal();
   const load = useCallback(() => produccionApi.lote(loteId), [loteId]);
-  const { data: l, error } = useProduccion(load);
+  const { data: l, error, reload } = useProduccion(load);
   const porInspeccionar = !!l && (l.pendiente > 0 || l.retrabajo > 0);
   const unidad = l?.producto?.unidad ?? 'UNIT';
 
@@ -36,11 +37,8 @@ export function LotDetailModal({ loteId }: { loteId: string }) {
         </>
       }
     >
-      {error ? (
-        <div className="note note-danger" role="alert">
-          <span className="ic">⚠️</span>
-          <div>{error}</div>
-        </div>
+      {error && !l ? (
+        <ErrorState msg={error} onRetry={reload} />
       ) : !l ? (
         <ViewLoader text="Cargando lote…" />
       ) : (

@@ -111,6 +111,7 @@ input,select,textarea{font-family:inherit;font-size:14px}
 .kpi .lbl{color:#8aa3b5;font-size:11px;text-transform:uppercase;letter-spacing:1.4px;font-weight:600;display:flex;align-items:center;gap:7px}
 .kpi .val{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--amber-bright);margin-top:9px;letter-spacing:1px;
   text-shadow:0 0 14px rgba(245,166,35,.35)}
+.kpi .val.long{font-size:clamp(19px,1.8vw,26px);letter-spacing:.3px;white-space:nowrap}
 .kpi .val small{font-size:14px;color:#cdb98a}
 .kpi .sub{color:#7c93a3;font-size:11.5px;margin-top:5px;font-family:var(--mono)}
 .kpi.warn .val{color:#ff6b5e;text-shadow:0 0 14px rgba(223,67,56,.4)}
@@ -125,6 +126,8 @@ input,select,textarea{font-family:inherit;font-size:14px}
 table{width:100%;border-collapse:collapse}
 th{background:#f0f3f6;text-align:left;padding:11px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;border-bottom:1px solid var(--line);white-space:nowrap}
 td{padding:11px 14px;border-bottom:1px solid #eef2f5;font-size:13px;vertical-align:middle}
+td.num{white-space:nowrap}
+td .tag{white-space:nowrap}
 tr:last-child td{border-bottom:none}
 tbody tr:hover{background:#fafbfc}
 td.num,th.num{text-align:right;font-family:var(--mono)}
@@ -159,6 +162,8 @@ td.num,th.num{text-align:right;font-family:var(--mono)}
 #toasts{position:fixed;right:20px;bottom:20px;z-index:200;display:flex;flex-direction:column;gap:10px}
 .toast{background:#11212e;color:#fff;padding:13px 16px;border-radius:11px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.3);display:flex;align-items:center;gap:10px;min-width:240px;border-left:3px solid var(--amber);animation:pop .25s}
 .toast.ok{border-left-color:var(--green)} .toast.err{border-left-color:var(--red)}
+.toast-x{margin-left:auto;color:#c9d4dc;font-size:18px;line-height:1;padding:0 2px;border-radius:6px}
+.toast-x:hover,.toast-x:focus-visible{color:#fff;outline:1px solid #5d7080}
 @keyframes pop{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
 
 /* line items editor */
@@ -470,7 +475,11 @@ kbd{font-family:var(--mono);font-size:10.5px;background:var(--panel);border:1px 
 @media (max-width:1500px){.search-chip span{display:none}.search-chip{min-width:0}}
 @media (max-width:1100px){.search-chip kbd{display:none}}
 /* Barra superior en celulares: el título se recorta y se ocultan reloj, enlace al sitio y nombre. */
-.tb-title{min-width:0}
+.tb-title{min-width:0;flex:0 1 auto}
+.tb-title h1,.tb-title .crumb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Lo que se encoge es el título; los botones, el reloj y el usuario conservan su ancho. */
+.topbar>:not(.tb-title):not(.spacer){flex-shrink:0}
+.userchip b,.userchip span,.search-chip kbd{white-space:nowrap}
 @media (max-width:880px){
   .topbar{padding:0 12px;gap:8px}
   .topbar .spacer{display:none}
@@ -558,6 +567,73 @@ kbd{font-family:var(--mono);font-size:10.5px;background:var(--panel);border:1px 
 .mfg-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:7px;font-size:12px;color:var(--muted);list-style:none}
 .mfg-legend li:before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:-1px}
 @media(max-width:880px){.lot-kpis,.mfg-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.route-fields{grid-template-columns:1fr}.li-row.li-bom,.li-head.li-bom{grid-template-columns:minmax(0,1fr) 120px 36px}.li-row.li-bom>input,.li-head.li-bom span:nth-child(3),.li-head.li-bom span:nth-child(4){display:none}.op-steps li{grid-template-columns:28px minmax(0,1fr)}.op-steps li>:last-child{grid-column:2}}
+
+/* ---------- Tablas: encabezado fijo, filtros con chips y paginación (n.° 18-22) ---------- */
+/* overflow:clip recorta como hidden pero no crea un contenedor de desplazamiento, así el
+   encabezado puede quedar fijo bajo la barra superior mientras se baja por la página. */
+.tablewrap{overflow:hidden;overflow:clip}
+.tablewrap thead th{position:sticky;top:60px;z-index:2}
+.tablewrap.tall thead th,.modal-b .tablewrap thead th,.drawer-b .tablewrap thead th{top:0}
+/* En el sitio público la barra mide 72px (68 + borde). */
+.pub-main .tablewrap thead th{top:72px}
+.tablewrap.is-loading tbody{opacity:.55;transition:opacity .15s}
+.toolbar-select.is-on{border-color:#f1dca6;background:#fff8e8;color:#7a5200;font-weight:600}
+.date-range{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
+.date-range label{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:600}
+.date-range input{padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:13px;color:var(--ink)}
+.search.search-sm{flex:0 0 160px;min-width:130px}
+.filter-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:-4px 0 12px}
+.filter-chips .chip span{margin-left:4px;font-weight:700}
+.clear-filters{font-size:12.5px;font-weight:600;color:var(--blue);margin:0 6px}
+.pager{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.pager-pages{display:flex;gap:4px;align-items:center}
+.pager-btn{min-width:32px;height:32px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-weight:600;font-size:12.5px}
+.pager-btn:hover:not(:disabled){border-color:var(--amber)}
+.pager-btn.on{background:var(--steel);border-color:var(--steel);color:#fff}
+.pager-btn:disabled{opacity:.45;cursor:default}
+.pager-gap{padding:0 4px}
+.pager-size select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:12.5px}
+.row-actions{white-space:nowrap}
+.row-actions .b+.b{margin-left:4px}
+/* Esqueletos de carga (n.° 27) */
+.sk{display:block;height:11px;border-radius:6px;background:linear-gradient(90deg,#e9eef2 25%,#f6f8fa 37%,#e9eef2 63%);background-size:400% 100%;animation:sk-shine 1.3s ease infinite}
+.sk-lg{height:26px;margin:10px 0 8px}
+.sk-card{display:flex;flex-direction:column;gap:8px;min-height:118px}
+.sk-card .sk{background:linear-gradient(90deg,#1d3346 25%,#284358 37%,#1d3346 63%);background-size:400% 100%}
+.sk-block{display:grid;gap:12px;padding:8px 0}
+.sk-page .sk-head{display:grid;gap:10px;margin:4px 0 22px}
+@keyframes sk-shine{0%{background-position:100% 50%}100%{background-position:0 50%}}
+/* Errores recuperables (n.° 29) */
+.err-state{margin-bottom:12px}
+.err-actions{margin-top:8px}
+/* Ubicaciones y traslados (n.° 23) */
+.pos-note{font-size:11.5px;color:var(--blue);margin-top:2px}
+.loc-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;background:var(--panel);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.loc-chip.loc-1:before,.loc-chip.loc-2:before{content:"";width:7px;height:7px;border-radius:50%}
+.loc-chip.loc-1:before{background:var(--blue)}
+.loc-chip.loc-2:before{background:var(--amber)}
+.li-row.li-transfer,.li-head.li-transfer{grid-template-columns:minmax(0,1fr) 110px 110px 36px}
+.li-row input.is-invalid{border-color:var(--red);background:var(--red-soft)}
+/* Rotación (n.° 11 y 12) */
+.rot-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.rot-card{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:#fff;text-align:left;border-left:4px solid var(--line)}
+.rot-card:hover{border-color:#c9d3db}
+.rot-card.on{box-shadow:0 0 0 2px var(--amber) inset}
+.rot-card .rot-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;color:var(--muted)}
+.rot-card b{font-family:var(--mono);font-size:22px}
+.rot-card small{font-size:11.5px;color:var(--soft)}
+.rot-card.rot-alta{border-left-color:var(--green)}
+.rot-card.rot-media{border-left-color:var(--blue)}
+.rot-card.rot-baja{border-left-color:var(--amber)}
+.rot-card.rot-sin_movimiento{border-left-color:#9aa9b5}
+@media(max-width:880px){
+  .tablewrap{overflow-x:auto}
+  .tablewrap thead th{position:static}
+  .rot-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pager{justify-content:center}
+  .li-row.li-transfer,.li-head.li-transfer{grid-template-columns:minmax(0,1fr) 80px 36px}
+  .li-row.li-transfer>input:nth-of-type(1),.li-head.li-transfer span:nth-child(2){display:none}
+}
 
 /* Al imprimir con una factura abierta, solo sale la factura (sin la pantalla de fondo). */
 @media print{

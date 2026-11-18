@@ -37,6 +37,7 @@ import type {
   Venta,
   Configuracion,
 } from '../../types';
+import { nombreUbicacion } from '../../utils/locations';
 import { isUnidad } from '../../utils/units';
 
 /* ---------- Códigos de la API ---------- */
@@ -107,6 +108,13 @@ type Json = any;
 
 export const mapCatalogo = (c: Json): Catalogo => ({ id: c.id, nombre: s(c.name), activo: c.isActive !== false });
 
+/** Existencia en una ubicación; sin el dato (API anterior), todo cuenta como bodega. */
+function stockEn(p: Json, loc: 1 | 2): number {
+  const rows = p.stockByLocation as Array<{ locationId: number; quantity: number }> | undefined;
+  if (!rows) return loc === 1 ? n(p.stock) : 0;
+  return n(rows.find((r) => r.locationId === loc)?.quantity);
+}
+
 export const mapProducto = (p: Json): Producto => ({
   id: p.id,
   sku: s(p.sku),
@@ -121,6 +129,8 @@ export const mapProducto = (p: Json): Producto => ({
   costo: n(p.avgCost),
   precio: n(p.salePrice),
   stock: n(p.stock),
+  stockBodega: stockEn(p, 1),
+  stockSucursal: stockEn(p, 2),
   stockMin: n(p.minStock),
   stockMax: p.maxStock === null || p.maxStock === undefined ? null : n(p.maxStock),
   ic: iconFor(p.category?.name),
@@ -168,6 +178,8 @@ export const mapMovimiento = (m: Json): Movimiento => ({
   nota: s(m.note),
   resp: s(m.user?.username),
   proveedor: s(m.supplier?.name),
+  ubicacionId: n(m.location?.id ?? m.locationId) || 1,
+  ubicacion: s(m.location?.name) || nombreUbicacion(n(m.locationId) || 1),
   origen: mapOrigen(m.origin),
 });
 
@@ -178,6 +190,7 @@ export function mapOrigen(o: Json): DocumentoRef | null {
   if (o.type === 'RECEIPT') return { tipo: 'RECEPCION', id: s(o.id), codigo: s(o.code), compraId: s(o.purchaseId) };
   // Consumo de materiales (salida) o lote liberado por calidad (entrada) de una orden de producción.
   if (o.type === 'PRODUCTION') return { tipo: 'PRODUCCION', id: s(o.id), codigo: s(o.code), ...(o.lotCode ? { lote: s(o.lotCode) } : {}) };
+  if (o.type === 'TRANSFER') return { tipo: 'TRASLADO', id: s(o.id), codigo: s(o.code) };
   return null;
 }
 
@@ -285,7 +298,6 @@ export const mapSugerencia = (r: Json): SugerenciaReposicion => ({
   pospuestoHasta: r.postponedUntil ?? null,
 });
 
-const LOCATION_NAME: Record<number, string> = { 1: 'Bodega', 2: 'Sucursal' };
 
 export const mapFichaProducto = (d: Json): FichaProducto => ({
   producto: mapProducto(d.product),
@@ -294,6 +306,7 @@ export const mapFichaProducto = (d: Json): FichaProducto => ({
     ? {
         vendidas30: n(d.stats.unitsLast30Days),
         vendidas90: n(d.stats.unitsLast90Days),
+        consumidas90: n(d.stats.consumedLast90Days),
         ingresos90: n(d.stats.revenueLast90Days),
         margen90: n(d.stats.marginLast90Days),
         ultimaVenta: d.stats.lastSaleAt ?? null,
@@ -308,10 +321,9 @@ export const mapFichaProducto = (d: Json): FichaProducto => ({
       }
     : null,
   movimientos: d.movements
-    ? d.movements.map((m: Json) => ({
-        ...mapMovimiento({ ...m, product: { id: d.product.id, sku: d.product.sku, name: d.product.name }, user: { username: m.user }, supplier: m.supplier ? { name: m.supplier } : null }),
-        ubicacion: LOCATION_NAME[n(m.locationId)] ?? '',
-      }))
+    ? d.movements.map((m: Json) =>
+        mapMovimiento({ ...m, product: { id: d.product.id, sku: d.product.sku, name: d.product.name }, user: { username: m.user }, supplier: m.supplier ? { name: m.supplier } : null }),
+      )
     : null,
   ventas: d.sales
     ? d.sales.map((v: Json) => ({

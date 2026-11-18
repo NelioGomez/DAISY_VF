@@ -15,7 +15,8 @@ export function KpiCard({ lbl, val, sub, ic, tone = '' }: KpiCardProps) {
       <div className="lbl">
         {ic} {lbl}
       </div>
-      <div className="val">{val}</div>
+      {/* Montos largos (C$ 331,045.27) con letra más pequeña para que no se partan en dos líneas. */}
+      <div className={`val ${typeof val === 'string' && val.length > 12 ? 'long' : ''}`}>{val}</div>
       <div className="sub">{sub}</div>
     </div>
   );

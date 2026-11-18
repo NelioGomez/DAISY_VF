@@ -1,5 +1,6 @@
 /* Detalle de una cotización con su origen y su destino (trazabilidad SOL › COT › FAC)
    y la antigüedad del estado actual ("Pendiente, hace 8 días"; mejoras n.° 15 y 50). */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useCallback, useEffect, useState } from 'react';
 import { DocChain, type ChainItem } from '../../components/common/DocChain';
 import { ViewLoader } from '../../components/feedback/FullScreenLoader';
@@ -32,7 +33,10 @@ export function QuotationDetailModal({ cotizacionId }: { cotizacionId: string })
     let alive = true;
     void obtenerCotizacion(cotizacionId).then((r) => {
       if (!alive) return;
-      if (r.ok) setQ(r.data);
+      if (r.ok) {
+        setQ(r.data);
+        setError('');
+      }
       else setError(r.error);
     });
     return () => {
@@ -96,10 +100,7 @@ export function QuotationDetailModal({ cotizacionId }: { cotizacionId: string })
       }
     >
       {error ? (
-        <div className="note" role="alert">
-          <span className="ic">⚠️</span>
-          <div>{error}</div>
-        </div>
+        <ErrorState msg={error} onRetry={load} />
       ) : !q ? (
         <ViewLoader text="Cargando cotización…" />
       ) : (

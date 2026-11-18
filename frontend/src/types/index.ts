@@ -65,6 +65,9 @@ export interface Producto {
   costo: number;
   precio: number;
   stock: number;
+  /** Reparto del stock (mejora n.° 23): la suma de ambos es `stock`. */
+  stockBodega: number;
+  stockSucursal: number;
   stockMin: number;
   /** Tope de reposición (null = sin definir). */
   stockMax: number | null;
@@ -115,7 +118,10 @@ export interface Movimiento {
   nota: string;
   resp: string;
   proveedor: string;
-  /** Documento que originó el movimiento (venta o recepción de compra), si lo hay. */
+  /** Dónde ocurrió: 1 = Bodega principal, 2 = Sucursal principal. */
+  ubicacionId: number;
+  ubicacion: string;
+  /** Documento que originó el movimiento (venta, recepción, producción o traslado), si lo hay. */
   origen: DocumentoRef | null;
 }
 
@@ -234,6 +240,8 @@ export interface FichaProducto {
   stats: {
     vendidas30: number;
     vendidas90: number;
+    /** Consumidas por órdenes de producción en 90 días (cuentan para la rotación). */
+    consumidas90: number;
     ingresos90: number;
     margen90: number;
     ultimaVenta: string | null;
@@ -241,7 +249,7 @@ export interface FichaProducto {
     rotacion: Rotacion;
   } | null;
   enCamino: { unidades: number; compras: Array<{ id: string; codigo: string; proveedor: string; esperada: string | null; pendiente: number }> } | null;
-  movimientos: Array<Movimiento & { ubicacion: string }> | null;
+  movimientos: Movimiento[] | null;
   ventas: Array<{ ventaId: string; factura: string; fecha: string; anulada: boolean; cliente: string; cant: number; precio: number; sub: number }> | null;
   proveedores: Array<{ id: string; nombre: string; pais: string; codigo: string; ultimoCosto: number | null; moneda: Moneda; plazo: number | null; preferente: boolean }> | null;
   precios: PrecioHistorial[] | null;
@@ -249,7 +257,7 @@ export interface FichaProducto {
 
 /* ---------- Trazabilidad documental ---------- */
 
-export type TipoDocumento = 'SOLICITUD' | 'COTIZACION' | 'VENTA' | 'PAGO' | 'COMPRA' | 'RECEPCION' | 'MOVIMIENTO' | 'PRODUCCION' | 'LOTE';
+export type TipoDocumento = 'SOLICITUD' | 'COTIZACION' | 'VENTA' | 'PAGO' | 'COMPRA' | 'RECEPCION' | 'MOVIMIENTO' | 'PRODUCCION' | 'LOTE' | 'TRASLADO';
 
 /** Referencia navegable a un documento relacionado. */
 export interface DocumentoRef {

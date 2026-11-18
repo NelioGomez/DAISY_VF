@@ -1,5 +1,6 @@
 /* Nueva orden de producción: el producto se fabrica con su BOM y su ruta vigentes.
    Muestra cuánto material se necesita y si alcanza lo que hay en bodega. */
+import { ErrorState } from '../../components/feedback/ErrorState';
 import { useState } from 'react';
 import { Field } from '../../components/forms/Field';
 import { ViewLoader } from '../../components/feedback/FullScreenLoader';
@@ -74,10 +75,7 @@ export function OrderFormModal() {
       }
     >
       {boms.error ? (
-        <div className="note note-danger" role="alert">
-          <span className="ic">⚠️</span>
-          <div>{boms.error}</div>
-        </div>
+        <ErrorState msg={boms.error} onRetry={boms.reload} />
       ) : cargando ? (
         <ViewLoader text="Cargando listas de materiales…" />
       ) : !vigentes.length ? (

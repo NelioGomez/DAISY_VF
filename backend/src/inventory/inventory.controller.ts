@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ClientIp } from '../common/decorators/client-ip.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { FilterProductDto } from '../products/dto/product.dto';
-import { CreateMovementDto, FilterMovementDto } from './dto/inventory.dto';
+import { CreateMovementDto, CreateTransferDto, FilterMovementDto, FilterTransferDto } from './dto/inventory.dto';
 import { InventoryService } from './inventory.service';
 
 @ApiTags('Inventory')
@@ -36,5 +36,41 @@ export class InventoryController {
   @ApiResponse({ status: 409, description: 'Stock insuficiente' })
   create(@Body() dto: CreateMovementDto, @CurrentUser() actor: AuthUser, @ClientIp() ip?: string) {
     return this.inventory.createMovement(dto, actor, ip);
+  }
+
+  @Get('rotation')
+  @Permissions('inventory:read')
+  @ApiOperation({ summary: 'Rotación (alta, media, baja, sin movimiento) y días de inventario por producto' })
+  rotation() {
+    return this.inventory.rotation();
+  }
+
+  @Get('locations')
+  @Permissions('inventory:read')
+  @ApiOperation({ summary: 'Bodega principal y sucursal con sus existencias y valor' })
+  locations() {
+    return this.inventory.locations();
+  }
+
+  @Get('transfers')
+  @Permissions('inventory:read')
+  @ApiOperation({ summary: 'Traslados entre la bodega y la sucursal' })
+  transfers(@Query() filter: FilterTransferDto) {
+    return this.inventory.transfers(filter);
+  }
+
+  @Get('transfers/:id')
+  @Permissions('inventory:read')
+  @ApiOperation({ summary: 'Detalle de un traslado con sus líneas' })
+  transfer(@Param('id', ParseUUIDPipe) id: string) {
+    return this.inventory.transfer(id);
+  }
+
+  @Post('transfers')
+  @Permissions('inventory:write')
+  @ApiOperation({ summary: 'Traslada mercadería de una ubicación a otra (no cambia el stock total ni el costo)' })
+  @ApiResponse({ status: 409, description: 'Stock insuficiente en el origen' })
+  createTransfer(@Body() dto: CreateTransferDto, @CurrentUser() actor: AuthUser, @ClientIp() ip?: string) {
+    return this.inventory.createTransfer(dto, actor, ip);
   }
 }

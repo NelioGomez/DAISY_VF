@@ -1,11 +1,39 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { StockService } from './stock.service';
 
-type P = { id: string; sku: string; name: string; stock: number; avgCost: string };
+type P = { id: string; sku: string; name: string; stock: number; avgCost: string; byLocation?: Record<number, number> };
+
+/** Existencias por ubicación en memoria: por defecto todo el stock está en la bodega (1). */
+function stockMock(products: P[]) {
+  const rows = products.flatMap((p) =>
+    Object.entries(p.byLocation ?? { 1: p.stock }).map(([loc, quantity]) => ({ productId: p.id, locationId: Number(loc), quantity })),
+  );
+  return {
+    rows,
+    productStock: {
+      findMany: jest.fn(({ where }) => Promise.resolve(rows.filter((r) => where.productId.in.includes(r.productId)).map((r) => ({ ...r })))),
+      update: jest.fn(({ where, data }) => {
+        const k = where.productId_locationId;
+        const row = rows.find((r) => r.productId === k.productId && r.locationId === k.locationId)!;
+        row.quantity += data.quantity.increment;
+        return Promise.resolve(row);
+      }),
+      create: jest.fn(({ data }) => {
+        rows.push({ ...data });
+        return Promise.resolve(data);
+      }),
+    },
+  };
+}
+
+const qtyAt = (rows: { productId: string; locationId: number; quantity: number }[], id: string, loc: number) =>
+  rows.find((r) => r.productId === id && r.locationId === loc)?.quantity ?? 0;
 
 function buildTx(products: P[]) {
   const db = new Map(products.map((p) => [p.id, { ...p }]));
+  const stocks = stockMock(products);
   const tx = {
+    productStock: stocks.productStock,
     $queryRaw: jest.fn().mockResolvedValue([]),
     product: {
       findMany: jest.fn(({ where }) =>
@@ -26,7 +54,7 @@ function buildTx(products: P[]) {
       create: jest.fn(({ data }) => Promise.resolve({ id: `m-${Math.random()}`, createdAt: new Date(), ...data })),
     },
   };
-  return { tx, db };
+  return { tx, db, rows: stocks.rows };
 }
 
 const ctx = { userId: 'u1', reference: 'REF' };
@@ -90,6 +118,52 @@ describe('StockService', () => {
     await expect(service.registerAdjustment(tx as never, { productId: 'p1', newStock: 10, ...ctx })).rejects.toThrow(BadRequestException);
     await expect(service.registerAdjustment(tx as never, { productId: 'p1', newStock: -1, ...ctx })).rejects.toThrow(BadRequestException);
     await expect(service.registerAdjustment(tx as never, { productId: 'p1', newStock: 1.5, ...ctx })).rejects.toThrow(BadRequestException);
+  });
+
+  it('venta: toma primero de la sucursal y el resto de la bodega (un movimiento por ubicación)', async () => {
+    const { tx, db, rows } = buildTx([p({ stock: 10, byLocation: { 1: 8, 2: 2 } })]);
+    const [res] = await service.registerExits(tx as never, [{ productId: 'p1', quantity: 5 }], { ...ctx, locationId: 2 }, 'items', [2, 1]);
+    expect(db.get('p1')!.stock).toBe(5);
+    expect(qtyAt(rows, 'p1', 2)).toBe(0);
+    expect(qtyAt(rows, 'p1', 1)).toBe(5);
+    expect(res.parts).toHaveLength(2);
+    const data = tx.inventoryMovement.create.mock.calls.map((c) => c[0].data);
+    expect(data).toEqual([
+      expect.objectContaining({ type: 'EXIT', quantity: 2, locationId: 2, stockBefore: 10, stockAfter: 8 }),
+      expect.objectContaining({ type: 'EXIT', quantity: 3, locationId: 1, stockBefore: 8, stockAfter: 5 }),
+    ]);
+  });
+
+  it('salida de una ubicación sin existencia suficiente → 409 aunque el total alcance', async () => {
+    const { tx } = buildTx([p({ stock: 10, byLocation: { 1: 9, 2: 1 } })]);
+    const err = await service.registerExit(tx as never, { productId: 'p1', quantity: 3, ...ctx, locationId: 2 }).catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().errors[0].message).toBe('Stock insuficiente de SKU-1 en Sucursal principal: disponible 1, solicitado 3');
+  });
+
+  it('ajuste por conteo en la sucursal: cambia esa ubicación y el total en la diferencia', async () => {
+    const { tx, db, rows } = buildTx([p({ stock: 10, byLocation: { 1: 8, 2: 2 } })]);
+    const res = await service.registerAdjustment(tx as never, { productId: 'p1', newStock: 5, ...ctx, locationId: 2 });
+    expect(res.movement).toMatchObject({ type: 'ADJUSTMENT', quantity: 3, stockBefore: 10, stockAfter: 13, locationId: 2 });
+    expect(db.get('p1')!.stock).toBe(13);
+    expect(qtyAt(rows, 'p1', 2)).toBe(5);
+    expect(qtyAt(rows, 'p1', 1)).toBe(8);
+  });
+
+  it('traslado: salida en el origen y entrada en el destino; total y costo promedio sin cambio', async () => {
+    const { tx, db, rows } = buildTx([p({ stock: 10, avgCost: '123.4567', byLocation: { 1: 10 } })]);
+    const res = await service.transfer(tx as never, { fromLocationId: 1, toLocationId: 2, lines: [{ productId: 'p1', quantity: 4 }], ...ctx, transferId: 't1' });
+    expect(db.get('p1')).toMatchObject({ stock: 10, avgCost: '123.4567' });
+    expect(qtyAt(rows, 'p1', 1)).toBe(6);
+    expect(qtyAt(rows, 'p1', 2)).toBe(4);
+    expect(res.exits[0].movement).toMatchObject({ type: 'EXIT', locationId: 1, transferId: 't1' });
+    expect(res.entries[0].movement).toMatchObject({ type: 'ENTRY', locationId: 2, transferId: 't1', unitCost: '123.4567' });
+  });
+
+  it('traslado con más de lo que hay en el origen → 409; mismo origen y destino → 400', async () => {
+    const { tx } = buildTx([p({ stock: 10, byLocation: { 1: 3, 2: 7 } })]);
+    await expect(service.transfer(tx as never, { fromLocationId: 1, toLocationId: 2, lines: [{ productId: 'p1', quantity: 4 }], ...ctx })).rejects.toThrow(ConflictException);
+    await expect(service.transfer(tx as never, { fromLocationId: 2, toLocationId: 2, lines: [{ productId: 'p1', quantity: 1 }], ...ctx })).rejects.toThrow(BadRequestException);
   });
 
   it('producto inexistente → 404 (entrada/ajuste)', async () => {

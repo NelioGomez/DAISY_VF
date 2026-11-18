@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
+import { LOCATION_IDS } from '../common/constants/locations';
 import { SortOrder } from '../common/dto/sort-order.enum';
 import type { AuthUser } from '../common/interfaces/auth-user.interface';
 import { toCsv } from '../common/utils/csv';
@@ -16,6 +17,7 @@ import { isForeignKeyViolation, isUniqueViolation } from '../common/utils/prisma
 import { addDays } from '../common/utils/dates';
 import { Prisma, PurchaseStatus, UserRole } from '../generated/prisma/client';
 import { MOVEMENT_ORIGIN_INCLUDE, movementOrigin } from '../inventory/movement-origin';
+import { daysOfCover, rotationOf } from '../inventory/rotation';
 import { PrismaService } from '../prisma/prisma.service';
 import { ts } from '../reports/report-sql';
 import {
@@ -48,6 +50,8 @@ const PRODUCT_SELECT = {
   updatedAt: true,
   category: { select: { id: true, name: true } },
   brand: { select: { id: true, name: true } },
+  // Reparto del stock entre la bodega y la sucursal (mejora n.° 23).
+  stocks: { select: { locationId: true, quantity: true } },
 } as const;
 
 interface ProductRow {
@@ -70,6 +74,7 @@ interface ProductRow {
   updatedAt: Date;
   category: { id: string; name: string } | null;
   brand: { id: string; name: string } | null;
+  stocks?: { locationId: number; quantity: number }[];
 }
 
 @Injectable()
@@ -351,8 +356,10 @@ export class ProductsService {
 
     const s = stats?.[0];
     const units90 = s ? Number(s.units90 ?? 0) : null;
-    const daily = units90 !== null ? units90 / 90 : null;
-    const daysOfCover = daily && daily > 0 ? Math.floor(product.stock / daily) : null;
+    // La rotación cuenta también lo consumido por producción (componentes que no se venden).
+    const consumed90 = s ? Number((await this.consumedLast90Days(id, since90)) ?? 0) : 0;
+    const used90 = (units90 ?? 0) + consumed90;
+    const cover = units90 !== null ? daysOfCover(product.stock, used90) : null;
     const pending = (incoming ?? []).map((i) => ({
       purchaseId: i.purchase.id,
       code: i.purchase.code,
@@ -372,9 +379,10 @@ export class ProductsService {
             marginLast90Days: Number(s.margin90 ?? 0),
             lastSaleAt: (s.last_sale as Date | null) ?? null,
             /** Días que alcanza el stock al ritmo de los últimos 90 días (null si no se vendió). */
-            daysOfCover,
+            daysOfCover: cover,
             /** Rotación: ALTA (≤ 30 días de stock), MEDIA (≤ 90), BAJA (> 90), SIN_MOVIMIENTO (sin ventas en 90 días). */
-            rotation: units90 === 0 ? 'SIN_MOVIMIENTO' : daysOfCover === null ? 'SIN_MOVIMIENTO' : daysOfCover <= 30 ? 'ALTA' : daysOfCover <= 90 ? 'MEDIA' : 'BAJA',
+            rotation: rotationOf(product.stock, used90),
+            consumedLast90Days: consumed90,
           }
         : null,
       incoming: incoming ? { units: pending.reduce((n, p) => n + p.pending, 0), purchases: pending } : null,
@@ -556,6 +564,15 @@ export class ProductsService {
     }
   }
 
+  /** Unidades consumidas por órdenes de producción desde `since` (salidas con production_order_id). */
+  private async consumedLast90Days(productId: string, since: Date): Promise<number> {
+    const r = await this.prisma.inventoryMovement.aggregate({
+      where: { productId, type: 'EXIT', productionOrderId: { not: null }, createdAt: { gte: since } },
+      _sum: { quantity: true },
+    });
+    return r._sum.quantity ?? 0;
+  }
+
   private toDto(p: ProductRow) {
     return {
       id: p.id,
@@ -571,6 +588,11 @@ export class ProductsService {
       avgCost: decimalToNumber(p.avgCost),
       salePrice: decimalToNumber(p.salePrice),
       stock: p.stock,
+      /** Existencia en la Bodega principal (1) y en la Sucursal (2); la suma es `stock`. */
+      stockByLocation: LOCATION_IDS.map((locationId) => ({
+        locationId,
+        quantity: p.stocks?.find((s) => s.locationId === locationId)?.quantity ?? 0,
+      })),
       minStock: p.minStock,
       maxStock: p.maxStock ?? null,
       restockPostponedUntil: p.restockPostponedUntil ?? null,

@@ -7,6 +7,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -18,6 +19,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { LOCATION_IDS } from '../../common/constants/locations';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { emptyToNull, trim } from '../../common/transformers/text.transformers';
 import { Currency, PurchaseStatus } from '../../generated/prisma/client';
@@ -166,6 +168,12 @@ export class ReceivePurchaseDto {
   @ValidateNested({ each: true })
   @Type(() => ReceiveItemDto)
   items!: ReceiveItemDto[];
+
+  @ApiPropertyOptional({ enum: LOCATION_IDS, default: 1, description: 'Dónde se recibe: 1 = Bodega principal, 2 = Sucursal principal' })
+  @IsOptional()
+  @IsInt()
+  @IsIn([...LOCATION_IDS], { message: 'Ubicación inválida' })
+  locationId?: number;
 
   @ApiPropertyOptional({ description: 'Factura o guía del proveedor, estado de la mercadería…' })
   @Transform(trim)

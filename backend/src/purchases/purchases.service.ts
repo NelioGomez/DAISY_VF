@@ -401,7 +401,7 @@ export class PurchasesService {
         data: {
           code,
           purchaseId: id,
-          locationId: MAIN_WAREHOUSE_ID,
+          locationId: dto.locationId ?? MAIN_WAREHOUSE_ID,
           receivedById: actor.id,
           notes: dto.notes || null,
           items: {
@@ -423,7 +423,7 @@ export class PurchasesService {
           supplierId: purchase.supplierId,
           reference: purchase.code,
           note: `Recepción ${code}`,
-          locationId: MAIN_WAREHOUSE_ID,
+          locationId: dto.locationId ?? MAIN_WAREHOUSE_ID,
           purchaseReceiptItemId: receiptItemId.get(l.item.id),
         });
         await tx.purchaseItem.update({ where: { id: l.item.id }, data: { receivedQuantity: { increment: l.quantity } } });

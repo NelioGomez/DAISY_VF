@@ -1,8 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -12,7 +16,9 @@ import {
   MaxLength,
   Min,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
+import { LOCATION_IDS } from '../../common/constants/locations';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { InventoryMovementType } from '../../generated/prisma/client';
 
@@ -73,6 +79,65 @@ export class CreateMovementDto {
   @IsString()
   @MaxLength(500)
   note?: string;
+
+  @ApiPropertyOptional({
+    enum: LOCATION_IDS,
+    default: 1,
+    description: 'Dónde ocurre: 1 = Bodega principal, 2 = Sucursal principal. En un ajuste, newStock es lo contado en esa ubicación.',
+  })
+  @IsOptional()
+  @IsInt()
+  @IsIn([...LOCATION_IDS], { message: 'Ubicación inválida' })
+  locationId?: number;
+}
+
+export class TransferItemDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID('all', { message: 'Producto inválido' })
+  productId!: string;
+
+  @ApiProperty({ minimum: 1 })
+  @IsInt({ message: 'La cantidad debe ser un número entero' })
+  @Min(1, { message: 'La cantidad debe ser mayor que cero' })
+  @Max(1_000_000)
+  quantity!: number;
+}
+
+/** Traslado de mercadería entre la bodega y la sucursal (no cambia el stock total). */
+export class CreateTransferDto {
+  @ApiProperty({ enum: LOCATION_IDS, example: 1 })
+  @IsInt()
+  @IsIn([...LOCATION_IDS], { message: 'Ubicación de origen inválida' })
+  fromLocationId!: number;
+
+  @ApiProperty({ enum: LOCATION_IDS, example: 2 })
+  @IsInt()
+  @IsIn([...LOCATION_IDS], { message: 'Ubicación de destino inválida' })
+  toLocationId!: number;
+
+  @ApiProperty({ type: [TransferItemDto] })
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Agregue al menos un producto' })
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => TransferItemDto)
+  items!: TransferItemDto[];
+
+  @ApiPropertyOptional({ description: 'Motivo u observación (p. ej. surtido semanal de la sucursal)' })
+  @Transform(trim)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
+export class FilterTransferDto extends PaginationDto {
+  @ApiPropertyOptional({ description: 'Busca por código TR-… o producto' })
+  @Transform(trim)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
 }
 
 export class FilterMovementDto extends PaginationDto {
@@ -91,12 +156,19 @@ export class FilterMovementDto extends PaginationDto {
   @IsUUID()
   supplierId?: string;
 
+  @ApiPropertyOptional({ enum: LOCATION_IDS, description: 'Solo movimientos de esta ubicación' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsIn([...LOCATION_IDS])
+  locationId?: number;
+
   @ApiPropertyOptional({ format: 'uuid', description: 'Usuario que registró el movimiento' })
   @IsOptional()
   @IsUUID()
   userId?: string;
 
-  @ApiPropertyOptional({ description: 'Busca en referencia, nota, SKU y nombre del producto' })
+  @ApiPropertyOptional({ description: 'Busca en referencia, nota, SKU, nombre del producto y código del documento de origen (OP, lote, traslado, factura)' })
   @Transform(trim)
   @IsOptional()
   @IsString()

@@ -259,6 +259,45 @@ Los productos tienen ahora **unidad de medida** (formulario de producto). La bú
 | `GET /production/lots`, `GET /production/lots/:id` | `production:read` | Lotes con su historial de inspecciones |
 | `POST /production/lots/:id/inspections` | `quality:write` | Inspección: `defectiveQuantity`, `disposition` (REWORK/SCRAP/RELEASE) |
 
+## Bodega y sucursal, rotación y tablas (mejoras 11, 12, 18-20, 22, 23, 27, 29 y 30)
+
+Desde la carpeta `backend`:
+
+```powershell
+npx prisma generate
+npx prisma migrate deploy      # aplica 20261101000000_existencias_por_ubicacion
+npm run start:dev
+```
+
+**Existencias por ubicación (n.° 23).** `products.stock` sigue siendo el total; la tabla `product_stocks`
+lo reparte entre la **Bodega principal** (1) y la **Sucursal principal** (2) y un trigger diferido de la BD
+verifica al confirmar cada transacción que la suma por ubicación sea igual al total. Al migrar, toda la
+existencia queda en la bodega. Reglas:
+
+- Recepciones de compra, producción (lotes liberados) y ajustes: en la ubicación indicada (por defecto la bodega).
+- **Ventas: primero de la sucursal y, si no alcanza, de la bodega** (un movimiento por ubicación); la anulación devuelve a la sucursal.
+- Consumo de materiales de producción: primero de la bodega y luego de la sucursal.
+- Salidas y ajustes manuales: en la ubicación elegida; el ajuste fija lo contado **en esa ubicación**.
+- **Traslados** `TR-000001` (Inventario → ⇄ Trasladar): salida en el origen y entrada en el destino al mismo
+  costo promedio; no cambian el stock total ni el costo.
+
+**Rotación y días de inventario (n.° 11 y 12).** Inventario → Rotación: alta (el stock alcanza ≤ 30 días),
+media (31-90), baja (> 90) y sin movimiento (sin ventas en 90 días), con el valor detenido en cada grupo y CSV.
+
+**Tablas (n.° 18-22, 27).** Filtros por módulo con chips removibles y "Limpiar filtros", paginación de 25/50/100
+filas (Kardex y Auditoría se paginan y filtran en el servidor), encabezados fijos y esqueletos de carga.
+**Errores recuperables (n.° 29):** si una parte no carga, la pantalla lo dice y ofrece *Reintentar* solo esa parte.
+
+| Método y ruta | Permiso | Uso |
+| --- | --- | --- |
+| `GET /inventory/locations` | `inventory:read` | Bodega y sucursal con unidades y valor |
+| `GET/POST /inventory/transfers`, `GET /inventory/transfers/:id` | `inventory:read` / `inventory:write` | Traslados entre ubicaciones |
+| `GET /inventory/rotation` | `inventory:read` | Rotación y días de inventario por producto |
+| `POST /inventory/movements` (campo `locationId`) | `inventory:write` | Entrada, salida o ajuste en una ubicación |
+| `POST /purchases/:id/receive` (campo `locationId`) | `purchases:write` | Recibir en la bodega (por defecto) o la sucursal |
+| `GET /inventory/movements?locationId=` | `inventory:read` | Kardex filtrado por ubicación |
+| `GET /products` (campo `stockByLocation`) | `products:read` | Existencia en cada ubicación |
+
 ## Inventario (Fase 9)
 
 | Método | Ruta | Permiso |
